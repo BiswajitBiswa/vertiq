@@ -997,7 +997,8 @@ python docs/build.py && git diff --stat                 # regenerates the site a
 
 ## Roadmap
 
-- Benchmarks on public datasets: Online Retail II (repeat purchase), Hillstrom (email uplift) and NASA C-MAPSS (equipment failure).
+- Benchmarks on public datasets: Online Retail II (repeat purchase), M5 (value prediction), NASA C-MAPSS (equipment failure),
+  KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
 - Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.
 - Uplift estimation for any `Action` in the data contract, beyond customer messaging.
