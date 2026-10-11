@@ -2,6 +2,11 @@
 
 All notable changes are recorded here. Versions follow semantic versioning; before 1.0 the API may change between minor versions.
 
+## Unreleased
+
+- `min_gain` on `predict_event`, `predict_value` and `harness.evaluate`: the margin a candidate must exceed over the
+  baseline and the production model. Rejections report the reason.
+
 ## 0.1.0 (2026-10-11)
 
 - Data contract (`Entity`, `Event`, `Action`, `Dataset`) and table mapping with `repair()`: names snapped to real columns, roles

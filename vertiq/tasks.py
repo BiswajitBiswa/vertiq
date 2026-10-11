@@ -129,8 +129,9 @@ class Task:
 
 
 def predict_event(ds: Dataset, *, target: str, window_days: int, history: set | None = None, pack: str | None = None,
-                  learner: str = "logistic", cutoffs: int = 4, previous=None) -> Task:
-    """Will an event of type `target` happen to each entity within `window_days`?"""
+                  learner: str = "logistic", cutoffs: int = 4, previous=None, min_gain: float = 0.0) -> Task:
+    """Will an event of type `target` happen to each entity within `window_days`? `min_gain`: the AUC margin a
+    candidate must win by over the baseline and `previous` (see harness.evaluate)."""
     b = _Builder(ds, target, history, pack)
     rows, y, keys, groups, base = [], [], [], [], []
     for cut in b.cutoffs(window_days, cutoffs):
@@ -144,12 +145,13 @@ def predict_event(ds: Dataset, *, target: str, window_days: int, history: set | 
             keys.append(eid)
             groups.append(b.groups.get(eid, ""))
             base.append(_baseline_event(f, window_days))
-    res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner), kind="classify", previous=previous)
+    res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner), kind="classify", previous=previous,
+                           min_gain=min_gain)
     return Task("event", b, window_days, learner, res)
 
 
 def predict_value(ds: Dataset, *, target: str, window_days: int, history: set | None = None, pack: str | None = None,
-                  learner: str = "linear", cutoffs: int = 4, previous=None) -> Task:
+                  learner: str = "linear", cutoffs: int = 4, previous=None, min_gain: float = 0.0) -> Task:
     """How much will the next `target` event (within `window_days`) be worth? Entities with no such
     event in the window teach nothing here (predict_event answers whether it happens)."""
     b = _Builder(ds, target, history, pack)
@@ -171,6 +173,6 @@ def predict_value(ds: Dataset, *, target: str, window_days: int, history: set | 
             keys.append(eid)
             groups.append(b.groups.get(eid, ""))
             base.append(math.log1p(sum(past) / len(past)) if past else mean_all)   # the obvious rule: same as before
-    res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner), kind="regress", previous=previous,
+    res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner), kind="regress", previous=previous, min_gain=min_gain,
                            fit_kw={"epochs": 30})
     return Task("value", b, window_days, learner, res)

@@ -18,6 +18,17 @@ effect of interventions using control groups, and promotes a model to production
 held-out data. The core library has no third-party dependencies and makes no network calls. Vertiq LM, a companion language model,
 maps source tables from any industry to the library's data contract and runs locally on Apple Silicon.
 
+## Role alongside large language models
+
+Vertiq does not compete with foundation models. It is the decision layer between operational data and production: a small local model proposes how source data maps to a common contract, deterministic validation checks the proposal, and predictive models are promoted only when they measurably outperform what is already running.
+
+| Property | Detail |
+|---|---|
+| No dependency footprint | The core library uses only the Python standard library, so it can be vendored into an existing service, run on a server or embedded in an edge device without adding packages to the environment. |
+| Local schema mapping | Vertiq LM runs on Apple Silicon and maps source tables without sending data to an external API. Its output is validated against the rows before it is used. |
+| Promotion control | The evaluation gate compares every candidate with a rule-based baseline and the production model on held-out entities, with an optional minimum margin (min_gain). |
+| Measured outcomes | Uplift is estimated against randomised control groups, so reported effects reflect the intervention rather than pre-existing behaviour. |
+
 ## Challenges addressed
 
 | Challenge | Approach |
@@ -42,6 +53,38 @@ maps source tables from any industry to the library's data contract and runs loc
 
 All analyses operate on one data contract of entities, events and actions. The library contains no industry-specific code; the
 [industry guides](https://biswajitbiswa.github.io/vertiq/guides/) document the mapping and analyses for each industry.
+
+## Design principles
+
+### Structural intelligence
+
+Language-model output is constrained by verification against the data.
+
+- **Local schema resolution.** Vertiq LM, a 4-billion-parameter model fine-tuned with LoRA, proposes a mapping from the column headers and sample rows. It runs on the user's machine; source data is not sent to an external service.
+- **Deterministic validation.** vertiq.mapping.repair checks the proposal against the rows: names are matched to existing columns, roles are checked against value types and the date format is inferred. It never introduces a column that does not exist.
+- **Bounded data contract.** Every record is expressed as an entity, a timestamp, an event type, a value and attributes. Rows that fail validation are reported to the caller, so models train only on records that loaded.
+
+### Causal measurement
+
+Intervention effects are estimated against control groups rather than inferred from correlation.
+
+- **Control-group uplift.** vertiq.uplift compares treated entities with a randomly held-out group over the same window and ranks entities by estimated incremental effect. In the benchmark it estimated a planted −20% offer effect at -20.2%.
+- **Configurable horizons.** window_days sets the prediction horizon, cutoffs the number of historical training points and history the event types used as inputs, so each task matches the operating cycle of the industry.
+- **Small footprint.** The library has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 28 seconds on a laptop.
+
+### Defensive deployment
+
+A candidate model is treated as unproven until it has been evaluated.
+
+- **Held-out evaluation.** Candidates are scored on entities excluded from training, using features built only from events recorded before each cutoff.
+- **Champion–challenger gate.** A candidate must outperform the rule-based baseline and the production model. min_gain sets the required margin: an AUC margin for event tasks and a relative error reduction for value tasks.
+- **Explicit rejection.** A rejected candidate returns status "kept" with the reason, such as the AUC it reached against the required threshold. The production model remains in service.
+
+| Principle | Mechanism | Configuration | Operational value |
+|---|---|---|---|
+| Structural intelligence | Local mapping proposal, validated against the rows | Fine-tune Vertiq LM on your naming conventions (lm/); vertiq.mapping.repair | Source data stays on premises; new sources are onboarded without hand-written mappings |
+| Causal measurement | Control-group uplift and point-in-time tasks | window_days, cutoffs and history in vertiq.tasks; a hold-out share on every campaign | Intervention effects are measured rather than assumed; horizons match each industry's cycle |
+| Defensive deployment | Entity-level holdout with champion–challenger comparison | min_gain in vertiq.tasks and vertiq.harness | Weaker or unstable candidates are not promoted; the production model stays in service |
 
 ## Architecture
 
@@ -146,7 +189,7 @@ Plugins add features; the evaluation gate determines whether they improve perfor
 
 - **No look-ahead.** Features, including plugin features, use only events recorded before each cutoff.
 - **Entity-level holdout.** No entity appears in both training and evaluation data.
-- **No unvalidated promotion.** A candidate replaces the production model only if it performs at least as well on the same held-out entities.
+- **No unvalidated promotion.** A candidate replaces the production model only if it performs at least as well on the same held-out entities, or by the margin set with `min_gain`.
 - **No imputed structure.** Mapping validation selects existing columns or removes the role; rows that fail to load are reported.
 - **No network or file access.** The package opens no connections or files. `tests/test_boundary.py` rejects framework, ORM and HTTP imports.
 - **Reproducibility.** Benchmarks, the documentation site and this README are generated from committed results; CI fails if they diverge.
@@ -188,6 +231,21 @@ Production-like test set (audit columns and locale-specific number formats):
 |---|---|---|---|---|
 | + ORPO on its own mistakes (round 1 model) | 80.7% | 29.8% | 34.2% | 14.6% |
 | Round 3 fine-tune | 91.2% | 41.2% | 43.9% | 31.2% |
+
+## Verify the results
+
+Every core-library figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 28 seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
+
+```bash
+git clone https://github.com/BiswajitBiswa/vertiq && cd vertiq
+python -m pip install pytest && python -m pytest -q     # unit tests and every industry guide's reference implementation
+python benchmarks/run.py --seeds 5                      # regenerates benchmarks/results/core.json
+python docs/build.py && git diff --stat                 # regenerates the site and this README; no diff means the figures match
+```
+
+## Methods
+
+The methods are established and deliberately transparent: regularised logistic and linear regression with per-group offsets, a single-model (S-learner) uplift formulation with treatment interaction terms, Benjamini–Hochberg false-discovery control and rule-based checks. Vertiq's contribution is the structure around them: point-in-time features, entity-level holdout, control-group measurement, the promotion gate and local mapping. Stronger estimators can be registered through register_learner and are evaluated by the same gate.
 
 ## Positioning
 
