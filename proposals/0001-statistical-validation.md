@@ -1,10 +1,10 @@
-# Proposal 0001: Statistical validation and temporal pattern extensions
+# Proposal 0001: Statistical extensions and public-data validation
 
 | | |
 |---|---|
 | **Status** | Proposed. Not implemented. |
 | **Target** | 0.2 |
-| **Scope** | Part A: multiple-testing control, matched-cohort effect estimation and sequential evaluation. Part B: survival-based repeat prediction, lagged category sequences and precomputed serving profiles. Pure Python. |
+| **Scope** | Part A: multiple-testing control, matched-cohort effect estimation and sequential evaluation. Part B: survival-based repeat prediction, lagged category sequences and precomputed serving profiles. Part C: validation on public datasets. Pure Python. |
 | **Dependencies** | None (Python 3.10+ standard library) |
 
 # Part A: Statistical validation
@@ -361,6 +361,89 @@ The notes this section was drafted from described the existing engine inaccurate
   correctness; accuracy is measured by the evaluation gate on held-out records.
 - No latency figures have been measured for serving. The claim that precomputed profiles are faster is expected but must be benchmarked.
 
+# Part C: Validation on public datasets
+
+## 13. Motivation
+
+The current benchmarks use synthetic data with a planted truth. They show that the methods find real signal, reject noise and retain
+the baseline when appropriate, but they do not show performance on real operational data. Part C defines a validation programme on
+public datasets, one per core use case, with fixed protocols so results can be reproduced.
+
+## 14. Datasets
+
+| Use case | Dataset | Source and terms | What it contains |
+|---|---|---|---|
+| Repeat purchase, affinity, table mapping | Online Retail II | UCI Machine Learning Repository, CC BY 4.0 | About 1.07 million invoice lines from a UK online retailer, December 2009 to December 2011: `Invoice`, `StockCode`, `Description`, `Quantity`, `InvoiceDate`, `Price`, `Customer ID`, `Country` |
+| Value prediction and inventory velocity | M5 Forecasting | Kaggle competition data; access requires accepting the competition rules; not redistributable | Daily unit sales for 3,049 products across 10 Walmart stores in 3 US states, with prices, promotions and calendar events |
+| Equipment failure | C-MAPSS | NASA Prognostics Center of Excellence | Simulated run-to-failure trajectories for turbofan engines: 21 sensor channels and 3 operating settings per cycle, in four subsets (FD001 to FD004) |
+| Subscription churn | KKBOX churn prediction | Kaggle (WSDM Cup 2018); access requires accepting the competition rules; not redistributable | Subscription transactions with plan, payment, auto-renew and cancellation fields, plus user logs |
+| Uplift from randomised treatment | Hillstrom email test | MineThatData, public | 64,000 customers randomly assigned to a men's email, a women's email or no email, with visit, conversion and spend outcomes |
+| Uplift at scale | Criteo Uplift | Criteo AI Lab, CC BY-NC-SA 4.0 | About 13 million rows from randomised incrementality tests, with treatment, visit and conversion labels |
+
+Data files are never committed. Benchmark scripts read files the user has downloaded and accepted the terms for, from a path given on
+the command line.
+
+## 15. Protocols
+
+### 15.1 Online Retail II: repeat purchase
+
+1. Remove cancellations (invoices beginning with `C`) and lines without a customer.
+2. Aggregate lines to orders: one event per invoice, with value `Quantity × Price` summed across lines, and stock codes kept as items.
+3. Map `Customer ID` to the entity, the invoice timestamp to time and `Country` to the group. Run Vertiq LM on the raw header and
+   sample rows first, and record whether its mapping, after `vertiq.mapping.repair`, matches this reference mapping.
+4. Run `predict_event(target="", window_days=60)` and `predict_value(...)` with the standard cutoffs and entity-level holdout.
+5. Report AUC, Brier score and calibration against the recency baseline, and, as an external reference, against a logistic
+   regression and a gradient-boosted model from scikit-learn and LightGBM on the same features. External libraries are used only in
+   the benchmark script, never in the package.
+6. Run `affinity` and the lagged sequence finder (Part B) on the same orders and report the top patterns with their support.
+
+### 15.2 M5: value prediction and velocity
+
+Treat each item and store pair as an entity with daily sales events. Evaluate `predict_value` on next-period units against the
+same-as-last-period baseline, and compare reorder points from `vertiq.inventory` with realised demand. Vertiq is not a forecasting
+system; this protocol measures whether its value prediction and velocity estimates are useful, not whether it competes with
+dedicated forecasting models on the competition metric.
+
+### 15.3 C-MAPSS: equipment failure
+
+C-MAPSS records cycles, not dates. Map each engine to an entity and convert cycle indices to synthetic dates one day apart. Define
+the failure event at each engine's final cycle and predict failure within a horizon of N cycles. Sensor channels enter through
+feature plugins that compute rolling levels and slopes, since degradation appears as trends rather than isolated spikes. Report AUC
+against a cycle-count baseline. Once the sequential test from Part A is implemented, apply it to the stream of per-cycle alerts.
+
+### 15.4 KKBOX: subscription churn
+
+Map each user to an entity and each transaction to an event, with cancellation as the target event type. Evaluate
+`predict_event(target="cancel", ...)` against the recency baseline. This dataset has no randomised treatment, so it is not used for
+uplift; any treatment effect estimated from it would be confounded by who chose auto-renewal or promotions.
+
+### 15.5 Hillstrom and Criteo: uplift
+
+Both datasets come from randomised experiments, so the true average effect is known from the treatment and control means. Evaluate
+`vertiq.uplift` by Qini and uplift curves on held-out customers, and check that the estimated average effect falls within the
+experiment's confidence interval. Use the matched-cohort estimator from Part A on Hillstrom with the randomisation ignored, as a
+check that it approaches the experimental estimate.
+
+## 16. Indicators
+
+Every run reports the following, in addition to accuracy:
+
+| Indicator | Measure |
+|---|---|
+| Mapping accuracy | Whether Vertiq LM's mapping, after validation, matches the reference mapping; rows that fail to load and why |
+| Processing time | Wall-clock time for each stage at 1,000, 10,000, 100,000 and 1,000,000 rows, on stated hardware |
+| Memory | Peak resident memory for the same sizes |
+| Gate behaviour under corruption | With a share of rows replaced by noise or with labels shuffled, whether the gate retains the baseline, and at what corruption level |
+| Calibration | Reliability of predicted probabilities on held-out entities |
+
+## 17. Deliverables
+
+- `benchmarks/public/` with one script per dataset, reading from a user-supplied path.
+- `benchmarks/results/public.json` with results, dataset versions and hardware, generated by the scripts.
+- A results section in the README and on the benchmarks page, generated from that file as the synthetic results are today.
+- Online Retail II first, as it exercises mapping, repeat purchase and affinity together and its licence permits redistribution of
+  results.
+
 ## References
 
 - Benjamini, Y. and Hochberg, Y. (1995). Controlling the false discovery rate. *Journal of the Royal Statistical Society B*, 57(1).
@@ -368,5 +451,9 @@ The notes this section was drafted from described the existing engine inaccurate
 - Rubin, D. B. (1974). Estimating causal effects of treatments in randomized and nonrandomized studies. *Journal of Educational Psychology*, 66(5).
 - Stuart, E. A. (2010). Matching methods for causal inference: a review and a look forward. *Statistical Science*, 25(1).
 - Wald, A. (1945). Sequential tests of statistical hypotheses. *Annals of Mathematical Statistics*, 16(2).
+- Chen, D., Sain, S. L. and Guo, K. (2012). Data mining for the online retail industry. *Journal of Database Marketing and Customer Strategy Management*, 19(3).
+- Hillstrom, K. (2008). The MineThatData E-Mail Analytics and Data Mining Challenge. MineThatData.
+- Diemert, E., Betlei, A., Renaudin, C. and Amini, M.-R. (2018). A large scale benchmark for uplift modeling. AdKDD.
+- Saxena, A., Goebel, K., Simon, D. and Eklund, N. (2008). Damage propagation modeling for aircraft engine run-to-failure simulation. PHM 2008.
 - Kaplan, E. L. and Meier, P. (1958). Nonparametric estimation from incomplete observations. *Journal of the American Statistical Association*, 53(282).
 - Johari, R., Pekelis, L. and Walsh, D. (2017). Always valid inference: bringing sequential analysis to A/B testing. arXiv:1512.04922.
