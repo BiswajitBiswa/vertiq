@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vertiq for restaurants and cafés</title><meta name="description" content="Bring regulars back, size offers to each guest&#x27;s usual bill, and stop promoting what&#x27;s out of stock.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap"><link rel="stylesheet" href="../assets/site.css">
+</head><body>
+<header class="bar"><div class="bar-in"><a class="mark" href="../index.html"><img src="../assets/mark.svg" alt="" width="28" height="28">vertiq</a><nav class="nav" aria-label="Sections"><a href="../index.html">Overview</a><a href="../architecture.html">Architecture</a><a href="../learning.html">How it learns</a><a href="../lm.html">Vertiq LM</a><a href="../benchmarks.html">Benchmarks</a><a href="../guides/index.html">Sector guides</a></nav></div></header>
+<main>
+
+<section class="read"><div class="kicker"><a href="index.html">Sector guides</a> / Restaurants and cafés</div><h1>Restaurants and cafés</h1>
+<p class="lede">Bring regulars back, size offers to each guest&#x27;s usual bill, and stop promoting what&#x27;s out of stock.</p><div><span class="pill ok">benchmarked</span> <span class="pill ok">mapping tested</span></div></section>
+<section><h2>Your records in Vertiq's terms</h2>
+<dl class="map"><dt>entity</dt><dd>guest</dd><dt>group</dt><dd>outlet</dd>
+<dt>profile</dt><dd>restaurant / cafe</dd></dl>
+<figure><div class="scroll"><svg viewBox="0 0 1080 348" role="img" aria-label="How Restaurants and cafés columns map to the Vertiq contract."><defs><marker id="amres" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="bmres" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><text x="16" y="18" class="k">YOUR COLUMNS</text><text x="620" y="18" class="k">VERTIQ CONTRACT</text><rect x="16" y="30" width="300" height="34" rx="7" class="box"/><text x="30" y="52" class="m" style="font-family:var(--mono);font-size:13px">Guest Phone (masked)</text><path d="M316 47 C 470 47, 470 52, 618 52" class="ln" marker-end="url(#amres)"/><rect x="16" y="74" width="300" height="34" rx="7" class="box"/><text x="30" y="96" class="m" style="font-family:var(--mono);font-size:13px">Bill Date</text><path d="M316 91 C 470 91, 470 96, 618 96" class="ln" marker-end="url(#amres)"/><rect x="16" y="118" width="300" height="34" rx="7" class="box"/><text x="30" y="140" class="m" style="font-family:var(--mono);font-size:13px">Net Amount</text><path d="M316 135 C 470 135, 470 140, 618 140" class="ln" marker-end="url(#amres)"/><rect x="16" y="162" width="300" height="34" rx="7" class="box"/><text x="30" y="184" class="m" style="font-family:var(--mono);font-size:13px">Outlet</text><path d="M316 179 C 470 179, 470 184, 618 184" class="ln" marker-end="url(#amres)"/><rect x="16" y="206" width="300" height="34" rx="7" class="box"/><text x="30" y="228" class="m" style="font-family:var(--mono);font-size:13px">Channel</text><path d="M316 223 C 470 223, 470 228, 618 228" class="ln" marker-end="url(#amres)"/><rect x="16" y="250" width="300" height="34" rx="7" class="box"/><text x="30" y="272" class="m" style="font-family:var(--mono);font-size:13px">Covers</text><path d="M316 267 C 470 267, 470 228, 618 228" class="ln" marker-end="url(#amres)"/><rect x="16" y="294" width="300" height="34" rx="7" class="box"/><text x="30" y="316" class="m" style="font-family:var(--mono);font-size:13px">Payment Mode</text><path d="M316 311 C 470 311, 470 228, 618 228" class="ln" marker-end="url(#amres)"/><rect x="620" y="35" width="240" height="34" rx="7" class="hot"/><text x="634" y="57">Entity · id</text><rect x="620" y="79" width="240" height="34" rx="7" class="hot"/><text x="634" y="101">Event · when</text><rect x="620" y="123" width="240" height="34" rx="7" class="hot"/><text x="634" y="145">Event · value</text><rect x="620" y="167" width="240" height="34" rx="7" class="hot"/><text x="634" y="189">Entity · group</text><rect x="620" y="211" width="240" height="34" rx="7" class="hot"/><text x="634" y="233">Event · attributes</text><text x="880" y="101" class="s">%d/%m/%Y</text></svg></div><figcaption>Map once: Vertiq LM can propose this from the header and three rows, and the rows settle what they can (names, value types, the date format) before anything is trusted.</figcaption></figure></section>
+<section class="read"><h2>Questions you can ask</h2><ul><li><b>Will this guest be back within 30 days?</b> <code>predict_event(target="", window_days=30)</code><br><span style='color:var(--muted)'>No type column is mapped, so every bill is a visit and target &quot;&quot; means any visit.</span></li><li><b>How big will their next bill be?</b> <code>predict_value(target="", window_days=45)</code></li></ul></section>
+<section><h2>Working example</h2><pre><code>from datetime import datetime, timedelta
+from vertiq import plugins, rules
+from vertiq.mapping import Mapping, apply, repair
+from vertiq.tasks import predict_event, predict_value
+
+# rows: your export as a list of dicts, e.g. list(csv.DictReader(open(&quot;export.csv&quot;)))
+mapping = Mapping.parse({&quot;entity&quot;: &quot;Guest Phone (masked)&quot;, &quot;time&quot;: &quot;Bill Date&quot;, &quot;type&quot;: None, &quot;value&quot;: &quot;Net Amount&quot;, &quot;group&quot;: &quot;Outlet&quot;, &quot;attrs&quot;: [&quot;Channel&quot;, &quot;Covers&quot;, &quot;Payment Mode&quot;], &quot;date_format&quot;: &quot;%d/%m/%Y&quot;})
+m, notes = repair(mapping, rows)      # the rows settle column names, value types and the date format
+ds, problems = apply(m, rows)         # any row that didn&#x27;t load is named, never guessed
+
+@plugins.feature(&quot;food&quot;)
+def weekend_regular(entity, before, cut):   # only events before the cutoff: no peeking
+    recent = [e for e in before if e.at &gt;= cut - timedelta(days=90)]
+    weekend = sum(1 for e in recent if e.at.weekday() &gt;= 5)
+    return {&quot;weekend_share_90&quot;: weekend / len(recent) if recent else 0.0}
+
+task = predict_event(ds, target=&quot;&quot;, window_days=30, pack=&quot;food&quot;)
+print(task.status, task.report())     # &quot;trained&quot; only if it beat the baseline on held-out entities
+if task.status == &quot;trained&quot;:
+    print(task.score(&quot;G-1042&quot;))  # the chance, and what raises or lowers it
+
+size = predict_value(ds, target=&quot;&quot;, window_days=45, pack=&quot;food&quot;)
+print(size.status, size.report())
+
+flags = rules.run(ds, [
+    rules.repeat(1, type=&quot;refund&quot;),   # two refunds for the same guest in a day
+])
+print(flags[&quot;summary&quot;])</code></pre>
+<p class="read" style="color:var(--muted)">This exact code runs in the test suite (<code>tests/test_guides.py</code>) against generated rows in these column names.</p></section>
+<section class="two">
+  <div class="card"><h3>Domain knowledge: <code>weekend_regular</code></h3><p>Weekend regulars and weekday office crowds behave differently; tell the model which is which.</p></div>
+  <div class="card"><h3>Checks</h3><ul><li><code>rules.repeat(1, type=&quot;refund&quot;)</code>: two refunds for the same guest in a day</li></ul></div>
+  <div class="card"><h3>Also useful</h3><ul><li><code>uplift</code>: who a WhatsApp message brings back, learned from a held-out control group</li><li><code>value.train_bill</code>: whether an offer grows or shrinks the bill it brings</li><li><code>affinity</code>: dishes ordered together, each guest&#x27;s next dish, refill rhythms</li><li><code>offers.spend_more</code>: a spend-more threshold sized to each guest&#x27;s usual bill</li><li><code>inventory</code>: never promote what is out of stock; flag slow movers</li></ul></div>
+</section>
+<section class="two">
+  <div class="card"><h3>Before you rely on it</h3><ul><li>Message only guests who opted in; train only on guests who agreed to analytics.</li><li>Hold out a control group on every campaign, or uplift has nothing to learn from.</li></ul></div>
+  <div class="card"><h3>Evidence so far</h3><ul style="list-style:none;padding:0;display:grid;gap:8px"><li><span class='pill ok'>benchmarked</span> Customer return: learned model vs recency formula, 5 seeds</li><li><span class='pill ok'>benchmarked</span> Uplift: finds who a message brings back; offer effect on the bill recovered within 1 point</li><li><span class='pill ok'>benchmarked</span> Insights: planted first-order pattern found 5/5, no false findings in noise</li><li><span class='pill ok'>mapping tested</span> Hospitality tables in the Vertiq LM mapping test</li></ul></div>
+</section>
+<section class="read"><p><a href="education.html">← Education</a> · <a href="retail-ecommerce.html">Retail and e-commerce →</a></p></section>
+</main>
+<footer><div><span>Vertiq 0.1.0 · Apache-2.0 · pure Python, no dependencies</span><a href="https://github.com/ideatorlabs/vertiq">Source</a><span>Benchmarks generated 2026-10-11</span></div></footer>
+</body></html>

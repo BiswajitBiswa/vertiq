@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vertiq</title><meta name="description" content="Decision models for any business, trained on its own outcomes.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap"><link rel="stylesheet" href="assets/site.css">
+</head><body>
+<header class="bar"><div class="bar-in"><a class="mark" href="index.html"><img src="assets/mark.svg" alt="" width="28" height="28">vertiq</a><nav class="nav" aria-label="Sections"><a href="index.html" aria-current="page">Overview</a><a href="architecture.html">Architecture</a><a href="learning.html">How it learns</a><a href="lm.html">Vertiq LM</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Sector guides</a></nav></div></header>
+<main>
+
+<section class="read">
+  <div class="kicker">Local decision models</div>
+  <h1>Decision models for any business, trained on its own outcomes</h1>
+  <p class="lede">Vertiq predicts what happens next to a customer, a machine, a patient or an account. It measures what actually
+  worked against a control group, and it only ships a model that beats the obvious rule on records it never saw. Pure Python, no
+  dependencies; it runs on a laptop, a server or a till.</p>
+</section>
+<section aria-label="Benchmark highlights">
+  <div class="stats">
+    <div class="stat"><b>0.767</b><span>AUC predicting breakdowns with one domain plugin, against 0.674 for the recency rule</span></div>
+    <div class="stat"><b>-20.2%</b><span>offer effect on the bill recovered, planted at −20%</span></div>
+    <div class="stat"><b>0 of 5</b><span>models shipped on pure noise: the gate kept the baseline</span></div>
+    <div class="stat"><b>99.1%</b><span>of held-out tables Vertiq LM maps so every row loads, after the data repair (4B model, on a Mac)</span></div>
+  </div>
+</section>
+<section>
+  <h2>Three ideas</h2>
+  <div class="grid">
+    <div class="card"><h3>Map once</h3><p>Any sector's records become entities, events and actions. Vertiq LM proposes the mapping from a header and three rows; the rows correct it.</p></div>
+    <div class="card"><h3>Ask general questions</h3><p>Will it happen within N days? How much will the next one be worth? Who does a message bring back? The same tasks answer them in every sector.</p></div>
+    <div class="card"><h3>Earn its place</h3><p>Every model is tested on entities it never saw, against the obvious rule and the model you already run. If it doesn't win, you keep what you had.</p></div>
+  </div>
+</section>
+<section>
+  <h2>Quick start</h2>
+  <pre><code>pip install git+https://github.com/ideatorlabs/vertiq
+
+from vertiq.mapping import Mapping, apply, repair
+from vertiq.tasks import predict_event
+
+m, notes = repair(Mapping.parse({&quot;entity&quot;: &quot;Equipment No&quot;, &quot;time&quot;: &quot;Work Order Date&quot;, &quot;type&quot;: &quot;Order Type&quot;,
+                                 &quot;value&quot;: &quot;Cost&quot;, &quot;group&quot;: &quot;Plant&quot;, &quot;attrs&quot;: [], &quot;date_format&quot;: &quot;%Y-%m-%d&quot;}), rows)
+ds, problems = apply(m, rows)
+task = predict_event(ds, target=&quot;breakdown&quot;, window_days=30)
+print(task.status, task.report()[&quot;metrics&quot;])   # trained, kept (baseline wins) or learning (too little data)
+print(task.score(&quot;EQ-602&quot;))                    # {&quot;chance&quot;: 0.31, &quot;raises&quot;: [...], &quot;lowers&quot;: [...]}</code></pre>
+</section>
+<section>
+  <h2>Where to go next</h2>
+  <div class="grid">
+    <a class="card" href="architecture.html"><h3>Architecture</h3><p>The contract, the tasks, the gate, and the boundary that keeps Vertiq independent of any product.</p></a>
+    <a class="card" href="learning.html"><h3>How it learns</h3><p>No peeking at the future, held-out entities, control groups, tested insights.</p></a>
+    <a class="card" href="lm.html"><h3>Vertiq LM</h3><p>An open 4B model fine-tuned on a Mac to map any table, punished for its own mistakes.</p></a>
+    <a class="card" href="benchmarks.html"><h3>Benchmarks</h3><p>Seven scenarios with a planted truth, five seeds each, and every LM run.</p></a>
+    <a class="card" href="guides/index.html"><h3>Sector guides</h3><p>14 sectors: how their records map, which questions apply, what has been tested.</p></a>
+  </div>
+</section>
+</main>
+<footer><div><span>Vertiq 0.1.0 · Apache-2.0 · pure Python, no dependencies</span><a href="https://github.com/ideatorlabs/vertiq">Source</a><span>Benchmarks generated 2026-10-11</span></div></footer>
+</body></html>

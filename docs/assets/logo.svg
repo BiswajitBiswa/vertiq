@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 290 72" role="img" aria-label="Vertiq">
+  <g transform="translate(0 4)">
+    <rect width="64" height="64" rx="14" fill="#2346d3"/>
+    <rect x="13" y="35" width="9" height="16" rx="2.5" fill="#ffffff"/>
+    <rect x="27.5" y="26" width="9" height="25" rx="2.5" fill="#ffffff"/>
+    <rect x="42" y="17" width="9" height="34" rx="2.5" fill="#ffffff"/>
+    <circle cx="46.5" cy="10.5" r="3.6" fill="#f2b84b"/>
+  </g>
+  <text x="80" y="53" fill="#121826" font-family="'Bricolage Grotesque', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif" font-size="46" font-weight="700" letter-spacing="-1.2">vertiq</text>
+</svg>

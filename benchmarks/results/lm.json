@@ -1,0 +1,203 @@
+{
+  "generated": "2026-10-11",
+  "hardware": "Apple M1 Pro, 16 GB, MLX 0.32 (4-bit weights, LoRA rank 8 on 4 layers)",
+  "base_model": "mlx-community/Qwen3.5-4B-MLX-4bit (Apache-2.0)",
+  "test_sets": {
+    "v1": "114 tables, 15 domains, 4 never seen in training (energy, insurance, manufacturing, retail_sales)",
+    "v2": "114 more realistic tables (real audit columns, locale amounts), same split"
+  },
+  "metrics": {
+    "json": "answer is valid JSON",
+    "loads": "the mapping loads every sample row",
+    "exact": "every field matches the known answer",
+    "_repaired": "the same after vertiq.mapping.repair (names snapped to real columns, roles held to their value types, date format decided by the rows)"
+  },
+  "runs": [
+    {
+      "run": "base",
+      "model": "Qwen 3.5 4B, no training",
+      "training": "none",
+      "test_set": "v1",
+      "prompt": "v1",
+      "overall": {
+        "n": 114,
+        "json": 1.0,
+        "loads": 0.579,
+        "exact": 0.035,
+        "loads_repaired": 0.93,
+        "exact_repaired": 0.088
+      },
+      "seen": {
+        "n": 66,
+        "json": 1.0,
+        "loads": 0.485,
+        "exact": 0.03,
+        "loads_repaired": 0.879,
+        "exact_repaired": 0.106
+      },
+      "unseen": {
+        "n": 48,
+        "json": 1.0,
+        "loads": 0.708,
+        "exact": 0.042,
+        "loads_repaired": 1.0,
+        "exact_repaired": 0.062
+      }
+    },
+    {
+      "run": "tuned",
+      "model": "+ LoRA fine-tune (round 1)",
+      "training": "990 generated tables, 500 steps",
+      "test_set": "v1",
+      "prompt": "v1",
+      "overall": {
+        "n": 114,
+        "json": 1.0,
+        "loads": 0.667,
+        "exact": 0.202,
+        "loads_repaired": 0.93,
+        "exact_repaired": 0.307
+      },
+      "seen": {
+        "n": 66,
+        "json": 1.0,
+        "loads": 0.561,
+        "exact": 0.258,
+        "loads_repaired": 0.939,
+        "exact_repaired": 0.379
+      },
+      "unseen": {
+        "n": 48,
+        "json": 1.0,
+        "loads": 0.812,
+        "exact": 0.125,
+        "loads_repaired": 0.917,
+        "exact_repaired": 0.208
+      }
+    },
+    {
+      "run": "pref",
+      "model": "+ ORPO on its own mistakes",
+      "training": "256 preference pairs, 250 steps",
+      "test_set": "v1",
+      "prompt": "v1",
+      "overall": {
+        "n": 114,
+        "json": 1.0,
+        "loads": 0.781,
+        "exact": 0.281,
+        "loads_repaired": 0.982,
+        "exact_repaired": 0.386
+      },
+      "seen": {
+        "n": 66,
+        "json": 1.0,
+        "loads": 0.788,
+        "exact": 0.318,
+        "loads_repaired": 1.0,
+        "exact_repaired": 0.424
+      },
+      "unseen": {
+        "n": 48,
+        "json": 1.0,
+        "loads": 0.771,
+        "exact": 0.229,
+        "loads_repaired": 0.958,
+        "exact_repaired": 0.333
+      }
+    },
+    {
+      "run": "v2-sft-on-v1",
+      "model": "Round 3 fine-tune",
+      "training": "990 realistic tables + 22 teacher tables, 1000 steps, column kinds in prompt",
+      "test_set": "v1",
+      "prompt": "v2",
+      "overall": {
+        "n": 114,
+        "json": 1.0,
+        "loads": 0.939,
+        "exact": 0.351,
+        "loads_repaired": 0.974,
+        "exact_repaired": 0.395
+      },
+      "seen": {
+        "n": 66,
+        "json": 1.0,
+        "loads": 0.985,
+        "exact": 0.394,
+        "loads_repaired": 1.0,
+        "exact_repaired": 0.455
+      },
+      "unseen": {
+        "n": 48,
+        "json": 1.0,
+        "loads": 0.875,
+        "exact": 0.292,
+        "loads_repaired": 0.938,
+        "exact_repaired": 0.312
+      }
+    },
+    {
+      "run": "pref-on-v2",
+      "model": "+ ORPO on its own mistakes (round 1 model)",
+      "training": "as above",
+      "test_set": "v2",
+      "prompt": "v1",
+      "overall": {
+        "n": 114,
+        "json": 1.0,
+        "loads": 0.807,
+        "exact": 0.298,
+        "loads_repaired": 0.974,
+        "exact_repaired": 0.342
+      },
+      "seen": {
+        "n": 66,
+        "json": 1.0,
+        "loads": 0.848,
+        "exact": 0.409,
+        "loads_repaired": 0.985,
+        "exact_repaired": 0.439
+      },
+      "unseen": {
+        "n": 48,
+        "json": 1.0,
+        "loads": 0.75,
+        "exact": 0.146,
+        "loads_repaired": 0.958,
+        "exact_repaired": 0.208
+      }
+    },
+    {
+      "run": "v2-sft",
+      "model": "Round 3 fine-tune",
+      "training": "as above",
+      "test_set": "v2",
+      "prompt": "v2",
+      "overall": {
+        "n": 114,
+        "json": 1.0,
+        "loads": 0.912,
+        "exact": 0.412,
+        "loads_repaired": 0.991,
+        "exact_repaired": 0.439
+      },
+      "seen": {
+        "n": 66,
+        "json": 1.0,
+        "loads": 0.909,
+        "exact": 0.485,
+        "loads_repaired": 1.0,
+        "exact_repaired": 0.53
+      },
+      "unseen": {
+        "n": 48,
+        "json": 1.0,
+        "loads": 0.917,
+        "exact": 0.312,
+        "loads_repaired": 0.979,
+        "exact_repaired": 0.312
+      }
+    }
+  ]
+}

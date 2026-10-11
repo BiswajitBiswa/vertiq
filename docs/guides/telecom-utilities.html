@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vertiq for telecom and utilities</title><meta name="description" content="Predict churn and unusual usage per subscriber or meter, and size the next bill.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap"><link rel="stylesheet" href="../assets/site.css">
+</head><body>
+<header class="bar"><div class="bar-in"><a class="mark" href="../index.html"><img src="../assets/mark.svg" alt="" width="28" height="28">vertiq</a><nav class="nav" aria-label="Sections"><a href="../index.html">Overview</a><a href="../architecture.html">Architecture</a><a href="../learning.html">How it learns</a><a href="../lm.html">Vertiq LM</a><a href="../benchmarks.html">Benchmarks</a><a href="../guides/index.html">Sector guides</a></nav></div></header>
+<main>
+
+<section class="read"><div class="kicker"><a href="index.html">Sector guides</a> / Telecom and utilities</div><h1>Telecom and utilities</h1>
+<p class="lede">Predict churn and unusual usage per subscriber or meter, and size the next bill.</p><div><span class="pill ok">mapping tested</span> <span class="pill wait">not yet tested</span></div></section>
+<section><h2>Your records in Vertiq's terms</h2>
+<dl class="map"><dt>entity</dt><dd>subscriber or meter</dd><dt>group</dt><dd>circle or zone</dd>
+<dt>profile</dt><dd>generic (set your own windows with verticals.register)</dd></dl>
+<figure><div class="scroll"><svg viewBox="0 0 1080 304" role="img" aria-label="How Telecom and utilities columns map to the Vertiq contract."><defs><marker id="amtel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="bmtel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><text x="16" y="18" class="k">YOUR COLUMNS</text><text x="620" y="18" class="k">VERTIQ CONTRACT</text><rect x="16" y="30" width="300" height="34" rx="7" class="box"/><text x="30" y="52" class="m" style="font-family:var(--mono);font-size:13px">Abonne</text><path d="M316 47 C 470 47, 470 52, 618 52" class="ln" marker-end="url(#amtel)"/><rect x="16" y="74" width="300" height="34" rx="7" class="box"/><text x="30" y="96" class="m" style="font-family:var(--mono);font-size:13px">Date Usage</text><path d="M316 91 C 470 91, 470 96, 618 96" class="ln" marker-end="url(#amtel)"/><rect x="16" y="118" width="300" height="34" rx="7" class="box"/><text x="30" y="140" class="m" style="font-family:var(--mono);font-size:13px">Usage Type</text><path d="M316 135 C 470 135, 470 140, 618 140" class="ln" marker-end="url(#amtel)"/><rect x="16" y="162" width="300" height="34" rx="7" class="box"/><text x="30" y="184" class="m" style="font-family:var(--mono);font-size:13px">Conso</text><path d="M316 179 C 470 179, 470 184, 618 184" class="ln" marker-end="url(#amtel)"/><rect x="16" y="206" width="300" height="34" rx="7" class="box"/><text x="30" y="228" class="m" style="font-family:var(--mono);font-size:13px">Circle</text><path d="M316 223 C 470 223, 470 228, 618 228" class="ln" marker-end="url(#amtel)"/><rect x="16" y="250" width="300" height="34" rx="7" class="box"/><text x="30" y="272" class="m" style="font-family:var(--mono);font-size:13px">Plan</text><path d="M316 267 C 470 267, 470 272, 618 272" class="ln" marker-end="url(#amtel)"/><rect x="620" y="35" width="240" height="34" rx="7" class="hot"/><text x="634" y="57">Entity · id</text><rect x="620" y="79" width="240" height="34" rx="7" class="hot"/><text x="634" y="101">Event · when</text><rect x="620" y="123" width="240" height="34" rx="7" class="hot"/><text x="634" y="145">Event · type</text><rect x="620" y="167" width="240" height="34" rx="7" class="hot"/><text x="634" y="189">Event · value</text><rect x="620" y="211" width="240" height="34" rx="7" class="hot"/><text x="634" y="233">Entity · group</text><rect x="620" y="255" width="240" height="34" rx="7" class="hot"/><text x="634" y="277">Event · attributes</text><text x="880" y="101" class="s">%Y-%m-%d</text></svg></div><figcaption>Map once: Vertiq LM can propose this from the header and three rows, and the rows settle what they can (names, value types, the date format) before anything is trusted.</figcaption></figure></section>
+<section class="read"><h2>Questions you can ask</h2><ul><li><b>Will this subscriber recharge within 30 days?</b> <code>predict_event(target="recharge", window_days=30)</code><br><span style='color:var(--muted)'>Usage Type holds data, voice, sms and recharge rows.</span></li><li><b>What will the next month&#x27;s usage be?</b> <code>predict_value(target="data", window_days=30)</code></li></ul></section>
+<section><h2>Working example</h2><pre><code>from datetime import datetime, timedelta
+from vertiq import plugins, rules
+from vertiq.mapping import Mapping, apply, repair
+from vertiq.tasks import predict_event, predict_value
+
+# rows: your export as a list of dicts, e.g. list(csv.DictReader(open(&quot;export.csv&quot;)))
+mapping = Mapping.parse({&quot;entity&quot;: &quot;Abonne&quot;, &quot;time&quot;: &quot;Date Usage&quot;, &quot;type&quot;: &quot;Usage Type&quot;, &quot;value&quot;: &quot;Conso&quot;, &quot;group&quot;: &quot;Circle&quot;, &quot;attrs&quot;: [&quot;Plan&quot;], &quot;date_format&quot;: &quot;%Y-%m-%d&quot;})
+m, notes = repair(mapping, rows)      # the rows settle column names, value types and the date format
+ds, problems = apply(m, rows)         # any row that didn&#x27;t load is named, never guessed
+
+@plugins.feature(&quot;telco&quot;)
+def usage_trend(entity, before, cut):   # only events before the cutoff: no peeking
+    m1 = sum(e.value for e in before if e.at &gt;= cut - timedelta(days=30))
+    m2 = sum(e.value for e in before if cut - timedelta(days=60) &lt;= e.at &lt; cut - timedelta(days=30))
+    return {&quot;usage_ratio&quot;: (m1 + 1) / (m2 + 1)}
+
+task = predict_event(ds, target=&quot;recharge&quot;, window_days=30, pack=&quot;telco&quot;)
+print(task.status, task.report())     # &quot;trained&quot; only if it beat the baseline on held-out entities
+if task.status == &quot;trained&quot;:
+    print(task.score(&quot;9812345670&quot;))  # the chance, and what raises or lowers it
+
+size = predict_value(ds, target=&quot;data&quot;, window_days=30, pack=&quot;telco&quot;)
+print(size.status, size.report())
+
+flags = rules.run(ds, [
+    rules.repeat(1, type=&quot;complaint&quot;),   # two complaints in a day
+])
+print(flags[&quot;summary&quot;])</code></pre>
+<p class="read" style="color:var(--muted)">This exact code runs in the test suite (<code>tests/test_guides.py</code>) against generated rows in these column names.</p></section>
+<section class="two">
+  <div class="card"><h3>Domain knowledge: <code>usage_trend</code></h3><p>Usage falling month on month comes before most churn.</p></div>
+  <div class="card"><h3>Checks</h3><ul><li><code>rules.repeat(1, type=&quot;complaint&quot;)</code>: two complaints in a day</li></ul></div>
+  
+</section>
+<section class="two">
+  <div class="card"><h3>Before you rely on it</h3><ul><li>Phone numbers as ids should be pseudonymised before they reach Vertiq.</li></ul></div>
+  <div class="card"><h3>Evidence so far</h3><ul style="list-style:none;padding:0;display:grid;gap:8px"><li><span class='pill ok'>mapping tested</span> Telecom and energy tables in the Vertiq LM mapping test (energy never seen in training)</li><li><span class='pill wait'>not yet tested</span> No telecom benchmark yet</li></ul></div>
+</section>
+<section class="read"><p><a href="logistics.html">← Logistics and delivery</a> · <a href="education.html">Education →</a></p></section>
+</main>
+<footer><div><span>Vertiq 0.1.0 · Apache-2.0 · pure Python, no dependencies</span><a href="https://github.com/ideatorlabs/vertiq">Source</a><span>Benchmarks generated 2026-10-11</span></div></footer>
+</body></html>
