@@ -1,6 +1,6 @@
 # Contributing to Vertiq
 
-Thanks for helping. Vertiq is small on purpose, so a few rules keep it that way.
+Contributions are welcome. The following rules keep the library dependency-free, industry-neutral and verifiable.
 
 ## Ground rules
 

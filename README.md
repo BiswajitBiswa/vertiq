@@ -1,91 +1,100 @@
 <p align="center"><img src="docs/assets/logo.svg" alt="Vertiq" width="290"></p>
 
-<p align="center"><b>Decisions you can trust, learned from your own outcomes.</b></p>
+<p align="center"><b>Predictive and causal models for operational decisions.</b></p>
 
 <p align="center">
 <a href="https://github.com/BiswajitBiswa/vertiq/actions/workflows/tests.yml"><img alt="tests" src="https://github.com/BiswajitBiswa/vertiq/actions/workflows/tests.yml/badge.svg"></a>
-<a href="LICENSE"><img alt="Apache-2.0" src="https://img.shields.io/badge/licence-Apache--2.0-2346d3"></a>
-<img alt="Python 3.10 to 3.12" src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-2346d3">
-<img alt="no dependencies" src="https://img.shields.io/badge/dependencies-0-1d7f55">
+<a href="LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/licence-Apache%202.0-56633f"></a>
+<img alt="Python 3.10 to 3.12" src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-56633f">
+<img alt="No third-party dependencies" src="https://img.shields.io/badge/dependencies-none-7a8765">
 </p>
 
-<p align="center"><a href="https://biswajitbiswa.github.io/vertiq/">Docs</a> · <a href="https://biswajitbiswa.github.io/vertiq/benchmarks.html">Benchmarks</a> · <a href="https://biswajitbiswa.github.io/vertiq/guides/">Sector guides</a> · <a href="lm/README.md">Vertiq LM</a></p>
+<p align="center"><a href="https://biswajitbiswa.github.io/vertiq/">Documentation</a> · <a href="https://biswajitbiswa.github.io/vertiq/benchmarks.html">Benchmarks</a> · <a href="https://biswajitbiswa.github.io/vertiq/guides/">Industry guides</a> · <a href="lm/README.md">Vertiq LM</a></p>
 
-Vertiq is a Python library for business decision models. It predicts what happens next to a customer, a machine, a patient or an
-account; it measures which actions actually changed the outcome, using control groups; and it replaces a model only when the new
-one beats both a simple baseline and the current model on records it has never seen. The core has no dependencies and makes no
-network calls. A companion model, Vertiq LM, maps an unfamiliar export from any sector into Vertiq's data contract, running
-locally on a laptop.
+## Overview
 
-## Why Vertiq
+Vertiq is an open-source Python library that predicts customer, asset and account outcomes from historical records, estimates the
+effect of interventions using control groups, and promotes a model to production only after it outperforms the current baseline on
+held-out data. The core library has no third-party dependencies and makes no network calls. Vertiq LM, a companion language model,
+maps source tables from any industry to the library's data contract and runs locally on Apple Silicon.
 
-| The problem | What Vertiq does |
+## Challenges addressed
+
+| Challenge | Approach |
 |---|---|
-| Every source exports data differently | Vertiq LM proposes the mapping from a header and three rows. The rows then settle what they can prove: real column names, value types and the date format. |
-| Campaigns take credit for customers who were coming anyway | Uplift is learned from held-out control groups, so Vertiq ranks people by how much the action changes their behaviour. |
-| A retrained model can quietly be worse | The evaluation gate scores every candidate on entities it never saw, against the obvious rule and the current model. It ships only if it wins. |
-| Dashboards surface patterns that are noise | Insights carry a p-value and are filtered with Benjamini-Hochberg false-discovery control before anyone sees them. |
-| Domain experts know things the data doesn't say | Plugins add that knowledge as features and rules, in a few lines, without forking the engine. |
-| Data can't leave the building | The core is pure Python with no dependencies and no network calls. Vertiq LM runs locally on a Mac. |
+| Schema onboarding | Vertiq LM proposes a column mapping from the header and sample rows. Column names, value types and the date format are then validated against the data before use. |
+| Attribution bias | Uplift models are trained against randomised hold-out groups and rank entities by the expected change an intervention produces. |
+| Unvalidated retraining | Each candidate is evaluated on held-out entities against a rule-based baseline and the production model, and is promoted only if it performs better. |
+| False discoveries | Candidate insights are reported only after Benjamini–Hochberg false-discovery-rate control. |
+| Domain knowledge | Feature and rule plugins encode that knowledge without modifying the core library. The evaluation gate measures their contribution. |
+| Data residency | The core library has no third-party dependencies and makes no network calls. Vertiq LM runs locally on Apple Silicon. |
 
-## What it answers
+## Capabilities
 
-| Question | API | Examples |
+| Capability | API | Description |
 |---|---|---|
-| Will it happen? | `tasks.predict_event` | A customer returning, a machine failing, a patient readmitted, an invoice paid late. |
-| How much will it be worth? | `tasks.predict_value` | The next bill, repair cost, length of stay or renewal. |
-| Who should we act on? | `uplift` | The people an action actually changes, not the ones who would act anyway. |
-| What goes together? | `affinity` | Items bought together, each customer's next item, refill rhythms. |
-| What in this data is real? | `insights` | Patterns tested before they are shown. |
-| What broke the rules? | `rules` | Repeats, overdue work, parts beyond the bill of materials, empty notes. |
+| Event prediction | `tasks.predict_event` | Probability that an event occurs for an entity within a time window, such as customer return, equipment failure, readmission or late payment. |
+| Value prediction | `tasks.predict_value` | Expected value of the next event, such as order value, repair cost, length of stay or renewal amount. |
+| Uplift modelling | `uplift` | Expected change in outcome caused by an intervention, estimated from randomised control groups. |
+| Affinity and next best product | `affinity` | Co-purchase associations, the next likely product per customer and replenishment intervals. |
+| Tested insights | `insights` | Segment-level patterns reported only after false-discovery-rate control. |
+| Rule-based monitoring | `rules` | Repeat events, overdue tasks, consumption above specification and incomplete records. |
 
-Every task works on the same contract (entities, events, actions), so one engine serves every sector. There is no sector-specific
-code; [sector guides](https://biswajitbiswa.github.io/vertiq/guides/) show the mapping and the questions for each.
+All analyses operate on one data contract of entities, events and actions. The library contains no industry-specific code; the
+[industry guides](https://biswajitbiswa.github.io/vertiq/guides/) document the mapping and analyses for each industry.
 
-## How it works
-
-```mermaid
-flowchart LR
-    A[Your export<br/>CSV, POS, ERP, EHR] --> B[Mapping<br/>Vertiq LM + data repair]
-    B --> C[Contract<br/>Entity, Event, Action]
-    C --> D[Tasks<br/>event, value, uplift,<br/>affinity, insights, rules]
-    P[Your plugins<br/>features, rules, learners] --> D
-    D --> G{Evaluation gate<br/>held-out entities}
-    G -- beats baseline and current model --> R[Scores with reasons,<br/>ranked actions, flags]
-    G -- otherwise --> K[Current model kept]
-```
-
-1. **Map.** A host maps its records once. Vertiq LM proposes the mapping; `vertiq.mapping.repair` lets the rows settle column names,
-   value types and the date format, and it never invents a column.
-2. **Learn.** Tasks step back through history to several cutoffs and build features only from what was known at each one.
-3. **Gate.** About a fifth of entities, chosen by a hash of their id, never appear in training. A candidate ships only if it beats
-   the obvious rule and the model already running on those entities (`vertiq.harness`).
-4. **Explain.** Every score lists what raises and lowers it; every rule flag carries its evidence.
-
-## Recursive improvement
+## Architecture
 
 ```mermaid
 flowchart LR
-    T[Teacher<br/>writes harder cases] --> V[Verify<br/>data checks every one]
-    V --> S[Student learns]
-    S --> G{Gate}
-    G -- ships --> M[Its mistakes]
-    M -- punished next round --> S
-    O[New outcomes] -- each cycle --> S
+    A[Source data<br/>CSV, POS, ERP, EHR, CRM] --> B[Mapping<br/>Vertiq LM + validation]
+    B --> C[Data contract<br/>Entity, Event, Action]
+    C --> D[Analysis tasks<br/>event, value, uplift,<br/>affinity, insights, rules]
+    P[Domain plugins<br/>features, rules, learners] --> D
+    D --> G{{Evaluation gate<br/>held-out entities}}
+    G -- outperforms baseline and production model --> R[Scores with factors,<br/>ranked interventions, flags]
+    G -- otherwise --> K[Production model retained]
 ```
 
-Each round starts from the model that won the last one. For Vertiq LM, a larger open model (or an OpenAI-compatible endpoint you
-configure) writes new tables; a table is kept only if it loads with its own mapping and the teacher, mapping it blind, agrees with
-itself. The student's own wrong answers become rejected examples for preference training (ORPO). Closed models whose terms forbid
-training on their output are refused as teachers. On the mapping task this loop took a 4B model from
-3.5% to 35.1% exactly right on the same held-out tables.
-The decision models follow the same rule: retrained on new outcomes each cycle, promoted only through the gate.
+1. **Mapping.** The host application maps its records once. Vertiq LM proposes the mapping, and `vertiq.mapping.repair` validates
+   column names, value types and the date format against the rows. It never introduces a column that does not exist.
+2. **Training.** Tasks build examples at successive historical cutoffs, using only information available at each cutoff.
+3. **Evaluation.** Approximately 20% of entities, selected by a hash of their identifier, are excluded from training. A candidate is
+   promoted only if it outperforms the rule-based baseline and the production model on those entities (`vertiq.harness`).
+4. **Explanation.** Each score lists the factors that raised and lowered it; each rule flag includes its supporting evidence.
 
-## Install
+## Recursive self-improvement (RSI)
+
+```mermaid
+flowchart LR
+    T[Teacher model<br/>generates examples] --> V[Validation<br/>each example verified]
+    V --> S[Student model trains]
+    S --> G{{Evaluation gate}}
+    G -- promoted --> M[Incorrect outputs]
+    M -- negative examples, next round --> S
+    O[New outcome data] -- each cycle --> S
+```
+
+Vertiq improves its models through recursive self-improvement (RSI) under evaluation control. In each round a teacher model generates additional training examples, and every example is validated against its own data before it is used. The student model is trained and evaluated on held-out records; it is promoted only if it outperforms the production model, and the promoted model becomes the starting point for the next round. Its incorrect outputs are retained as negative examples for the following round, and new outcome data is added at every cycle. No iteration reaches production without passing the evaluation gate.
+
+For Vertiq LM, the teacher is a larger open-weight model or an OpenAI-compatible endpoint configured by the user. A generated table is
+retained only if it loads with its own mapping and the teacher reproduces the mapping without seeing it. Incorrect student outputs are
+used as negative examples in preference training (ORPO). Providers whose terms prohibit training on generated output (OpenAI, Anthropic,
+Google) are excluded. Applied to table mapping, this process raised exact-match accuracy of a 4-billion-parameter model from
+3.5% to 35.1% on the same held-out set.
+
+## Requirements
+
+| Component | Requirement |
+|---|---|
+| `vertiq` library | Python 3.10, 3.11 or 3.12; no third-party dependencies; any operating system |
+| Vertiq LM tooling | Apple Silicon, 16 GB of memory or more, `mlx-lm` and `mlx-lm-lora` (installed with the `lm` extra) |
+
+## Installation
 
 ```bash
-pip install git+https://github.com/BiswajitBiswa/vertiq        # Python 3.10+, no dependencies
-pip install "vertiq[lm] @ git+https://github.com/BiswajitBiswa/vertiq"   # Vertiq LM tooling, Apple Silicon
+pip install git+https://github.com/BiswajitBiswa/vertiq
+pip install "vertiq[lm] @ git+https://github.com/BiswajitBiswa/vertiq"      # Vertiq LM tooling
 ```
 
 ## Quick start
@@ -98,15 +107,15 @@ from vertiq.tasks import predict_event
 rows = list(csv.DictReader(open("work_orders.csv")))
 m, notes = repair(Mapping.parse({"entity": "Equipment No", "time": "Work Order Date", "type": "Order Type",
                                  "value": "Cost", "group": "Plant", "attrs": [], "date_format": "%Y-%m-%d"}), rows)
-ds, problems = apply(m, rows)            # rows that don't load are listed, never guessed
+ds, problems = apply(m, rows)            # rows that fail to load are reported, not imputed
 
 task = predict_event(ds, target="breakdown", window_days=30)
-print(task.status)                        # trained, kept (the baseline won) or learning (too little data)
-print(task.report()["metrics"])           # AUC, Brier, calibration, baseline AUC, held-out entities
+print(task.status)                        # trained, kept (baseline retained) or learning (insufficient data)
+print(task.report()["metrics"])           # AUC, Brier score, calibration, baseline AUC, held-out entities
 print(task.score("EQ-602"))               # {"chance": ..., "raises": [...], "lowers": [...]}
 ```
 
-## Extend with plugins
+## Extending Vertiq
 
 ```python
 from datetime import timedelta
@@ -115,7 +124,7 @@ from vertiq.tasks import predict_event
 
 @plugins.feature("plants")
 def skipped_maintenance(entity, before, cut):
-    # `before` holds only events earlier than the cutoff, so a plugin cannot see the future
+    # `before` contains only events recorded before the training cutoff
     return {"skipped_pm_60": sum(1 for e in before
                                  if e.type == "pm" and e.attrs.get("PM Done") == "no"
                                  and e.at >= cut - timedelta(days=60))}
@@ -123,123 +132,123 @@ def skipped_maintenance(entity, before, cut):
 task = predict_event(ds, target="breakdown", window_days=30, pack="plants")
 ```
 
-| Extension point | Contract |
+| Extension point | Interface |
 |---|---|
-| `@plugins.feature(pack)` | `fn(entity, events_before, cutoff) -> {name: number}`; sees only events before the cutoff |
-| `@plugins.rule(pack)`, `vertiq.rules` | `repeat`, `overdue`, `exceeds`, `too_short`, configured with data |
-| `plugins.register_learner(name, cls)` | required: `fit(rows, y, **kw) -> self`, `predict(row, group=None)`, `to_dict()`, `from_dict(d)`; optional: `fit_offsets`, `contributions` |
-| `verticals.register(Vertical(...))` | windows, nouns and currency for a sector |
-| Vertiq LM teachers | `TEACHER_API_KEY`, `TEACHER_BASE_URL`, `TEACHER_MODEL` for any OpenAI-compatible server |
+| `@plugins.feature(pack)` | `fn(entity, events_before, cutoff) -> {name: number}`; receives only events recorded before the cutoff |
+| `@plugins.rule(pack)`, `vertiq.rules` | `repeat`, `overdue`, `exceeds` and `too_short`, configured with parameters |
+| `plugins.register_learner(name, cls)` | Required: `fit(rows, y, **kw) -> self`, `predict(row, group=None)`, `to_dict()`, `from_dict(d)`. Optional: `fit_offsets`, `contributions` |
+| `verticals.register(Vertical(...))` | Time windows, terminology and currency for an industry |
+| Vertiq LM teachers | `TEACHER_API_KEY`, `TEACHER_BASE_URL` and `TEACHER_MODEL` for any OpenAI-compatible server |
 
-A plugin can only add signal. Whether it helped is still decided by the gate on held-out entities.
+Plugins add features; the evaluation gate determines whether they improve performance on held-out entities.
 
-## Guarantees
+## Design guarantees
 
-- **No look-ahead.** Features, including plugin features, are built only from events before each cutoff.
-- **Held out by entity.** No entity appears in both training and evaluation.
-- **No silent regressions.** A candidate replaces the current model only if it is no worse on the same held-out entities.
-- **No invented data.** The mapping repair snaps to real columns or drops the role; rows that fail are named.
-- **No network, no I/O.** The package never opens a connection or a file. `tests/test_boundary.py` fails on framework, ORM or HTTP imports.
-- **Reproducible.** Benchmarks, the docs and this README are generated from committed results; CI fails if they drift.
+- **No look-ahead.** Features, including plugin features, use only events recorded before each cutoff.
+- **Entity-level holdout.** No entity appears in both training and evaluation data.
+- **No unvalidated promotion.** A candidate replaces the production model only if it performs at least as well on the same held-out entities.
+- **No imputed structure.** Mapping validation selects existing columns or removes the role; rows that fail to load are reported.
+- **No network or file access.** The package opens no connections or files. `tests/test_boundary.py` rejects framework, ORM and HTTP imports.
+- **Reproducibility.** Benchmarks, the documentation site and this README are generated from committed results; CI fails if they diverge.
 
 ## Benchmarks
 
-Synthetic scenarios with a planted truth, 5 seeds each, mean ± sd
-(`python benchmarks/run.py`, 28 s on arm64, Python 3.10.10).
+Synthetic scenarios with known ground truth, 5 runs each, mean ± standard deviation (`python benchmarks/run.py`,
+28 seconds on arm64, Python 3.10.10).
 
 | Scenario | Vertiq | Reference |
 |---|---|---|
-| Customer return | AUC 0.976 ± 0.005, Brier 0.043 ± 0.004 | recency formula: AUC 0.969 ± 0.005, Brier 0.061 ± 0.006 |
-| Machine breakdowns | AUC 0.735 ± 0.059; with one plugin 0.767 ± 0.043 | recency: AUC 0.674 ± 0.050 |
-| Length of stay | error 1.61 ± 0.06 days | same as last time: 2.18 ± 0.14 days |
-| Pure noise | models shipped: 0 of 5 | the baseline must be kept |
-| Who a message brings back | top-ranked half +23.6 ± 5.9 pts, bottom half -1.8 ± 5.2 pts | planted: +30 pts for the overdue only |
-| Offer effect on the bill | -20.2 ± 0.9% | planted: −20% |
-| Tested insights | planted pattern found 5/5; false patterns in noise 0 | Benjamini-Hochberg at 10% |
-| Mapping repair safety | correct mappings changed: 0 of 2100 per seed | must be 0 |
+| Customer retention | AUC 0.976 ± 0.005, Brier 0.043 ± 0.004 | Recency rule: AUC 0.969 ± 0.005, Brier 0.061 ± 0.006 |
+| Equipment failure | AUC 0.735 ± 0.059; with one plugin 0.767 ± 0.043 | Recency rule: AUC 0.674 ± 0.050 |
+| Length of stay | MAE 1.61 ± 0.06 days | Previous value: 2.18 ± 0.14 days |
+| Random data | Models promoted: 0 of 5 | Baseline must be retained |
+| Intervention uplift | Top half 23.6 ± 5.9 pts; bottom half -1.8 ± 5.2 pts | True effect: +30 pts for overdue customers only |
+| Offer effect on order value | -20.2 ± 0.9% | True effect: −20% |
+| Insight detection | Planted pattern detected 5/5; false patterns 0 | Benjamini–Hochberg at 10% |
+| Mapping validation | Correct mappings altered: 0 of 2100 per run | Must be 0 |
 
-### Vertiq LM: mapping unseen tables
+### Vertiq LM table mapping
 
-Qwen 3.5 4B (Apache-2.0, 4-bit MLX), LoRA on an Apple M1 Pro with 16 GB. 114 held-out tables over 15 domains; 4 domains
-(energy, insurance, manufacturing, retail sales) never appear in training. "Repaired" means after `vertiq.mapping.repair`.
+Qwen 3.5 4B (Apache 2.0, 4-bit MLX), fine-tuned with LoRA on an Apple M1 Pro with 16 GB of memory. 114 held-out tables across 15
+domains; 4 domains (energy, insurance, manufacturing, retail sales) are excluded from training. "Validated" means after
+`vertiq.mapping.repair`.
 
 Original test set:
 
-| Model | Loads | Exact | Exact, repaired | Never-seen domains, exact |
+| Model | Loads | Exact | Exact, validated | Unseen domains, exact |
 |---|---|---|---|---|
 | Qwen 3.5 4B, no training | 57.9% | 3.5% | 8.8% | 4.2% |
 | + LoRA fine-tune (round 1) | 66.7% | 20.2% | 30.7% | 12.5% |
 | + ORPO on its own mistakes | 78.1% | 28.1% | 38.6% | 22.9% |
 | Round 3 fine-tune | 93.9% | 35.1% | 39.5% | 29.2% |
 
-Realistic test set (real audit columns, amounts in local styles):
+Production-like test set (audit columns and locale-specific number formats):
 
-| Model | Loads | Exact | Exact, repaired | Never-seen domains, exact |
+| Model | Loads | Exact | Exact, validated | Unseen domains, exact |
 |---|---|---|---|---|
 | + ORPO on its own mistakes (round 1 model) | 80.7% | 29.8% | 34.2% | 14.6% |
 | Round 3 fine-tune | 91.2% | 41.2% | 43.9% | 31.2% |
 
-## Where Vertiq fits
+## Positioning
 
-- **Not a general ML library.** For custom modelling use scikit-learn, LightGBM or XGBoost. Any of them can run inside Vertiq's
-  tasks and gate through `register_learner`.
-- **Not an experiment tracker.** MLflow and similar tools record and serve models. Vertiq decides whether a retrained model should be
-  promoted at all, and the two work together.
-- **Not a general extraction library.** Schema-forcing libraries make an LLM fill a schema. Vertiq LM is trained for one job, mapping a
-  table to a contract, and every answer is checked against the table's own rows.
+- **Modelling libraries.** scikit-learn, LightGBM and XGBoost provide general estimators. Vertiq provides the task structure,
+  point-in-time features and evaluation gate, and can run any of those estimators through `register_learner`.
+- **Model registries.** MLflow and similar tools track and serve models. Vertiq decides whether a retrained model qualifies for
+  promotion; the two are complementary.
+- **Schema extraction.** General extraction libraries constrain a language model to a schema. Vertiq LM is trained for one task,
+  mapping a table to a data contract, and each result is validated against the table's rows.
 
-## Known limitations
+## Limitations
 
-- The benchmarks are synthetic. They show the machinery finds planted signal, ignores noise and refuses worse models; they do not
-  show accuracy on your data. Public datasets are next on the roadmap.
-- Vertiq LM gets 44% of unseen tables exactly right after repair and loads
-  99%. Treat its mapping as a proposal for a person to confirm.
-- Uplift needs a held-out control group on every campaign. Without one, Vertiq falls back to rules and says so.
-- The built-in learners are regularised logistic and linear models, chosen for speed and explanations. Register a stronger learner
-  when the data supports it.
+- Benchmarks use synthetic data. They verify that the methods detect planted signal, reject noise and retain the baseline when
+  appropriate; they do not measure accuracy on a specific organisation's data. Public-dataset benchmarks are planned.
+- After validation, Vertiq LM maps 44% of unseen tables exactly and loads 99%
+  without errors. Proposed mappings should be reviewed before production use.
+- Uplift estimation requires a randomised control group for each intervention. Without one, targeting falls back to rules and reports this.
+- The built-in learners are regularised logistic and linear models, selected for speed and interpretability. Register a stronger
+  learner where the data supports it.
 - Version 0.1. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 
-- Benchmarks on public data: Online Retail II (repeat purchase), the Hillstrom email test (uplift), NASA C-MAPSS (engine failure).
-- A release on PyPI.
-- Vertiq LM: finish preference training on the realistic set, try a 9B student, publish the adapter.
-- Generic uplift on any `Action` in the contract, beyond customer messages.
-- A gradient-boosting learner plugin with explanations.
+- Benchmarks on public datasets: Online Retail II (repeat purchase), Hillstrom (email uplift) and NASA C-MAPSS (equipment failure).
+- Distribution on PyPI.
+- Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.
+- Uplift estimation for any `Action` in the data contract, beyond customer messaging.
+- A gradient-boosting learner plugin with factor attribution.
 
-## Sector guides
+## Industry guides
 
-- [Restaurants and cafés](https://biswajitbiswa.github.io/vertiq/guides/restaurants-cafes.html): Bring regulars back, size offers to each guest's usual bill, and stop promoting what's out of stock.
-- [Retail and e-commerce](https://biswajitbiswa.github.io/vertiq/guides/retail-ecommerce.html): Spot shoppers going quiet, recommend the next product from real baskets, and reorder before stock runs out.
-- [Salons, gyms and appointment services](https://biswajitbiswa.github.io/vertiq/guides/salons-gyms-services.html): Learn each client's rhythm, catch the ones slipping, and time reminders to when they are due.
-- [B2B distribution and invoicing](https://biswajitbiswa.github.io/vertiq/guides/b2b-distribution.html): See which accounts are ordering less, which invoices will be paid late, and what each account buys next.
-- [SaaS and subscriptions](https://biswajitbiswa.github.io/vertiq/guides/saas-subscriptions.html): Predict which accounts will cancel or downgrade, and what the next renewal will be worth.
-- [Healthcare and clinics](https://biswajitbiswa.github.io/vertiq/guides/healthcare-clinics.html): Flag likely readmissions and missed follow-ups, and estimate the length of the next stay.
-- [Manufacturing and maintenance](https://biswajitbiswa.github.io/vertiq/guides/manufacturing-maintenance.html): Predict breakdowns, catch skipped preventive maintenance and parts used beyond the bill of materials.
-- [Supply chain and inventory](https://biswajitbiswa.github.io/vertiq/guides/supply-chain-inventory.html): Reorder on time, find slow movers tying up cash, and forecast the next order per item.
-- [Finance and portfolio operations](https://biswajitbiswa.github.io/vertiq/guides/finance-portfolios.html): Find dormant clients and accounts that need a call, from their own activity. Not trading signals.
-- [Tax and accounting practices](https://biswajitbiswa.github.io/vertiq/guides/tax-accounting.html): See which clients will file late, which notices repeat, and where work is overdue.
-- [Insurance](https://biswajitbiswa.github.io/vertiq/guides/insurance.html): Predict renewals and lapses, flag repeat or duplicate claims for review.
-- [Logistics and delivery](https://biswajitbiswa.github.io/vertiq/guides/logistics.html): Predict which shipments run late and which customers ship less, from scan and delivery events.
-- [Telecom and utilities](https://biswajitbiswa.github.io/vertiq/guides/telecom-utilities.html): Predict churn and unusual usage per subscriber or meter, and size the next bill.
-- [Education](https://biswajitbiswa.github.io/vertiq/guides/education.html): See which students are disengaging from attendance and assessments, early enough to help.
+- [Retail and consumer goods](https://biswajitbiswa.github.io/vertiq/guides/retail-consumer-goods.html): Predict repeat purchase, recommend the next product from basket history, and plan replenishment from sales velocity.
+- [Travel and hospitality](https://biswajitbiswa.github.io/vertiq/guides/travel-hospitality.html): Forecast repeat stays, estimate the value of the next booking, and measure campaign response against control groups.
+- [Banking and financial services](https://biswajitbiswa.github.io/vertiq/guides/financial-services.html): Identify dormant and declining accounts from transaction activity and prioritise relationship outreach. Vertiq models client behaviour, not market prices.
+- [Insurance](https://biswajitbiswa.github.io/vertiq/guides/insurance.html): Predict claims and policy lapses, estimate claim severity, and flag repeat claims for review.
+- [Healthcare and life sciences](https://biswajitbiswa.github.io/vertiq/guides/healthcare-life-sciences.html): Predict readmissions, estimate length of stay, and monitor follow-up compliance.
+- [Manufacturing and industrial assets](https://biswajitbiswa.github.io/vertiq/guides/manufacturing-industrial.html): Predict equipment failures, estimate repair costs, and detect skipped maintenance and parts consumption above specification.
+- [Supply chain and logistics](https://biswajitbiswa.github.io/vertiq/guides/supply-chain-logistics.html): Forecast item demand, plan reorder points, and identify slow-moving inventory from stock movements.
+- [Telecommunications](https://biswajitbiswa.github.io/vertiq/guides/telecommunications.html): Predict subscriber churn and recharge behaviour, and estimate next-period usage.
+- [Energy and utilities](https://biswajitbiswa.github.io/vertiq/guides/energy-utilities.html): Predict outages by meter or asset, and estimate next-period consumption.
+- [Software and subscriptions](https://biswajitbiswa.github.io/vertiq/guides/software-subscriptions.html): Predict cancellations and downgrades, and estimate renewal value from product usage and billing events.
+- [Wholesale and distribution](https://biswajitbiswa.github.io/vertiq/guides/wholesale-distribution.html): Identify accounts with declining orders, predict late payments, and recommend the next SKU per account.
+- [Accounting and tax compliance](https://biswajitbiswa.github.io/vertiq/guides/accounting-tax.html): Predict late filings, track overdue returns, and identify recurring notices by client.
+- [Education and public services](https://biswajitbiswa.github.io/vertiq/guides/education-public-services.html): Identify early disengagement from attendance and assessment records so that support can be offered in time.
 
-## Project layout
+## Repository structure
 
 | Path | Contents |
 |---|---|
-| `vertiq/` | contract, mapping, tasks, harness, plugins, rules, churn, uplift, value, affinity, insights, inventory, offers |
-| `tests/` | unit tests, the boundary test, and every sector guide's example |
-| `benchmarks/` | `run.py`, `collect_lm.py`, `results/*.json` |
-| `lm/` | Vertiq LM: data generation, LoRA fine-tuning, scoring, preference training, the verified teacher |
-| `docs/` | the portal and `build.py`, which also writes this README |
+| `vertiq/` | Library: contract, mapping, tasks, harness, plugins, rules, churn, uplift, value, affinity, insights, inventory, offers |
+| `tests/` | Unit tests, the dependency boundary test and every industry guide's reference implementation |
+| `benchmarks/` | `run.py`, `collect_lm.py` and `results/*.json` |
+| `lm/` | Vertiq LM: data generation, LoRA fine-tuning, evaluation, preference training and the teacher pipeline |
+| `docs/` | Documentation site and `build.py`, which also generates this README |
 
 ## Contributing
 
-Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Security reports go through
-[SECURITY.md](SECURITY.md). To cite Vertiq, use [CITATION.cff](CITATION.cff).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues as described in [SECURITY.md](SECURITY.md). Citation metadata is in
+[CITATION.cff](CITATION.cff).
 
 ## Licence
 
-Apache License 2.0, see [LICENSE](LICENSE). The Qwen 3.5 weights Vertiq LM fine-tunes are not in this repository; they are
-downloaded separately under their own Apache-2.0 licence.
+Apache License 2.0; see [LICENSE](LICENSE). The Qwen 3.5 weights used by Vertiq LM are not distributed in this repository and are
+licensed separately under Apache 2.0.

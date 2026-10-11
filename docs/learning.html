@@ -1,151 +1,172 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>How Vertiq learns</title><meta name="description" content="No peeking, held-out entities, control groups and tested insights.">
+<title>Vertiq methodology</title><meta name="description" content="Point-in-time features, entity-level holdout, control groups and recursive self-improvement.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%20role%3D%22img%22%20aria-label%3D%22Vertiq%22%3E%0A%20%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232346d3%22/%3E%0A%20%20%3Crect%20x%3D%2213%22%20y%3D%2235%22%20width%3D%229%22%20height%3D%2216%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Crect%20x%3D%2227.5%22%20y%3D%2226%22%20width%3D%229%22%20height%3D%2225%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Crect%20x%3D%2242%22%20y%3D%2217%22%20width%3D%229%22%20height%3D%2234%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Ccircle%20cx%3D%2246.5%22%20cy%3D%2210.5%22%20r%3D%223.6%22%20fill%3D%22%23f2b84b%22/%3E%0A%3C/svg%3E" type="image/svg+xml">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%20role%3D%22img%22%20aria-label%3D%22Vertiq%22%3E%0A%20%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2212%22%20fill%3D%22%234f5b3c%22/%3E%0A%20%20%3Crect%20x%3D%2213%22%20y%3D%2235%22%20width%3D%229%22%20height%3D%2216%22%20rx%3D%222%22%20fill%3D%22%23f4f5ee%22/%3E%0A%20%20%3Crect%20x%3D%2227.5%22%20y%3D%2226%22%20width%3D%229%22%20height%3D%2225%22%20rx%3D%222%22%20fill%3D%22%23f4f5ee%22/%3E%0A%20%20%3Crect%20x%3D%2242%22%20y%3D%2217%22%20width%3D%229%22%20height%3D%2234%22%20rx%3D%222%22%20fill%3D%22%23f4f5ee%22/%3E%0A%20%20%3Ccircle%20cx%3D%2246.5%22%20cy%3D%2210.5%22%20r%3D%223.6%22%20fill%3D%22%23c9a54e%22/%3E%0A%3C/svg%3E" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
-/* Vertiq docs: one stylesheet for every page.
-   Light theme only. Layout: a top bar with the section nav, a single reading column (max 1080px) that widens for
-   diagrams and tables, quiet cards only where an object stands apart. */
+/* Vertiq documentation. Light theme only.
+   Layout: a quiet top bar with spaced uppercase navigation, one reading column (max 1120px) that widens for
+   diagrams, tables and the industry tiles. Olive and sage tones; serif display headings in olive. */
 :root {
-  --bg: #f4f6f9; --panel: #ffffff; --ink: #121826; --muted: #566074; --line: #d5dbe5; --soft: #e8ecf3;
-  --accent: #2346d3; --accent-ink: #ffffff; --accent-soft: #e3e9ff;
-  --ok: #1d7f55; --wait: #a86b12;
-  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --bg: #f6f6f1; --panel: #ffffff; --ink: #22271d; --muted: #5d6456; --line: #dcdfd2; --soft: #eef0e6;
+  --head: #3c472f; --olive: #56633f; --olive-2: #7a8765; --sage: #a9b394; --sage-2: #cfd5c0;
+  --accent: #56633f; --accent-ink: #ffffff; --accent-soft: #e8ebde; --gold: #b8953c;
+  --display: "Newsreader", Georgia, "Times New Roman", serif;
   --body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
   color-scheme: light;
 }
+
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--body); }
-a { color: var(--accent); text-underline-offset: 3px; }
-a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.65 var(--body); }
+a { color: var(--olive); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--olive); outline-offset: 3px; border-radius: 4px; }
 
-.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
-.bar-in { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 10px; display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: center; }
-.mark { font: 700 21px/1 var(--display); color: var(--ink); text-decoration: none; letter-spacing: -.01em; display: inline-flex; gap: 8px; align-items: center; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: rgba(255, 255, 255, .96); border-bottom: 1px solid var(--line); }
+.bar-in { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 12px; display: flex; flex-wrap: wrap; gap: 8px 30px; align-items: center; }
+.mark { font: 600 22px/1 var(--body); color: var(--head); text-decoration: none; letter-spacing: -.01em; display: inline-flex; gap: 10px; align-items: center; }
 .mark svg { display: block; width: 28px; height: 28px; }
-.nav { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 15px; }
-.nav a { color: var(--muted); text-decoration: none; padding-block: 4px; border-bottom: 2px solid transparent; }
-.nav a:hover { color: var(--ink); }
-.nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.nav { display: flex; flex-wrap: wrap; gap: 4px 22px; }
+.nav a { color: var(--muted); text-decoration: none; font: 600 12px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; padding-block: 6px; border-bottom: 1px solid transparent; }
+.nav a:hover { color: var(--head); }
+.nav a[aria-current="page"] { color: var(--head); border-bottom-color: var(--olive); }
 
-main { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 36px 64px; display: grid; gap: 40px; }
-.read { max-width: 72ch; }
-h1, h2, h3 { font-family: var(--display); text-wrap: balance; letter-spacing: -.012em; margin: 0; }
-h1 { font-size: clamp(32px, 4.4vw, 46px); line-height: 1.08; font-weight: 700; }
-h2 { font-size: 26px; line-height: 1.2; font-weight: 650; }
-h3 { font-size: 19px; line-height: 1.3; font-weight: 650; }
-.kicker { font: 500 12.5px/1.3 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
-.lede { font-size: 19.5px; color: var(--muted); margin: 14px 0 0; max-width: 64ch; }
-section { display: grid; gap: 14px; min-width: 0; }
-section > p, section > ul, section > ol { margin: 0; max-width: 72ch; }
+main { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 44px 72px; display: grid; gap: 64px; }
+.read { max-width: 74ch; }
+h1, h2 { font-family: var(--display); color: var(--head); font-weight: 500; text-wrap: balance; letter-spacing: -.01em; margin: 0; }
+h1 { font-size: clamp(36px, 4.8vw, 54px); line-height: 1.08; }
+h2 { font-size: clamp(26px, 3vw, 34px); line-height: 1.18; }
+h3 { font: 600 18px/1.35 var(--body); color: var(--ink); margin: 0; text-wrap: balance; }
+.kicker { font: 600 12px/1.3 var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--olive-2); margin-bottom: 12px; }
+.kicker a { color: inherit; }
+.lede { font-size: 19px; color: var(--muted); margin: 16px 0 0; max-width: 62ch; }
+section { display: grid; gap: 18px; min-width: 0; }
+section > p, section > ul, section > ol { margin: 0; max-width: 74ch; }
 ul, ol { padding-left: 22px; }
-li + li { margin-top: 4px; }
-code { font: 14.5px var(--mono); background: var(--soft); padding: 1px 5px; border-radius: 4px; }
-pre { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 13.5px/1.6 var(--mono); }
-pre code { background: none; padding: 0; font-size: inherit; }
+li + li { margin-top: 5px; }
+code { font: 14px var(--mono); background: var(--soft); padding: 1px 5px; border-radius: 4px; color: var(--head); }
+pre { margin: 0; background: #fbfbf8; border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; overflow-x: auto; font: 13.5px/1.65 var(--mono); }
+pre code { background: none; padding: 0; font-size: inherit; color: var(--ink); }
 
-.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; display: grid; gap: 6px; align-content: start; }
+.hero-split { display: grid; gap: 40px; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; }
+.hero-split > * { min-width: 0; }
+.hero-visual svg { display: block; width: 100%; height: auto; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 26px 0 0; }
+.btn { display: inline-block; padding: 12px 20px; border-radius: 4px; background: var(--olive); color: var(--accent-ink); font: 600 13px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; text-decoration: none; border: 1px solid var(--olive); }
+.btn.ghost { background: transparent; color: var(--olive); }
+.btn:hover { background: var(--head); border-color: var(--head); color: #fff; }
+
+.section-head { display: grid; gap: 6px; max-width: 74ch; }
+.section-head p { color: var(--muted); margin: 6px 0 0; }
+
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px 22px; min-width: 0; display: grid; gap: 8px; align-content: start; }
 .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
-a.card { text-decoration: none; color: inherit; }
-a.card:hover { border-color: var(--accent); }
-a.card h3 { color: var(--ink); }
+.card .fix { color: var(--ink); border-top: 1px solid var(--line); padding-top: 10px; }
+.card .api { font: 13px var(--mono); color: var(--olive-2); }
+.card ul { margin: 0; padding-left: 18px; font-size: 15.5px; }
 
-.stats { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-.stat { background: var(--panel); padding: 16px 18px; display: grid; gap: 4px; }
-.stat b { font: 700 30px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.stats { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); background: var(--line); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.stat { background: var(--panel); padding: 20px 22px; display: grid; gap: 6px; align-content: start; }
+.stat b { font: 500 34px/1.05 var(--display); color: var(--head); font-variant-numeric: tabular-nums; }
 .stat span { color: var(--muted); font-size: 14.5px; }
+.note-s { color: var(--muted); font-size: 14px; margin: 0; }
 
-figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+.tiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.tile { position: relative; aspect-ratio: 1 / 1; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 20px; text-align: center; text-decoration: none; border-radius: 2px; }
+.tile::after { content: ""; position: absolute; inset: 10px; border: 1px solid currentColor; opacity: .45; pointer-events: none; }
+.tile svg { width: 52px; height: 52px; }
+.tile span { font: 600 12.5px/1.35 var(--body); letter-spacing: .14em; text-transform: uppercase; max-width: 15ch; }
+.t1 { background: var(--olive); color: #f3f5ec; }
+.t2 { background: var(--sage); color: #22271d; }
+.t3 { background: var(--olive-2); color: #f6f7f1; }
+.t4 { background: var(--sage-2); color: #2c3424; }
+a.tile:hover::after { opacity: .9; }
+
+figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px; min-width: 0; }
 .scroll { overflow-x: auto; }
 figure svg { display: block; width: 100%; height: auto; color: var(--ink); }
 .scroll svg { min-width: 760px; }
-figcaption { color: var(--muted); font-size: 15px; margin-top: 10px; max-width: 80ch; }
+figcaption { color: var(--muted); font-size: 15px; margin-top: 12px; max-width: 82ch; }
 svg text { font-family: var(--body); font-size: 13px; fill: var(--ink); }
-svg .t { font-family: var(--display); font-weight: 650; font-size: 15px; }
+svg .t { font-weight: 600; font-size: 15px; fill: var(--head); }
 svg .s { font-size: 12px; fill: var(--muted); }
-svg .k { font-family: var(--mono); font-size: 11px; fill: var(--muted); letter-spacing: .08em; }
+svg .k { font-size: 10.5px; font-weight: 600; fill: var(--olive-2); letter-spacing: .14em; }
 svg .lbl { font-size: 12px; fill: var(--muted); }
-svg .box { fill: var(--panel); stroke: var(--ink); stroke-width: 1.2; }
-svg .hot { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.6; }
-svg .gate { fill: var(--panel); stroke: var(--accent); stroke-width: 2; }
+svg .m { font-family: var(--mono); font-size: 12.5px; }
+svg .box { fill: var(--panel); stroke: #b7bea8; stroke-width: 1.2; }
+svg .hot { fill: var(--accent-soft); stroke: var(--olive-2); stroke-width: 1.3; }
+svg .gate { fill: #f1f3ea; stroke: var(--olive); stroke-width: 2; }
+svg .fillo { fill: var(--olive); }
+svg .fills { fill: var(--sage-2); }
 svg .dash { stroke-dasharray: 6 4; }
-svg .ln { stroke: var(--ink); stroke-width: 1.3; fill: none; }
-svg .ln.acc { stroke: var(--accent); stroke-width: 1.8; }
+svg .ln { stroke: #6f775f; stroke-width: 1.3; fill: none; }
+svg .ln.acc { stroke: var(--olive); stroke-width: 2; }
 svg .ln.dash { stroke-dasharray: 6 4; }
-svg .ah { fill: var(--ink); }
-svg .ah.acc { fill: var(--accent); }
-svg .bar0 { fill: var(--line); }
-svg .bar1 { fill: var(--muted); }
-svg .bar2 { fill: var(--accent); }
+svg .ah { fill: #6f775f; }
+svg .ah.acc { fill: var(--olive); }
+svg .bar0 { fill: var(--sage-2); }
+svg .bar1 { fill: var(--sage); }
+svg .bar2 { fill: var(--olive); }
 svg .grid-l { stroke: var(--line); stroke-width: 1; }
 
-.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
 table { border-collapse: collapse; width: 100%; font-size: 15px; }
-th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-top: 1px solid var(--line); }
-th { font: 500 12px/1.3 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); border-top: 0; white-space: nowrap; }
+th, td { text-align: left; vertical-align: top; padding: 12px 16px; border-top: 1px solid var(--line); }
+th { font: 600 11.5px/1.3 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--olive-2); border-top: 0; white-space: nowrap; background: #fafbf7; }
 td .s { color: var(--muted); font-size: 13.5px; }
 td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 tr.best td { background: var(--accent-soft); }
-.pill { display: inline-block; font: 500 12px/1 var(--mono); padding: 5px 9px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
-.pill.ok { color: var(--ok); }
-.pill.wait { color: var(--wait); }
-.pill.plain { color: var(--muted); }
-.note { border-left: 3px solid var(--wait); padding: 8px 14px; background: var(--panel); border-radius: 0 8px 8px 0; color: var(--ink); max-width: 80ch; }
-.note b { color: var(--wait); }
-.two { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+.note { border-left: 3px solid var(--olive-2); padding: 12px 18px; background: var(--panel); border-radius: 0 6px 6px 0; max-width: 82ch; }
+.note b { color: var(--head); }
+.two { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
 .two > * { min-width: 0; }
-dl.map { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 0; }
-dl.map dt { font: 500 13px/1.6 var(--mono); color: var(--muted); }
+dl.map { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; }
+dl.map dt { font: 600 11.5px/1.9 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--olive-2); }
 dl.map dd { margin: 0; }
-footer { border-top: 1px solid var(--line); }
-footer div { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 18px 28px; color: var(--muted); font-size: 14.5px; display: flex; flex-wrap: wrap; gap: 8px 24px; }
-@media (prefers-reduced-motion: no-preference) { a.card { transition: border-color .15s; } }
-@media (max-width: 560px) { body { font-size: 16px; } .lede { font-size: 17.5px; } dl.map { grid-template-columns: 1fr; gap: 2px; } dl.map dd { margin-bottom: 8px; } }
-
-.hero { display: grid; gap: 14px; }
-.hero h1 { max-width: 20ch; }
-.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 4px 0 0; }
-.btn { display: inline-block; padding: 11px 18px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-weight: 600; text-decoration: none; border: 1px solid var(--accent); }
-.btn.ghost { background: transparent; color: var(--accent); }
-.btn:hover { filter: brightness(1.06); }
-.pains .card { gap: 8px; }
-.pains .fix { color: var(--ink); border-top: 1px solid var(--line); padding-top: 8px; }
+.guide-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 24px; align-items: center; }
+.guide-head .tile { width: 120px; }
+.guide-head .tile svg { width: 40px; height: 40px; }
+.pager { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-top: 1px solid var(--line); padding-top: 18px; }
+footer { border-top: 1px solid var(--line); background: var(--panel); }
+footer div { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 20px 30px; color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 26px; }
+@media (prefers-reduced-motion: no-preference) { a.tile::after, .btn { transition: opacity .15s, background .15s; } }
+@media (max-width: 860px) { .hero-split { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { body { font-size: 16px; } .lede { font-size: 17.5px; } dl.map { grid-template-columns: 1fr; gap: 2px; } dl.map dd { margin-bottom: 8px; } .guide-head { grid-template-columns: 1fr; } .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 </head><body>
 <header class="bar"><div class="bar-in"><a class="mark" href="index.html"><svg width="28" height="28" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#2346d3"/>
-  <rect x="13" y="35" width="9" height="16" rx="2.5" fill="#ffffff"/>
-  <rect x="27.5" y="26" width="9" height="25" rx="2.5" fill="#ffffff"/>
-  <rect x="42" y="17" width="9" height="34" rx="2.5" fill="#ffffff"/>
-  <circle cx="46.5" cy="10.5" r="3.6" fill="#f2b84b"/>
-</svg>vertiq</a><nav class="nav" aria-label="Sections"><a href="index.html">Overview</a><a href="architecture.html">Architecture</a><a href="learning.html" aria-current="page">How it learns</a><a href="lm.html">Vertiq LM</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Sector guides</a></nav></div></header>
+  <rect width="64" height="64" rx="12" fill="#4f5b3c"/>
+  <rect x="13" y="35" width="9" height="16" rx="2" fill="#f4f5ee"/>
+  <rect x="27.5" y="26" width="9" height="25" rx="2" fill="#f4f5ee"/>
+  <rect x="42" y="17" width="9" height="34" rx="2" fill="#f4f5ee"/>
+  <circle cx="46.5" cy="10.5" r="3.6" fill="#c9a54e"/>
+</svg>vertiq</a><nav class="nav" aria-label="Sections"><a href="index.html">Overview</a><a href="architecture.html">Architecture</a><a href="learning.html" aria-current="page">Methodology</a><a href="lm.html">Vertiq LM</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Industries</a></nav></div></header>
 <main>
 
-<section class="read"><div class="kicker">How it learns</div><h1>Every model is a test it could have failed</h1>
-<p class="lede">Three rules run through every task: features use only the past, a share of entities is held out entirely, and a model
-replaces the baseline only when it wins on those held-out entities.</p></section>
-<section><h2>No peeking at the future</h2><figure><div class="scroll"><svg viewBox="0 0 1080 270" role="img" aria-label="At each cutoff, features use only events before it; the label is whether the event happened within the next N days."><defs><marker id="ac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="bc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><line x1="40" y1="150" x2="1040" y2="150" class="ln"/><text x="40" y="186" class="lbl">two years ago</text><text x="1040" y="186" class="lbl" text-anchor="end">today</text><circle cx="90" cy="150" r="6" class="hot"/><circle cx="150" cy="150" r="6" class="hot"/><circle cx="230" cy="150" r="6" class="hot"/><circle cx="300" cy="150" r="6" class="hot"/><circle cx="360" cy="150" r="6" class="hot"/><circle cx="470" cy="150" r="6" class="hot"/><circle cx="520" cy="150" r="6" class="hot"/><circle cx="610" cy="150" r="6" class="hot"/><circle cx="690" cy="150" r="6" class="hot"/><circle cx="760" cy="150" r="6" class="hot"/><circle cx="905" cy="150" r="6" class="hot"/><circle cx="980" cy="150" r="6" class="hot"/><line x1="440" y1="70" x2="440" y2="220" class="ln dash"/><text x="440" y="62" class="k" text-anchor="middle">cutoff 3</text><line x1="620" y1="70" x2="620" y2="220" class="ln dash"/><text x="620" y="62" class="k" text-anchor="middle">cutoff 2</text><line x1="800" y1="70" x2="800" y2="220" class="ln dash"/><text x="800" y="62" class="k" text-anchor="middle">cutoff 1</text><rect x="40" y="96" width="760" height="22" rx="4" class="hot"/><text x="52" y="112" class="s">features at cutoff 1: only the events before it</text><rect x="800" y="232" width="180" height="22" rx="4" class="box"/><text x="810" y="248" class="s">label: did it happen in N days?</text><path d="M800 226 V246" class="ln"/></svg></div><figcaption>Vertiq steps back through its own history. At each cutoff it builds features from what was known then, and labels the example with what happened in the next window. Every example is a test the model could have failed, and nothing from the future leaks in.</figcaption></figure></section>
-<section class="two">
-  <div class="card"><h3>Held out by entity</h3><p>About a fifth of entities, chosen by a hash of their id, never appear in training. A machine or a guest
-  is never in both halves, so the score says how the model does on someone new.</p></div>
-  <div class="card"><h3>Against the obvious rule</h3><p>For events, the baseline is recency: the more recently it happened, the likelier again. For values,
-  it is "same as last time". Vertiq reports both, and ships only when it wins.</p></div>
-  <div class="card"><h3>Against the model you run</h3><p>A retrained model must also be no worse than the current one on the same held-out entities,
-  so a bad week of data can't replace a good model.</p></div>
+<section class="read"><div class="kicker">Methodology</div><h1>Training and evaluation methodology</h1>
+<p class="lede">All tasks follow three rules: features use only information available at prediction time, a fixed share of entities is
+excluded from training, and a candidate model replaces the baseline only when it performs better on those entities.</p></section>
+<section><h2>Point-in-time features</h2><figure><div class="scroll"><svg viewBox="0 0 1080 270" role="img" aria-label="Training examples are built at successive cutoffs; features use only events before each cutoff."><defs><marker id="ac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="bc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><line x1="40" y1="150" x2="1040" y2="150" class="ln"/><text x="40" y="186" class="lbl">earliest record</text><text x="1040" y="186" class="lbl" text-anchor="end">latest record</text><circle cx="90" cy="150" r="6" class="hot"/><circle cx="150" cy="150" r="6" class="hot"/><circle cx="230" cy="150" r="6" class="hot"/><circle cx="300" cy="150" r="6" class="hot"/><circle cx="360" cy="150" r="6" class="hot"/><circle cx="470" cy="150" r="6" class="hot"/><circle cx="520" cy="150" r="6" class="hot"/><circle cx="610" cy="150" r="6" class="hot"/><circle cx="690" cy="150" r="6" class="hot"/><circle cx="760" cy="150" r="6" class="hot"/><circle cx="905" cy="150" r="6" class="hot"/><circle cx="980" cy="150" r="6" class="hot"/><line x1="440" y1="70" x2="440" y2="220" class="ln dash"/><text x="440" y="62" class="k" text-anchor="middle">CUTOFF 3</text><line x1="620" y1="70" x2="620" y2="220" class="ln dash"/><text x="620" y="62" class="k" text-anchor="middle">CUTOFF 2</text><line x1="800" y1="70" x2="800" y2="220" class="ln dash"/><text x="800" y="62" class="k" text-anchor="middle">CUTOFF 1</text><rect x="40" y="96" width="760" height="22" rx="4" class="hot"/><text x="52" y="112" class="s">features at cutoff 1: events recorded before the cutoff only</text><rect x="800" y="232" width="200" height="22" rx="4" class="box"/><text x="810" y="248" class="s">label: event within the window</text></svg></div><figcaption>Training examples are built at successive historical cutoffs. Features use only events recorded before each cutoff, and each label records whether the target event occurred in the following window.</figcaption></figure></section>
+<section class="grid">
+  <div class="card"><h3>Entity-level holdout</h3><p>Approximately 20% of entities, selected by a hash of their identifier, are excluded from
+  training. No entity appears in both training and evaluation data.</p></div>
+  <div class="card"><h3>Rule-based baseline</h3><p>Event tasks are compared with a recency baseline and value tasks with the entity's previous
+  value. Both scores are reported with every training run.</p></div>
+  <div class="card"><h3>Champion–challenger comparison</h3><p>A retrained model must perform at least as well as the production model on the
+  same held-out entities before it replaces it.</p></div>
 </section>
-<section><h2>Cause, not correlation</h2><figure><div class="scroll"><svg viewBox="0 0 1080 230" role="img" aria-label="A control group held out of every campaign lets Vertiq learn who a message actually brings back."><defs><marker id="au" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="bu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><rect x="16" y="70" width="200" height="96" rx="9" class="box"/><text x="30" y="96" class="t">A campaign</text><text x="30" y="118" class="s">sent to a list</text><rect x="300" y="20" width="230" height="88" rx="9" class="box"/><text x="314" y="46" class="t">Messaged</text><text x="314" y="68" class="s">most of the list</text><rect x="300" y="128" width="230" height="88" rx="9" class="hot"/><text x="314" y="154" class="t">Held out on purpose</text><text x="314" y="176" class="s">the control group</text><rect x="620" y="70" width="230" height="96" rx="9" class="box"/><text x="634" y="96" class="t">Came back?</text><text x="634" y="118" class="s">same window for both</text><rect x="930" y="70" width="140" height="96" rx="9" class="gate"/><text x="944" y="96" class="t">Lift</text><text x="944" y="118" class="s">messaged minus</text><text x="944" y="136" class="s">held out</text><path d="M216 118 H258 V64 H298" class="ln" marker-end="url(#au)"/><path d="M258 118 V172 H298" class="ln" marker-end="url(#au)"/><path d="M530 64 H575 V110 H618" class="ln" marker-end="url(#au)"/><path d="M530 172 H575 V126 H618" class="ln" marker-end="url(#au)"/><line x1="850" y1="118" x2="928" y2="118" class="ln acc" marker-end="url(#bu)"/></svg></div><figcaption>Uplift is learned as cause, not correlation: a share of every campaign is held out, and the model learns for whom the gap between messaged and held-out guests is large. In the benchmark the half it ranks highest gains +23.6 points; the other half gains -1.8.</figcaption></figure></section>
-<section class="read"><h2>Insights are tested before they are shown</h2>
-<p>Vertiq checks many patterns at once (the day of a first visit, the size of a first bill, what was ordered first). Each candidate gets
-a p-value, and the family is filtered with Benjamini-Hochberg at a 10% false-discovery rate, so the more places it looks, the stronger a
-pattern must be. Groups smaller than 20 are never compared. In the benchmark it found the planted pattern in
-5/5 seeds and reported 0 false
-item patterns in noise.</p></section>
-<section class="note"><b>Consent.</b> The host decides who may train a model. Train only on people who agreed, never on anyone who opted out; scoring a business's own customers is use, not training.</section>
+<section><h2>Causal effect estimation</h2><figure><div class="scroll"><svg viewBox="0 0 1080 230" role="img" aria-label="A randomised control group is withheld from each intervention to estimate uplift."><defs><marker id="au" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="bu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><rect x="16" y="70" width="200" height="96" rx="6" class="box"/><text x="30" y="96" class="t">Campaign</text><text x="30" y="118" class="s">target list</text><rect x="300" y="20" width="230" height="88" rx="6" class="box"/><text x="314" y="46" class="t">Treatment group</text><text x="314" y="68" class="s">receives the intervention</text><rect x="300" y="128" width="230" height="88" rx="6" class="hot"/><text x="314" y="154" class="t">Control group</text><text x="314" y="176" class="s">randomly held out</text><rect x="620" y="70" width="230" height="96" rx="6" class="box"/><text x="634" y="96" class="t">Outcome</text><text x="634" y="118" class="s">measured over the same window</text><rect x="930" y="70" width="140" height="96" rx="6" class="gate"/><text x="944" y="96" class="t">Uplift</text><text x="944" y="118" class="s">treatment minus</text><text x="944" y="136" class="s">control</text><path d="M216 118 H258 V64 H298" class="ln" marker-end="url(#au)"/><path d="M258 118 V172 H298" class="ln" marker-end="url(#au)"/><path d="M530 64 H575 V110 H618" class="ln" marker-end="url(#au)"/><path d="M530 172 H575 V126 H618" class="ln" marker-end="url(#au)"/><line x1="850" y1="118" x2="928" y2="118" class="ln acc" marker-end="url(#bu)"/></svg></div><figcaption>A randomly selected control group is withheld from each intervention. The uplift model estimates for which entities the outcome difference between treatment and control is largest. In the benchmark, entities ranked in the top half showed a lift of +23.6 percentage points; the bottom half showed -1.8.</figcaption></figure></section>
+<section class="read"><h2>Statistically tested insights</h2>
+<p>Vertiq evaluates many candidate patterns at once, such as the day of a first purchase, first-order value and first-order products. Each
+candidate receives a p-value, and the set is filtered with the Benjamini–Hochberg procedure at a 10% false-discovery rate. Segments smaller
+than 20 entities are excluded. In the benchmark, the planted pattern was detected in 5/5 runs, with
+no false product patterns reported on random data.</p></section>
+<section><h2>Recursive self-improvement</h2><p class="read">Vertiq improves its models through recursive self-improvement (RSI) under evaluation control. In each round a teacher model generates additional training examples, and every example is validated against its own data before it is used. The student model is trained and evaluated on held-out records; it is promoted only if it outperforms the production model, and the promoted model becomes the starting point for the next round. Its incorrect outputs are retained as negative examples for the following round, and new outcome data is added at every cycle. No iteration reaches production without passing the evaluation gate.</p><figure><div class="scroll"><svg viewBox="0 0 1080 360" role="img" aria-label="Recursive self-improvement: a teacher generates examples, validation verifies them, the student trains, the evaluation gate promotes or retains, and incorrect outputs feed the next round."><defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="br" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><rect x="16" y="30" width="230" height="116" rx="6" class="box"/><text x="30" y="52" class="k">TEACHER</text><text x="30" y="74" class="t">Generates examples</text><text x="30" y="96" class="s">open-weight model or a</text><text x="30" y="114" class="s">configured API endpoint</text><rect x="286" y="30" width="230" height="116" rx="6" class="box"/><text x="300" y="52" class="k">VALIDATION</text><text x="300" y="74" class="t">Verifies examples</text><text x="300" y="96" class="s">each example must load and</text><text x="300" y="114" class="s">match a blind re-mapping</text><rect x="556" y="30" width="230" height="116" rx="6" class="box"/><text x="570" y="52" class="k">STUDENT</text><text x="570" y="74" class="t">Trains</text><text x="570" y="96" class="s">Vertiq LM or a</text><text x="570" y="114" class="s">decision model</text><rect x="826" y="30" width="230" height="116" rx="6" class="gate"/><text x="840" y="52" class="k">EVALUATION GATE</text><text x="840" y="74" class="t">Promotes or retains</text><text x="840" y="96" class="s">compared with the baseline</text><text x="840" y="114" class="s">and the production model</text><text x="840" y="132" class="s">on held-out records</text><line x1="246" y1="88" x2="284" y2="88" class="ln" marker-end="url(#ar)"/><line x1="516" y1="88" x2="554" y2="88" class="ln" marker-end="url(#ar)"/><line x1="786" y1="88" x2="824" y2="88" class="ln" marker-end="url(#ar)"/><rect x="826" y="226" width="230" height="116" rx="6" class="box"/><text x="840" y="248" class="k">NEGATIVE EXAMPLES</text><text x="840" y="270" class="t">Feed the next round</text><text x="840" y="292" class="s">incorrect outputs are</text><text x="840" y="310" class="s">penalised in preference</text><text x="840" y="328" class="s">training (ORPO)</text><rect x="286" y="226" width="230" height="116" rx="6" class="box dash"/><text x="300" y="248" class="k">OUTCOME DATA</text><text x="300" y="270" class="t">Added each cycle</text><text x="300" y="292" class="s">transactions, failures,</text><text x="300" y="310" class="s">renewals, claims</text><line x1="941" y1="146" x2="941" y2="224" class="ln acc" marker-end="url(#br)"/><text x="951" y="190" class="lbl">after promotion</text><path d="M826 284 H686 V148" class="ln" marker-end="url(#ar)"/><text x="756" y="276" class="lbl" text-anchor="middle">next round</text><path d="M516 284 H626 V148" class="ln dash" marker-end="url(#ar)"/><text x="571" y="276" class="lbl" text-anchor="middle">each cycle</text></svg></div><figcaption>Each round begins from the model promoted in the previous round. Teacher output is never used without validation, and providers whose terms prohibit training on generated output are excluded.</figcaption></figure></section>
+<section class="note"><b>Data governance.</b> The host application determines which records are eligible for training. Train only on
+records with documented consent and exclude records whose owners have opted out. Scoring existing customers is handled separately from training.</section>
 </main>
-<footer><div><span>Vertiq 0.1.0 · Apache-2.0 · pure Python, no dependencies</span><a href="https://github.com/BiswajitBiswa/vertiq">Source on GitHub</a><span>Benchmarks generated 2026-10-11</span></div></footer>
+<footer><div><span>Vertiq 0.1.0 · Apache License 2.0</span><a href="https://github.com/BiswajitBiswa/vertiq">Source on GitHub</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Industry guides</a></div></footer>
 </body></html>

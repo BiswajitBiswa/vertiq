@@ -1,144 +1,164 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Vertiq architecture</title><meta name="description" content="How Vertiq maps any data to one contract and ships only models that earn their place.">
+<title>Vertiq architecture</title><meta name="description" content="Vertiq architecture: data contract, analysis tasks, plugins and the evaluation gate.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%20role%3D%22img%22%20aria-label%3D%22Vertiq%22%3E%0A%20%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232346d3%22/%3E%0A%20%20%3Crect%20x%3D%2213%22%20y%3D%2235%22%20width%3D%229%22%20height%3D%2216%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Crect%20x%3D%2227.5%22%20y%3D%2226%22%20width%3D%229%22%20height%3D%2225%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Crect%20x%3D%2242%22%20y%3D%2217%22%20width%3D%229%22%20height%3D%2234%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Ccircle%20cx%3D%2246.5%22%20cy%3D%2210.5%22%20r%3D%223.6%22%20fill%3D%22%23f2b84b%22/%3E%0A%3C/svg%3E" type="image/svg+xml">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%20role%3D%22img%22%20aria-label%3D%22Vertiq%22%3E%0A%20%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2212%22%20fill%3D%22%234f5b3c%22/%3E%0A%20%20%3Crect%20x%3D%2213%22%20y%3D%2235%22%20width%3D%229%22%20height%3D%2216%22%20rx%3D%222%22%20fill%3D%22%23f4f5ee%22/%3E%0A%20%20%3Crect%20x%3D%2227.5%22%20y%3D%2226%22%20width%3D%229%22%20height%3D%2225%22%20rx%3D%222%22%20fill%3D%22%23f4f5ee%22/%3E%0A%20%20%3Crect%20x%3D%2242%22%20y%3D%2217%22%20width%3D%229%22%20height%3D%2234%22%20rx%3D%222%22%20fill%3D%22%23f4f5ee%22/%3E%0A%20%20%3Ccircle%20cx%3D%2246.5%22%20cy%3D%2210.5%22%20r%3D%223.6%22%20fill%3D%22%23c9a54e%22/%3E%0A%3C/svg%3E" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
-/* Vertiq docs: one stylesheet for every page.
-   Light theme only. Layout: a top bar with the section nav, a single reading column (max 1080px) that widens for
-   diagrams and tables, quiet cards only where an object stands apart. */
+/* Vertiq documentation. Light theme only.
+   Layout: a quiet top bar with spaced uppercase navigation, one reading column (max 1120px) that widens for
+   diagrams, tables and the industry tiles. Olive and sage tones; serif display headings in olive. */
 :root {
-  --bg: #f4f6f9; --panel: #ffffff; --ink: #121826; --muted: #566074; --line: #d5dbe5; --soft: #e8ecf3;
-  --accent: #2346d3; --accent-ink: #ffffff; --accent-soft: #e3e9ff;
-  --ok: #1d7f55; --wait: #a86b12;
-  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --bg: #f6f6f1; --panel: #ffffff; --ink: #22271d; --muted: #5d6456; --line: #dcdfd2; --soft: #eef0e6;
+  --head: #3c472f; --olive: #56633f; --olive-2: #7a8765; --sage: #a9b394; --sage-2: #cfd5c0;
+  --accent: #56633f; --accent-ink: #ffffff; --accent-soft: #e8ebde; --gold: #b8953c;
+  --display: "Newsreader", Georgia, "Times New Roman", serif;
   --body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
   color-scheme: light;
 }
+
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--body); }
-a { color: var(--accent); text-underline-offset: 3px; }
-a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.65 var(--body); }
+a { color: var(--olive); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--olive); outline-offset: 3px; border-radius: 4px; }
 
-.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
-.bar-in { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 10px; display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: center; }
-.mark { font: 700 21px/1 var(--display); color: var(--ink); text-decoration: none; letter-spacing: -.01em; display: inline-flex; gap: 8px; align-items: center; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: rgba(255, 255, 255, .96); border-bottom: 1px solid var(--line); }
+.bar-in { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 12px; display: flex; flex-wrap: wrap; gap: 8px 30px; align-items: center; }
+.mark { font: 600 22px/1 var(--body); color: var(--head); text-decoration: none; letter-spacing: -.01em; display: inline-flex; gap: 10px; align-items: center; }
 .mark svg { display: block; width: 28px; height: 28px; }
-.nav { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 15px; }
-.nav a { color: var(--muted); text-decoration: none; padding-block: 4px; border-bottom: 2px solid transparent; }
-.nav a:hover { color: var(--ink); }
-.nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.nav { display: flex; flex-wrap: wrap; gap: 4px 22px; }
+.nav a { color: var(--muted); text-decoration: none; font: 600 12px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; padding-block: 6px; border-bottom: 1px solid transparent; }
+.nav a:hover { color: var(--head); }
+.nav a[aria-current="page"] { color: var(--head); border-bottom-color: var(--olive); }
 
-main { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 36px 64px; display: grid; gap: 40px; }
-.read { max-width: 72ch; }
-h1, h2, h3 { font-family: var(--display); text-wrap: balance; letter-spacing: -.012em; margin: 0; }
-h1 { font-size: clamp(32px, 4.4vw, 46px); line-height: 1.08; font-weight: 700; }
-h2 { font-size: 26px; line-height: 1.2; font-weight: 650; }
-h3 { font-size: 19px; line-height: 1.3; font-weight: 650; }
-.kicker { font: 500 12.5px/1.3 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
-.lede { font-size: 19.5px; color: var(--muted); margin: 14px 0 0; max-width: 64ch; }
-section { display: grid; gap: 14px; min-width: 0; }
-section > p, section > ul, section > ol { margin: 0; max-width: 72ch; }
+main { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 44px 72px; display: grid; gap: 64px; }
+.read { max-width: 74ch; }
+h1, h2 { font-family: var(--display); color: var(--head); font-weight: 500; text-wrap: balance; letter-spacing: -.01em; margin: 0; }
+h1 { font-size: clamp(36px, 4.8vw, 54px); line-height: 1.08; }
+h2 { font-size: clamp(26px, 3vw, 34px); line-height: 1.18; }
+h3 { font: 600 18px/1.35 var(--body); color: var(--ink); margin: 0; text-wrap: balance; }
+.kicker { font: 600 12px/1.3 var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--olive-2); margin-bottom: 12px; }
+.kicker a { color: inherit; }
+.lede { font-size: 19px; color: var(--muted); margin: 16px 0 0; max-width: 62ch; }
+section { display: grid; gap: 18px; min-width: 0; }
+section > p, section > ul, section > ol { margin: 0; max-width: 74ch; }
 ul, ol { padding-left: 22px; }
-li + li { margin-top: 4px; }
-code { font: 14.5px var(--mono); background: var(--soft); padding: 1px 5px; border-radius: 4px; }
-pre { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 13.5px/1.6 var(--mono); }
-pre code { background: none; padding: 0; font-size: inherit; }
+li + li { margin-top: 5px; }
+code { font: 14px var(--mono); background: var(--soft); padding: 1px 5px; border-radius: 4px; color: var(--head); }
+pre { margin: 0; background: #fbfbf8; border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; overflow-x: auto; font: 13.5px/1.65 var(--mono); }
+pre code { background: none; padding: 0; font-size: inherit; color: var(--ink); }
 
-.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; display: grid; gap: 6px; align-content: start; }
+.hero-split { display: grid; gap: 40px; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; }
+.hero-split > * { min-width: 0; }
+.hero-visual svg { display: block; width: 100%; height: auto; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 26px 0 0; }
+.btn { display: inline-block; padding: 12px 20px; border-radius: 4px; background: var(--olive); color: var(--accent-ink); font: 600 13px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; text-decoration: none; border: 1px solid var(--olive); }
+.btn.ghost { background: transparent; color: var(--olive); }
+.btn:hover { background: var(--head); border-color: var(--head); color: #fff; }
+
+.section-head { display: grid; gap: 6px; max-width: 74ch; }
+.section-head p { color: var(--muted); margin: 6px 0 0; }
+
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px 22px; min-width: 0; display: grid; gap: 8px; align-content: start; }
 .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
-a.card { text-decoration: none; color: inherit; }
-a.card:hover { border-color: var(--accent); }
-a.card h3 { color: var(--ink); }
+.card .fix { color: var(--ink); border-top: 1px solid var(--line); padding-top: 10px; }
+.card .api { font: 13px var(--mono); color: var(--olive-2); }
+.card ul { margin: 0; padding-left: 18px; font-size: 15.5px; }
 
-.stats { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-.stat { background: var(--panel); padding: 16px 18px; display: grid; gap: 4px; }
-.stat b { font: 700 30px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.stats { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); background: var(--line); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.stat { background: var(--panel); padding: 20px 22px; display: grid; gap: 6px; align-content: start; }
+.stat b { font: 500 34px/1.05 var(--display); color: var(--head); font-variant-numeric: tabular-nums; }
 .stat span { color: var(--muted); font-size: 14.5px; }
+.note-s { color: var(--muted); font-size: 14px; margin: 0; }
 
-figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+.tiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.tile { position: relative; aspect-ratio: 1 / 1; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 20px; text-align: center; text-decoration: none; border-radius: 2px; }
+.tile::after { content: ""; position: absolute; inset: 10px; border: 1px solid currentColor; opacity: .45; pointer-events: none; }
+.tile svg { width: 52px; height: 52px; }
+.tile span { font: 600 12.5px/1.35 var(--body); letter-spacing: .14em; text-transform: uppercase; max-width: 15ch; }
+.t1 { background: var(--olive); color: #f3f5ec; }
+.t2 { background: var(--sage); color: #22271d; }
+.t3 { background: var(--olive-2); color: #f6f7f1; }
+.t4 { background: var(--sage-2); color: #2c3424; }
+a.tile:hover::after { opacity: .9; }
+
+figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px; min-width: 0; }
 .scroll { overflow-x: auto; }
 figure svg { display: block; width: 100%; height: auto; color: var(--ink); }
 .scroll svg { min-width: 760px; }
-figcaption { color: var(--muted); font-size: 15px; margin-top: 10px; max-width: 80ch; }
+figcaption { color: var(--muted); font-size: 15px; margin-top: 12px; max-width: 82ch; }
 svg text { font-family: var(--body); font-size: 13px; fill: var(--ink); }
-svg .t { font-family: var(--display); font-weight: 650; font-size: 15px; }
+svg .t { font-weight: 600; font-size: 15px; fill: var(--head); }
 svg .s { font-size: 12px; fill: var(--muted); }
-svg .k { font-family: var(--mono); font-size: 11px; fill: var(--muted); letter-spacing: .08em; }
+svg .k { font-size: 10.5px; font-weight: 600; fill: var(--olive-2); letter-spacing: .14em; }
 svg .lbl { font-size: 12px; fill: var(--muted); }
-svg .box { fill: var(--panel); stroke: var(--ink); stroke-width: 1.2; }
-svg .hot { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.6; }
-svg .gate { fill: var(--panel); stroke: var(--accent); stroke-width: 2; }
+svg .m { font-family: var(--mono); font-size: 12.5px; }
+svg .box { fill: var(--panel); stroke: #b7bea8; stroke-width: 1.2; }
+svg .hot { fill: var(--accent-soft); stroke: var(--olive-2); stroke-width: 1.3; }
+svg .gate { fill: #f1f3ea; stroke: var(--olive); stroke-width: 2; }
+svg .fillo { fill: var(--olive); }
+svg .fills { fill: var(--sage-2); }
 svg .dash { stroke-dasharray: 6 4; }
-svg .ln { stroke: var(--ink); stroke-width: 1.3; fill: none; }
-svg .ln.acc { stroke: var(--accent); stroke-width: 1.8; }
+svg .ln { stroke: #6f775f; stroke-width: 1.3; fill: none; }
+svg .ln.acc { stroke: var(--olive); stroke-width: 2; }
 svg .ln.dash { stroke-dasharray: 6 4; }
-svg .ah { fill: var(--ink); }
-svg .ah.acc { fill: var(--accent); }
-svg .bar0 { fill: var(--line); }
-svg .bar1 { fill: var(--muted); }
-svg .bar2 { fill: var(--accent); }
+svg .ah { fill: #6f775f; }
+svg .ah.acc { fill: var(--olive); }
+svg .bar0 { fill: var(--sage-2); }
+svg .bar1 { fill: var(--sage); }
+svg .bar2 { fill: var(--olive); }
 svg .grid-l { stroke: var(--line); stroke-width: 1; }
 
-.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
 table { border-collapse: collapse; width: 100%; font-size: 15px; }
-th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-top: 1px solid var(--line); }
-th { font: 500 12px/1.3 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); border-top: 0; white-space: nowrap; }
+th, td { text-align: left; vertical-align: top; padding: 12px 16px; border-top: 1px solid var(--line); }
+th { font: 600 11.5px/1.3 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--olive-2); border-top: 0; white-space: nowrap; background: #fafbf7; }
 td .s { color: var(--muted); font-size: 13.5px; }
 td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 tr.best td { background: var(--accent-soft); }
-.pill { display: inline-block; font: 500 12px/1 var(--mono); padding: 5px 9px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
-.pill.ok { color: var(--ok); }
-.pill.wait { color: var(--wait); }
-.pill.plain { color: var(--muted); }
-.note { border-left: 3px solid var(--wait); padding: 8px 14px; background: var(--panel); border-radius: 0 8px 8px 0; color: var(--ink); max-width: 80ch; }
-.note b { color: var(--wait); }
-.two { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+.note { border-left: 3px solid var(--olive-2); padding: 12px 18px; background: var(--panel); border-radius: 0 6px 6px 0; max-width: 82ch; }
+.note b { color: var(--head); }
+.two { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
 .two > * { min-width: 0; }
-dl.map { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 0; }
-dl.map dt { font: 500 13px/1.6 var(--mono); color: var(--muted); }
+dl.map { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; }
+dl.map dt { font: 600 11.5px/1.9 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--olive-2); }
 dl.map dd { margin: 0; }
-footer { border-top: 1px solid var(--line); }
-footer div { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 18px 28px; color: var(--muted); font-size: 14.5px; display: flex; flex-wrap: wrap; gap: 8px 24px; }
-@media (prefers-reduced-motion: no-preference) { a.card { transition: border-color .15s; } }
-@media (max-width: 560px) { body { font-size: 16px; } .lede { font-size: 17.5px; } dl.map { grid-template-columns: 1fr; gap: 2px; } dl.map dd { margin-bottom: 8px; } }
-
-.hero { display: grid; gap: 14px; }
-.hero h1 { max-width: 20ch; }
-.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 4px 0 0; }
-.btn { display: inline-block; padding: 11px 18px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-weight: 600; text-decoration: none; border: 1px solid var(--accent); }
-.btn.ghost { background: transparent; color: var(--accent); }
-.btn:hover { filter: brightness(1.06); }
-.pains .card { gap: 8px; }
-.pains .fix { color: var(--ink); border-top: 1px solid var(--line); padding-top: 8px; }
+.guide-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 24px; align-items: center; }
+.guide-head .tile { width: 120px; }
+.guide-head .tile svg { width: 40px; height: 40px; }
+.pager { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-top: 1px solid var(--line); padding-top: 18px; }
+footer { border-top: 1px solid var(--line); background: var(--panel); }
+footer div { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 20px 30px; color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 26px; }
+@media (prefers-reduced-motion: no-preference) { a.tile::after, .btn { transition: opacity .15s, background .15s; } }
+@media (max-width: 860px) { .hero-split { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { body { font-size: 16px; } .lede { font-size: 17.5px; } dl.map { grid-template-columns: 1fr; gap: 2px; } dl.map dd { margin-bottom: 8px; } .guide-head { grid-template-columns: 1fr; } .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 </head><body>
 <header class="bar"><div class="bar-in"><a class="mark" href="index.html"><svg width="28" height="28" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#2346d3"/>
-  <rect x="13" y="35" width="9" height="16" rx="2.5" fill="#ffffff"/>
-  <rect x="27.5" y="26" width="9" height="25" rx="2.5" fill="#ffffff"/>
-  <rect x="42" y="17" width="9" height="34" rx="2.5" fill="#ffffff"/>
-  <circle cx="46.5" cy="10.5" r="3.6" fill="#f2b84b"/>
-</svg>vertiq</a><nav class="nav" aria-label="Sections"><a href="index.html">Overview</a><a href="architecture.html" aria-current="page">Architecture</a><a href="learning.html">How it learns</a><a href="lm.html">Vertiq LM</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Sector guides</a></nav></div></header>
+  <rect width="64" height="64" rx="12" fill="#4f5b3c"/>
+  <rect x="13" y="35" width="9" height="16" rx="2" fill="#f4f5ee"/>
+  <rect x="27.5" y="26" width="9" height="25" rx="2" fill="#f4f5ee"/>
+  <rect x="42" y="17" width="9" height="34" rx="2" fill="#f4f5ee"/>
+  <circle cx="46.5" cy="10.5" r="3.6" fill="#c9a54e"/>
+</svg>vertiq</a><nav class="nav" aria-label="Sections"><a href="index.html">Overview</a><a href="architecture.html" aria-current="page">Architecture</a><a href="learning.html">Methodology</a><a href="lm.html">Vertiq LM</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Industries</a></nav></div></header>
 <main>
 
-<section class="read"><div class="kicker">Architecture</div><h1>One contract, general tasks, one gate</h1>
-<p class="lede">Vertiq never reads a database or calls a network. A host maps its records once, calls functions, and stores the
-models (plain dicts) wherever it likes. That boundary is a test: <code>tests/test_boundary.py</code> fails if the package imports a web
-framework, an ORM or an HTTP client.</p></section>
-<section><figure><div class="scroll"><svg viewBox="0 0 1090 440" role="img" aria-label="Your data is mapped to one contract, general tasks build candidate models, and the evaluation gate ships a model only if it beats the baseline on held-out entities."><defs><marker id="as" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="bs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><rect x="182" y="50" width="716" height="372" rx="14" fill="none" class="ln dash"/><text x="196" y="74" class="k">INSIDE VERTIQ: NO DATABASE, NO NETWORK, NO WEB FRAMEWORK</text><rect x="16" y="96" width="158" height="176" rx="9" class="box"/><text x="30" y="122" class="t">Your data</text><text x="30" y="144" class="">any export:</text><text x="30" y="162" class="">CSV, POS, ERP,</text><text x="30" y="180" class="">EHR, CRM, sheets</text><rect x="196" y="96" width="158" height="176" rx="9" class="box"/><text x="210" y="122" class="t">Mapping</text><text x="210" y="144" class="">Vertiq LM proposes</text><text x="210" y="162" class="">the rows settle names,</text><text x="210" y="180" class="">types and dates</text><rect x="376" y="96" width="158" height="176" rx="9" class="box"/><text x="390" y="122" class="t">Contract</text><text x="390" y="144" class="">Entity and group</text><text x="390" y="162" class="">Event: when, type,</text><text x="390" y="180" class="">value, attributes</text><text x="390" y="198" class="">Action: held out?</text><rect x="556" y="96" width="158" height="176" rx="9" class="box"/><text x="570" y="122" class="t">Tasks</text><text x="570" y="144" class="">predict_event</text><text x="570" y="162" class="">predict_value</text><text x="570" y="180" class="">uplift · affinity</text><text x="570" y="198" class="">insights · rules</text><rect x="736" y="96" width="158" height="176" rx="9" class="gate"/><text x="750" y="122" class="t">Evaluation gate</text><text x="750" y="144" class="">held-out entities</text><text x="750" y="162" class="">must beat the</text><text x="750" y="180" class="">baseline and the</text><text x="750" y="198" class="">current model</text><rect x="916" y="96" width="158" height="176" rx="9" class="box"/><text x="930" y="122" class="t">Results</text><text x="930" y="144" class="">scores with reasons</text><text x="930" y="162" class="">ranked actions</text><text x="930" y="180" class="">tested insights</text><text x="930" y="198" class="">rule flags</text><line x1="174" y1="184.0" x2="194" y2="184.0" class="ln" marker-end="url(#as)"/><line x1="354" y1="184.0" x2="374" y2="184.0" class="ln" marker-end="url(#as)"/><line x1="534" y1="184.0" x2="554" y2="184.0" class="ln" marker-end="url(#as)"/><line x1="714" y1="184.0" x2="734" y2="184.0" class="ln" marker-end="url(#as)"/><line x1="894" y1="184.0" x2="914" y2="184.0" class="ln acc" marker-end="url(#bs)"/><text x="995.0" y="86" class="lbl" text-anchor="middle">ships only if better</text><rect x="556" y="320" width="158" height="86" rx="9" class="box dash"/><text x="570" y="346" class="t">Your knowledge</text><text x="570" y="368" class="">@feature · @rule</text><text x="570" y="386" class="">your own learner</text><line x1="635" y1="320" x2="635" y2="274" class="ln" marker-end="url(#as)"/><text x="645" y="300" class="lbl">adds</text><rect x="736" y="320" width="158" height="86" rx="9" class="box dash"/><text x="750" y="346" class="t">Baseline kept</text><text x="750" y="368" class="s">when the model</text><text x="750" y="386" class="s">didn&#x27;t earn its place</text><line x1="815" y1="272" x2="815" y2="318" class="ln dash" marker-end="url(#as)"/><text x="825" y="300" class="lbl">otherwise</text></svg></div><figcaption>A host maps its records to one contract. General tasks learn from them, your plugins add what the data can't say, and the evaluation gate decides: a model reaches you only if it beats the obvious rule, and the model you already have, on entities it never saw.</figcaption></figure></section>
-<section><h2>Modules</h2><div class="tbl"><table><thead><tr><th>Module</th><th>What it does</th></tr></thead><tbody><tr><td><code>mapping</code></td><td>Any table to the contract; repair() lets the rows settle names, value types and dates</td></tr><tr><td><code>contract</code></td><td>Entity, Event, Action, Dataset: the one shape every task reads</td></tr><tr><td><code>tasks</code></td><td>predict_event and predict_value for any event type, with reasons for each score</td></tr><tr><td><code>harness</code></td><td>The evaluation gate: held-out entities, baseline and previous-model comparison</td></tr><tr><td><code>plugins</code></td><td>@feature, @rule and register_learner: domain knowledge without forking</td></tr><tr><td><code>rules</code></td><td>repeat, overdue, exceeds, too_short: audit checks set with data, not code</td></tr><tr><td><code>churn · uplift · value</code></td><td>Customer return, who a message brings back, bill size and campaign revenue</td></tr><tr><td><code>affinity · offers</code></td><td>Bought together, next item, refill rhythms, spend-more offers</td></tr><tr><td><code>insights</code></td><td>Patterns tested with false-discovery control before they are shown</td></tr><tr><td><code>inventory</code></td><td>Reorder, slow movers, new arrivals, margins</td></tr><tr><td><code>learn</code></td><td>Logistic and ridge models, AUC, Brier, calibration, Benjamini-Hochberg</td></tr><tr><td><code>verticals</code></td><td>Profiles: windows, nouns and currency per vertical</td></tr><tr><td><code>dataset · research · trends</code></td><td>Training rows for a language model, cited tactics, trend matching</td></tr></tbody></table></div></section>
-<section class="two">
-  <div class="card"><h3>Extend without forking</h3><p>Register features and rules under a pack name and pass <code>pack=</code> to a task. A feature
-  sees only events before the cutoff, so it can't leak the future. Any class with fit, predict, to_dict and from_dict can be a learner.</p></div>
-  <div class="card"><h3>Run anywhere</h3><p>No dependencies at all, Python 3.10+. Training on a few hundred thousand rows takes seconds on a laptop; scoring at a
-  till is a few dictionary lookups.</p></div>
-  <div class="card"><h3>Embed it in any product</h3><p>A host keeps only glue on its side: reading its database into the contract and serving results. Nothing in this package knows which product embeds it.</p></div>
+<section class="read"><div class="kicker">Architecture</div><h1>Architecture</h1>
+<p class="lede">Vertiq is a library, not a service. The host application loads its records into a common data contract, calls Vertiq
+functions and stores the resulting models, which are plain dictionaries. The package does not import web frameworks, ORMs or HTTP
+clients; <code>tests/test_boundary.py</code> enforces this.</p></section>
+<section><figure><div class="scroll"><svg viewBox="0 0 1090 440" role="img" aria-label="Source data is mapped to a common contract; analysis tasks train candidate models; the evaluation gate promotes a candidate only if it outperforms the baseline and the production model."><defs><marker id="as" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="bs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><rect x="182" y="50" width="716" height="372" rx="10" fill="none" class="ln dash"/><text x="196" y="74" class="k">VERTIQ LIBRARY BOUNDARY · NO DATABASE, NETWORK OR WEB FRAMEWORK ACCESS</text><rect x="16" y="96" width="158" height="176" rx="6" class="box"/><text x="30" y="122" class="t">Source data</text><text x="30" y="144" class="s">CSV, POS, ERP,</text><text x="30" y="162" class="s">EHR and CRM</text><text x="30" y="180" class="s">exports</text><rect x="196" y="96" width="158" height="176" rx="6" class="box"/><text x="210" y="122" class="t">Mapping</text><text x="210" y="144" class="s">proposed by</text><text x="210" y="162" class="s">Vertiq LM, validated</text><text x="210" y="180" class="s">against the rows</text><rect x="376" y="96" width="158" height="176" rx="6" class="box"/><text x="390" y="122" class="t">Data contract</text><text x="390" y="144" class="s">entities and groups</text><text x="390" y="162" class="s">events: time, type,</text><text x="390" y="180" class="s">value, attributes</text><text x="390" y="198" class="s">actions and controls</text><rect x="556" y="96" width="158" height="176" rx="6" class="box"/><text x="570" y="122" class="t">Analysis tasks</text><text x="570" y="144" class="s">event prediction</text><text x="570" y="162" class="s">value prediction</text><text x="570" y="180" class="s">uplift, affinity</text><text x="570" y="198" class="s">insights, rules</text><rect x="736" y="96" width="158" height="176" rx="6" class="gate"/><text x="750" y="122" class="t">Evaluation gate</text><text x="750" y="144" class="s">held-out entities;</text><text x="750" y="162" class="s">must outperform</text><text x="750" y="180" class="s">baseline and</text><text x="750" y="198" class="s">production model</text><rect x="916" y="96" width="158" height="176" rx="6" class="box"/><text x="930" y="122" class="t">Outputs</text><text x="930" y="144" class="s">scores with factors</text><text x="930" y="162" class="s">ranked interventions</text><text x="930" y="180" class="s">tested insights</text><text x="930" y="198" class="s">rule flags</text><line x1="174" y1="184.0" x2="194" y2="184.0" class="ln" marker-end="url(#as)"/><line x1="354" y1="184.0" x2="374" y2="184.0" class="ln" marker-end="url(#as)"/><line x1="534" y1="184.0" x2="554" y2="184.0" class="ln" marker-end="url(#as)"/><line x1="714" y1="184.0" x2="734" y2="184.0" class="ln" marker-end="url(#as)"/><line x1="894" y1="184.0" x2="914" y2="184.0" class="ln acc" marker-end="url(#bs)"/><text x="995.0" y="86" class="lbl" text-anchor="middle">promoted when better</text><rect x="556" y="320" width="158" height="86" rx="6" class="box dash"/><text x="570" y="346" class="t">Domain plugins</text><text x="570" y="368" class="s">features, rules,</text><text x="570" y="386" class="s">custom learners</text><line x1="635" y1="320" x2="635" y2="274" class="ln" marker-end="url(#as)"/><text x="645" y="300" class="lbl">extends</text><rect x="736" y="320" width="158" height="86" rx="6" class="box dash"/><text x="750" y="346" class="t">Model retained</text><text x="750" y="368" class="s">production model</text><text x="750" y="386" class="s">stays in service</text><line x1="815" y1="272" x2="815" y2="318" class="ln dash" marker-end="url(#as)"/><text x="825" y="300" class="lbl">otherwise</text></svg></div><figcaption>Records are mapped once to a common data contract. Analysis tasks train candidate models, plugins add domain features, and the evaluation gate promotes a candidate only if it outperforms both the rule-based baseline and the production model on held-out entities.</figcaption></figure></section>
+<section><h2>Modules</h2><div class="tbl"><table><thead><tr><th>Module</th><th>Responsibility</th></tr></thead><tbody><tr><td><code>mapping</code></td><td>Maps a source table to the data contract; repair() validates column names, value types and the date format</td></tr><tr><td><code>contract</code></td><td>Entity, Event, Action and Dataset: the common structure that every task reads</td></tr><tr><td><code>tasks</code></td><td>predict_event and predict_value for any event type, with contributing factors for each score</td></tr><tr><td><code>harness</code></td><td>Evaluation gate: entity-level holdout, baseline comparison and production-model comparison</td></tr><tr><td><code>plugins</code></td><td>Registration of domain features, rules and custom learners</td></tr><tr><td><code>rules</code></td><td>Declarative checks: repeat, overdue, exceeds and too_short</td></tr><tr><td><code>churn · uplift · value</code></td><td>Customer retention, intervention uplift, transaction value and campaign revenue</td></tr><tr><td><code>affinity · offers</code></td><td>Product affinity, next likely product, replenishment intervals and threshold offers</td></tr><tr><td><code>insights</code></td><td>Segment patterns filtered with false-discovery-rate control</td></tr><tr><td><code>inventory</code></td><td>Reorder points, slow-moving stock, new items and margins</td></tr><tr><td><code>learn</code></td><td>Regularised logistic and linear models, AUC, Brier score, calibration and Benjamini–Hochberg</td></tr><tr><td><code>verticals</code></td><td>Industry profiles: time windows, terminology and currency</td></tr><tr><td><code>dataset · research · trends</code></td><td>Training data export for language models, cited external tactics and trend matching</td></tr></tbody></table></div></section>
+<section class="grid">
+  <div class="card"><h3>Extensibility</h3><p>Features and rules are registered under a pack name and selected with <code>pack=</code>. Custom learners
+  require <code>fit</code>, <code>predict</code>, <code>to_dict</code> and <code>from_dict</code>; per-group offsets and contributing factors are optional.</p></div>
+  <div class="card"><h3>Deployment footprint</h3><p>Python 3.10 or later with no third-party dependencies. The complete benchmark suite runs in
+  28 seconds on a laptop.</p></div>
+  <div class="card"><h3>Integration</h3><p>The host application owns data access, storage and serving. The library has no knowledge of the product that embeds it.</p></div>
 </section>
 </main>
-<footer><div><span>Vertiq 0.1.0 · Apache-2.0 · pure Python, no dependencies</span><a href="https://github.com/BiswajitBiswa/vertiq">Source on GitHub</a><span>Benchmarks generated 2026-10-11</span></div></footer>
+<footer><div><span>Vertiq 0.1.0 · Apache License 2.0</span><a href="https://github.com/BiswajitBiswa/vertiq">Source on GitHub</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Industry guides</a></div></footer>
 </body></html>
