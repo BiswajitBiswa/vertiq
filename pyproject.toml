@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vertiq"
+version = "0.1.0"
+description = "Decision models for any business, trained on its own outcomes: event and value prediction, uplift from control groups, choices, inventory and tested insights, with an evaluation gate that ships only models that beat the baseline."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+dependencies = []          # pure Python on purpose: runs anywhere, embeds in any product
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+lm = ["mlx-lm==0.32.0", "mlx-lm-lora==5.8.6", "huggingface_hub"]     # Vertiq LM, Apple Silicon only
+
+[project.urls]
+Source = "https://github.com/BiswajitBiswa/vertiq"
+
+[tool.setuptools.packages.find]
+include = ["vertiq*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
