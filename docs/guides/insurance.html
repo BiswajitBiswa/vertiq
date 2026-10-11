@@ -1,175 +1,193 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Vertiq for insurance</title><meta name="description" content="Predict renewals and lapses, flag repeat or duplicate claims for review.">
+<title>Vertiq for insurance</title><meta name="description" content="Predict claims and policy lapses, estimate claim severity, and flag repeat claims for review.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%20role%3D%22img%22%20aria-label%3D%22Vertiq%22%3E%0A%20%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232346d3%22/%3E%0A%20%20%3Crect%20x%3D%2213%22%20y%3D%2235%22%20width%3D%229%22%20height%3D%2216%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Crect%20x%3D%2227.5%22%20y%3D%2226%22%20width%3D%229%22%20height%3D%2225%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Crect%20x%3D%2242%22%20y%3D%2217%22%20width%3D%229%22%20height%3D%2234%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Ccircle%20cx%3D%2246.5%22%20cy%3D%2210.5%22%20r%3D%223.6%22%20fill%3D%22%23f2b84b%22/%3E%0A%3C/svg%3E" type="image/svg+xml">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%20role%3D%22img%22%20aria-label%3D%22Vertiq%22%3E%0A%20%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2212%22%20fill%3D%22%234f5b3c%22/%3E%0A%20%20%3Crect%20x%3D%2213%22%20y%3D%2235%22%20width%3D%229%22%20height%3D%2216%22%20rx%3D%222%22%20fill%3D%22%23f4f5ee%22/%3E%0A%20%20%3Crect%20x%3D%2227.5%22%20y%3D%2226%22%20width%3D%229%22%20height%3D%2225%22%20rx%3D%222%22%20fill%3D%22%23f4f5ee%22/%3E%0A%20%20%3Crect%20x%3D%2242%22%20y%3D%2217%22%20width%3D%229%22%20height%3D%2234%22%20rx%3D%222%22%20fill%3D%22%23f4f5ee%22/%3E%0A%20%20%3Ccircle%20cx%3D%2246.5%22%20cy%3D%2210.5%22%20r%3D%223.6%22%20fill%3D%22%23c9a54e%22/%3E%0A%3C/svg%3E" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
-/* Vertiq docs: one stylesheet for every page.
-   Light theme only. Layout: a top bar with the section nav, a single reading column (max 1080px) that widens for
-   diagrams and tables, quiet cards only where an object stands apart. */
+/* Vertiq documentation. Light theme only.
+   Layout: a quiet top bar with spaced uppercase navigation, one reading column (max 1120px) that widens for
+   diagrams, tables and the industry tiles. Olive and sage tones; serif display headings in olive. */
 :root {
-  --bg: #f4f6f9; --panel: #ffffff; --ink: #121826; --muted: #566074; --line: #d5dbe5; --soft: #e8ecf3;
-  --accent: #2346d3; --accent-ink: #ffffff; --accent-soft: #e3e9ff;
-  --ok: #1d7f55; --wait: #a86b12;
-  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --bg: #f6f6f1; --panel: #ffffff; --ink: #22271d; --muted: #5d6456; --line: #dcdfd2; --soft: #eef0e6;
+  --head: #3c472f; --olive: #56633f; --olive-2: #7a8765; --sage: #a9b394; --sage-2: #cfd5c0;
+  --accent: #56633f; --accent-ink: #ffffff; --accent-soft: #e8ebde; --gold: #b8953c;
+  --display: "Newsreader", Georgia, "Times New Roman", serif;
   --body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
   color-scheme: light;
 }
+
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--body); }
-a { color: var(--accent); text-underline-offset: 3px; }
-a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.65 var(--body); }
+a { color: var(--olive); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--olive); outline-offset: 3px; border-radius: 4px; }
 
-.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
-.bar-in { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 10px; display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: center; }
-.mark { font: 700 21px/1 var(--display); color: var(--ink); text-decoration: none; letter-spacing: -.01em; display: inline-flex; gap: 8px; align-items: center; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: rgba(255, 255, 255, .96); border-bottom: 1px solid var(--line); }
+.bar-in { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 12px; display: flex; flex-wrap: wrap; gap: 8px 30px; align-items: center; }
+.mark { font: 600 22px/1 var(--body); color: var(--head); text-decoration: none; letter-spacing: -.01em; display: inline-flex; gap: 10px; align-items: center; }
 .mark svg { display: block; width: 28px; height: 28px; }
-.nav { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 15px; }
-.nav a { color: var(--muted); text-decoration: none; padding-block: 4px; border-bottom: 2px solid transparent; }
-.nav a:hover { color: var(--ink); }
-.nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.nav { display: flex; flex-wrap: wrap; gap: 4px 22px; }
+.nav a { color: var(--muted); text-decoration: none; font: 600 12px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; padding-block: 6px; border-bottom: 1px solid transparent; }
+.nav a:hover { color: var(--head); }
+.nav a[aria-current="page"] { color: var(--head); border-bottom-color: var(--olive); }
 
-main { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 36px 64px; display: grid; gap: 40px; }
-.read { max-width: 72ch; }
-h1, h2, h3 { font-family: var(--display); text-wrap: balance; letter-spacing: -.012em; margin: 0; }
-h1 { font-size: clamp(32px, 4.4vw, 46px); line-height: 1.08; font-weight: 700; }
-h2 { font-size: 26px; line-height: 1.2; font-weight: 650; }
-h3 { font-size: 19px; line-height: 1.3; font-weight: 650; }
-.kicker { font: 500 12.5px/1.3 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
-.lede { font-size: 19.5px; color: var(--muted); margin: 14px 0 0; max-width: 64ch; }
-section { display: grid; gap: 14px; min-width: 0; }
-section > p, section > ul, section > ol { margin: 0; max-width: 72ch; }
+main { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 44px 72px; display: grid; gap: 64px; }
+.read { max-width: 74ch; }
+h1, h2 { font-family: var(--display); color: var(--head); font-weight: 500; text-wrap: balance; letter-spacing: -.01em; margin: 0; }
+h1 { font-size: clamp(36px, 4.8vw, 54px); line-height: 1.08; }
+h2 { font-size: clamp(26px, 3vw, 34px); line-height: 1.18; }
+h3 { font: 600 18px/1.35 var(--body); color: var(--ink); margin: 0; text-wrap: balance; }
+.kicker { font: 600 12px/1.3 var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--olive-2); margin-bottom: 12px; }
+.kicker a { color: inherit; }
+.lede { font-size: 19px; color: var(--muted); margin: 16px 0 0; max-width: 62ch; }
+section { display: grid; gap: 18px; min-width: 0; }
+section > p, section > ul, section > ol { margin: 0; max-width: 74ch; }
 ul, ol { padding-left: 22px; }
-li + li { margin-top: 4px; }
-code { font: 14.5px var(--mono); background: var(--soft); padding: 1px 5px; border-radius: 4px; }
-pre { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 13.5px/1.6 var(--mono); }
-pre code { background: none; padding: 0; font-size: inherit; }
+li + li { margin-top: 5px; }
+code { font: 14px var(--mono); background: var(--soft); padding: 1px 5px; border-radius: 4px; color: var(--head); }
+pre { margin: 0; background: #fbfbf8; border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; overflow-x: auto; font: 13.5px/1.65 var(--mono); }
+pre code { background: none; padding: 0; font-size: inherit; color: var(--ink); }
 
-.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; display: grid; gap: 6px; align-content: start; }
+.hero-split { display: grid; gap: 40px; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; }
+.hero-split > * { min-width: 0; }
+.hero-visual svg { display: block; width: 100%; height: auto; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 26px 0 0; }
+.btn { display: inline-block; padding: 12px 20px; border-radius: 4px; background: var(--olive); color: var(--accent-ink); font: 600 13px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; text-decoration: none; border: 1px solid var(--olive); }
+.btn.ghost { background: transparent; color: var(--olive); }
+.btn:hover { background: var(--head); border-color: var(--head); color: #fff; }
+
+.section-head { display: grid; gap: 6px; max-width: 74ch; }
+.section-head p { color: var(--muted); margin: 6px 0 0; }
+
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px 22px; min-width: 0; display: grid; gap: 8px; align-content: start; }
 .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
-a.card { text-decoration: none; color: inherit; }
-a.card:hover { border-color: var(--accent); }
-a.card h3 { color: var(--ink); }
+.card .fix { color: var(--ink); border-top: 1px solid var(--line); padding-top: 10px; }
+.card .api { font: 13px var(--mono); color: var(--olive-2); }
+.card ul { margin: 0; padding-left: 18px; font-size: 15.5px; }
 
-.stats { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-.stat { background: var(--panel); padding: 16px 18px; display: grid; gap: 4px; }
-.stat b { font: 700 30px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.stats { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); background: var(--line); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.stat { background: var(--panel); padding: 20px 22px; display: grid; gap: 6px; align-content: start; }
+.stat b { font: 500 34px/1.05 var(--display); color: var(--head); font-variant-numeric: tabular-nums; }
 .stat span { color: var(--muted); font-size: 14.5px; }
+.note-s { color: var(--muted); font-size: 14px; margin: 0; }
 
-figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+.tiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.tile { position: relative; aspect-ratio: 1 / 1; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 20px; text-align: center; text-decoration: none; border-radius: 2px; }
+.tile::after { content: ""; position: absolute; inset: 10px; border: 1px solid currentColor; opacity: .45; pointer-events: none; }
+.tile svg { width: 52px; height: 52px; }
+.tile span { font: 600 12.5px/1.35 var(--body); letter-spacing: .14em; text-transform: uppercase; max-width: 15ch; }
+.t1 { background: var(--olive); color: #f3f5ec; }
+.t2 { background: var(--sage); color: #22271d; }
+.t3 { background: var(--olive-2); color: #f6f7f1; }
+.t4 { background: var(--sage-2); color: #2c3424; }
+a.tile:hover::after { opacity: .9; }
+
+figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px; min-width: 0; }
 .scroll { overflow-x: auto; }
 figure svg { display: block; width: 100%; height: auto; color: var(--ink); }
 .scroll svg { min-width: 760px; }
-figcaption { color: var(--muted); font-size: 15px; margin-top: 10px; max-width: 80ch; }
+figcaption { color: var(--muted); font-size: 15px; margin-top: 12px; max-width: 82ch; }
 svg text { font-family: var(--body); font-size: 13px; fill: var(--ink); }
-svg .t { font-family: var(--display); font-weight: 650; font-size: 15px; }
+svg .t { font-weight: 600; font-size: 15px; fill: var(--head); }
 svg .s { font-size: 12px; fill: var(--muted); }
-svg .k { font-family: var(--mono); font-size: 11px; fill: var(--muted); letter-spacing: .08em; }
+svg .k { font-size: 10.5px; font-weight: 600; fill: var(--olive-2); letter-spacing: .14em; }
 svg .lbl { font-size: 12px; fill: var(--muted); }
-svg .box { fill: var(--panel); stroke: var(--ink); stroke-width: 1.2; }
-svg .hot { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.6; }
-svg .gate { fill: var(--panel); stroke: var(--accent); stroke-width: 2; }
+svg .m { font-family: var(--mono); font-size: 12.5px; }
+svg .box { fill: var(--panel); stroke: #b7bea8; stroke-width: 1.2; }
+svg .hot { fill: var(--accent-soft); stroke: var(--olive-2); stroke-width: 1.3; }
+svg .gate { fill: #f1f3ea; stroke: var(--olive); stroke-width: 2; }
+svg .fillo { fill: var(--olive); }
+svg .fills { fill: var(--sage-2); }
 svg .dash { stroke-dasharray: 6 4; }
-svg .ln { stroke: var(--ink); stroke-width: 1.3; fill: none; }
-svg .ln.acc { stroke: var(--accent); stroke-width: 1.8; }
+svg .ln { stroke: #6f775f; stroke-width: 1.3; fill: none; }
+svg .ln.acc { stroke: var(--olive); stroke-width: 2; }
 svg .ln.dash { stroke-dasharray: 6 4; }
-svg .ah { fill: var(--ink); }
-svg .ah.acc { fill: var(--accent); }
-svg .bar0 { fill: var(--line); }
-svg .bar1 { fill: var(--muted); }
-svg .bar2 { fill: var(--accent); }
+svg .ah { fill: #6f775f; }
+svg .ah.acc { fill: var(--olive); }
+svg .bar0 { fill: var(--sage-2); }
+svg .bar1 { fill: var(--sage); }
+svg .bar2 { fill: var(--olive); }
 svg .grid-l { stroke: var(--line); stroke-width: 1; }
 
-.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
 table { border-collapse: collapse; width: 100%; font-size: 15px; }
-th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-top: 1px solid var(--line); }
-th { font: 500 12px/1.3 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); border-top: 0; white-space: nowrap; }
+th, td { text-align: left; vertical-align: top; padding: 12px 16px; border-top: 1px solid var(--line); }
+th { font: 600 11.5px/1.3 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--olive-2); border-top: 0; white-space: nowrap; background: #fafbf7; }
 td .s { color: var(--muted); font-size: 13.5px; }
 td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 tr.best td { background: var(--accent-soft); }
-.pill { display: inline-block; font: 500 12px/1 var(--mono); padding: 5px 9px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
-.pill.ok { color: var(--ok); }
-.pill.wait { color: var(--wait); }
-.pill.plain { color: var(--muted); }
-.note { border-left: 3px solid var(--wait); padding: 8px 14px; background: var(--panel); border-radius: 0 8px 8px 0; color: var(--ink); max-width: 80ch; }
-.note b { color: var(--wait); }
-.two { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+.note { border-left: 3px solid var(--olive-2); padding: 12px 18px; background: var(--panel); border-radius: 0 6px 6px 0; max-width: 82ch; }
+.note b { color: var(--head); }
+.two { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
 .two > * { min-width: 0; }
-dl.map { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 0; }
-dl.map dt { font: 500 13px/1.6 var(--mono); color: var(--muted); }
+dl.map { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; }
+dl.map dt { font: 600 11.5px/1.9 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--olive-2); }
 dl.map dd { margin: 0; }
-footer { border-top: 1px solid var(--line); }
-footer div { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 18px 28px; color: var(--muted); font-size: 14.5px; display: flex; flex-wrap: wrap; gap: 8px 24px; }
-@media (prefers-reduced-motion: no-preference) { a.card { transition: border-color .15s; } }
-@media (max-width: 560px) { body { font-size: 16px; } .lede { font-size: 17.5px; } dl.map { grid-template-columns: 1fr; gap: 2px; } dl.map dd { margin-bottom: 8px; } }
-
-.hero { display: grid; gap: 14px; }
-.hero h1 { max-width: 20ch; }
-.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 4px 0 0; }
-.btn { display: inline-block; padding: 11px 18px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-weight: 600; text-decoration: none; border: 1px solid var(--accent); }
-.btn.ghost { background: transparent; color: var(--accent); }
-.btn:hover { filter: brightness(1.06); }
-.pains .card { gap: 8px; }
-.pains .fix { color: var(--ink); border-top: 1px solid var(--line); padding-top: 8px; }
+.guide-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 24px; align-items: center; }
+.guide-head .tile { width: 120px; }
+.guide-head .tile svg { width: 40px; height: 40px; }
+.pager { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-top: 1px solid var(--line); padding-top: 18px; }
+footer { border-top: 1px solid var(--line); background: var(--panel); }
+footer div { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 20px 30px; color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 26px; }
+@media (prefers-reduced-motion: no-preference) { a.tile::after, .btn { transition: opacity .15s, background .15s; } }
+@media (max-width: 860px) { .hero-split { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { body { font-size: 16px; } .lede { font-size: 17.5px; } dl.map { grid-template-columns: 1fr; gap: 2px; } dl.map dd { margin-bottom: 8px; } .guide-head { grid-template-columns: 1fr; } .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 </head><body>
 <header class="bar"><div class="bar-in"><a class="mark" href="../index.html"><svg width="28" height="28" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#2346d3"/>
-  <rect x="13" y="35" width="9" height="16" rx="2.5" fill="#ffffff"/>
-  <rect x="27.5" y="26" width="9" height="25" rx="2.5" fill="#ffffff"/>
-  <rect x="42" y="17" width="9" height="34" rx="2.5" fill="#ffffff"/>
-  <circle cx="46.5" cy="10.5" r="3.6" fill="#f2b84b"/>
-</svg>vertiq</a><nav class="nav" aria-label="Sections"><a href="../index.html">Overview</a><a href="../architecture.html">Architecture</a><a href="../learning.html">How it learns</a><a href="../lm.html">Vertiq LM</a><a href="../benchmarks.html">Benchmarks</a><a href="../guides/index.html">Sector guides</a></nav></div></header>
+  <rect width="64" height="64" rx="12" fill="#4f5b3c"/>
+  <rect x="13" y="35" width="9" height="16" rx="2" fill="#f4f5ee"/>
+  <rect x="27.5" y="26" width="9" height="25" rx="2" fill="#f4f5ee"/>
+  <rect x="42" y="17" width="9" height="34" rx="2" fill="#f4f5ee"/>
+  <circle cx="46.5" cy="10.5" r="3.6" fill="#c9a54e"/>
+</svg>vertiq</a><nav class="nav" aria-label="Sections"><a href="../index.html">Overview</a><a href="../architecture.html">Architecture</a><a href="../learning.html">Methodology</a><a href="../lm.html">Vertiq LM</a><a href="../benchmarks.html">Benchmarks</a><a href="../guides/index.html">Industries</a></nav></div></header>
 <main>
 
-<section class="read"><div class="kicker"><a href="index.html">Sector guides</a> / Insurance</div><h1>Insurance</h1>
-<p class="lede">Predict renewals and lapses, flag repeat or duplicate claims for review.</p><div><span class="pill ok">mapping tested</span> <span class="pill wait">not yet tested</span></div></section>
-<section><h2>Your records in Vertiq's terms</h2>
-<dl class="map"><dt>entity</dt><dd>policy</dd><dt>group</dt><dd>agency</dd>
-<dt>profile</dt><dd>generic (set your own windows with verticals.register)</dd></dl>
-<figure><div class="scroll"><svg viewBox="0 0 1080 304" role="img" aria-label="How Insurance columns map to the Vertiq contract."><defs><marker id="amins" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="bmins" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><text x="16" y="18" class="k">YOUR COLUMNS</text><text x="620" y="18" class="k">VERTIQ CONTRACT</text><rect x="16" y="30" width="300" height="34" rx="7" class="box"/><text x="30" y="52" class="m" style="font-family:var(--mono);font-size:13px">Police Nr</text><path d="M316 47 C 470 47, 470 52, 618 52" class="ln" marker-end="url(#amins)"/><rect x="16" y="74" width="300" height="34" rx="7" class="box"/><text x="30" y="96" class="m" style="font-family:var(--mono);font-size:13px">Loss Date</text><path d="M316 91 C 470 91, 470 96, 618 96" class="ln" marker-end="url(#amins)"/><rect x="16" y="118" width="300" height="34" rx="7" class="box"/><text x="30" y="140" class="m" style="font-family:var(--mono);font-size:13px">Claim Amount</text><path d="M316 135 C 470 135, 470 140, 618 140" class="ln" marker-end="url(#amins)"/><rect x="16" y="162" width="300" height="34" rx="7" class="box"/><text x="30" y="184" class="m" style="font-family:var(--mono);font-size:13px">Agence</text><path d="M316 179 C 470 179, 470 184, 618 184" class="ln" marker-end="url(#amins)"/><rect x="16" y="206" width="300" height="34" rx="7" class="box"/><text x="30" y="228" class="m" style="font-family:var(--mono);font-size:13px">Cover</text><path d="M316 223 C 470 223, 470 228, 618 228" class="ln" marker-end="url(#amins)"/><rect x="16" y="250" width="300" height="34" rx="7" class="box"/><text x="30" y="272" class="m" style="font-family:var(--mono);font-size:13px">Channel</text><path d="M316 267 C 470 267, 470 228, 618 228" class="ln" marker-end="url(#amins)"/><rect x="620" y="35" width="240" height="34" rx="7" class="hot"/><text x="634" y="57">Entity · id</text><rect x="620" y="79" width="240" height="34" rx="7" class="hot"/><text x="634" y="101">Event · when</text><rect x="620" y="123" width="240" height="34" rx="7" class="hot"/><text x="634" y="145">Event · value</text><rect x="620" y="167" width="240" height="34" rx="7" class="hot"/><text x="634" y="189">Entity · group</text><rect x="620" y="211" width="240" height="34" rx="7" class="hot"/><text x="634" y="233">Event · attributes</text><text x="880" y="101" class="s">%d/%m/%Y</text></svg></div><figcaption>Map once: Vertiq LM can propose this from the header and three rows, and the rows settle what they can (names, value types, the date format) before anything is trusted.</figcaption></figure></section>
-<section class="read"><h2>Questions you can ask</h2><ul><li><b>Will this policy see a claim within 90 days?</b> <code>predict_event(target="", window_days=90)</code><br><span style='color:var(--muted)'>Each row is a claim and no type column is mapped, so target &quot;&quot; means any claim.</span></li><li><b>How large will the next claim be?</b> <code>predict_value(target="", window_days=365)</code></li></ul></section>
-<section><h2>Working example</h2><pre><code>from datetime import datetime, timedelta
+<section class="guide-head"><a class="tile t4" href="index.html"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 6l15 6v10c0 10-7 17-15 20C16 39 9 32 9 22V12z"/><polyline points="17,24 22,29 31,19"/></svg><span>Insurance</span></a>
+<div><div class="kicker"><a href="index.html">Industries</a></div><h1>Insurance</h1><p class="lede">Predict claims and policy lapses, estimate claim severity, and flag repeat claims for review.</p></div></section>
+<section><h2>Data mapping</h2>
+<dl class="map"><dt>Entity</dt><dd>policy</dd><dt>Group</dt><dd>agency</dd>
+<dt>Profile</dt><dd>generic; configure time windows with verticals.register</dd></dl>
+<figure><div class="scroll"><svg viewBox="0 0 1080 304" role="img" aria-label="Column mapping for Insurance."><defs><marker id="aminsu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="bminsu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><text x="16" y="18" class="k">SOURCE COLUMNS</text><text x="620" y="18" class="k">VERTIQ DATA CONTRACT</text><rect x="16" y="30" width="300" height="34" rx="5" class="box"/><text x="30" y="52" class="m">Police Nr</text><path d="M316 47 C 470 47, 470 52, 618 52" class="ln" marker-end="url(#aminsu)"/><rect x="16" y="74" width="300" height="34" rx="5" class="box"/><text x="30" y="96" class="m">Loss Date</text><path d="M316 91 C 470 91, 470 96, 618 96" class="ln" marker-end="url(#aminsu)"/><rect x="16" y="118" width="300" height="34" rx="5" class="box"/><text x="30" y="140" class="m">Claim Amount</text><path d="M316 135 C 470 135, 470 140, 618 140" class="ln" marker-end="url(#aminsu)"/><rect x="16" y="162" width="300" height="34" rx="5" class="box"/><text x="30" y="184" class="m">Agence</text><path d="M316 179 C 470 179, 470 184, 618 184" class="ln" marker-end="url(#aminsu)"/><rect x="16" y="206" width="300" height="34" rx="5" class="box"/><text x="30" y="228" class="m">Cover</text><path d="M316 223 C 470 223, 470 228, 618 228" class="ln" marker-end="url(#aminsu)"/><rect x="16" y="250" width="300" height="34" rx="5" class="box"/><text x="30" y="272" class="m">Channel</text><path d="M316 267 C 470 267, 470 228, 618 228" class="ln" marker-end="url(#aminsu)"/><rect x="620" y="35" width="240" height="34" rx="5" class="hot"/><text x="634" y="57">Entity · identifier</text><rect x="620" y="79" width="240" height="34" rx="5" class="hot"/><text x="634" y="101">Event · timestamp</text><rect x="620" y="123" width="240" height="34" rx="5" class="hot"/><text x="634" y="145">Event · value</text><rect x="620" y="167" width="240" height="34" rx="5" class="hot"/><text x="634" y="189">Entity · group</text><rect x="620" y="211" width="240" height="34" rx="5" class="hot"/><text x="634" y="233">Event · attributes</text><text x="880" y="101" class="s">%d/%m/%Y</text></svg></div><figcaption>Vertiq LM can propose this mapping from the header and sample rows. Column names, value types and the date format are validated against the data before use.</figcaption></figure></section>
+<section class="read"><h2>Supported analyses</h2><ul><li><b>Will this policy record a claim within 90 days?</b> <code>predict_event(target="", window_days=90)</code><br><span style='color:var(--muted)'>Each row is a claim and no event-type column is mapped, so target &quot;&quot; refers to any claim.</span></li><li><b>What is the expected severity of the next claim?</b> <code>predict_value(target="", window_days=365)</code></li></ul></section>
+<section><h2>Reference implementation</h2><pre><code>from datetime import datetime, timedelta
 from vertiq import plugins, rules
 from vertiq.mapping import Mapping, apply, repair
 from vertiq.tasks import predict_event, predict_value
 
-# rows: your export as a list of dicts, e.g. list(csv.DictReader(open(&quot;export.csv&quot;)))
+# rows: the source export as a list of dicts, e.g. list(csv.DictReader(open(&quot;export.csv&quot;)))
 mapping = Mapping.parse({&quot;entity&quot;: &quot;Police Nr&quot;, &quot;time&quot;: &quot;Loss Date&quot;, &quot;type&quot;: None, &quot;value&quot;: &quot;Claim Amount&quot;, &quot;group&quot;: &quot;Agence&quot;, &quot;attrs&quot;: [&quot;Cover&quot;, &quot;Channel&quot;], &quot;date_format&quot;: &quot;%d/%m/%Y&quot;})
-m, notes = repair(mapping, rows)      # the rows settle column names, value types and the date format
-ds, problems = apply(m, rows)         # any row that didn&#x27;t load is named, never guessed
+m, notes = repair(mapping, rows)      # validates column names, value types and date format against the rows
+ds, problems = apply(m, rows)         # rows that fail to load are reported, not imputed
 
 @plugins.feature(&quot;insurance&quot;)
-def claims_365(entity, before, cut):   # only events before the cutoff: no peeking
+def claims_365(entity, before, cut):   # receives only events recorded before the cutoff
     return {&quot;claims_365&quot;: sum(1 for e in before if e.at &gt;= cut - timedelta(days=365))}
 
 task = predict_event(ds, target=&quot;&quot;, window_days=90, pack=&quot;insurance&quot;)
-print(task.status, task.report())     # &quot;trained&quot; only if it beat the baseline on held-out entities
+print(task.status, task.report())     # &quot;trained&quot; only if the model outperformed the baseline on held-out entities
 if task.status == &quot;trained&quot;:
-    print(task.score(&quot;POL482910&quot;))  # the chance, and what raises or lowers it
+    print(task.score(&quot;POL482910&quot;))  # probability with contributing factors
 
 size = predict_value(ds, target=&quot;&quot;, window_days=365, pack=&quot;insurance&quot;)
 print(size.status, size.report())
 
 flags = rules.run(ds, [
-    rules.repeat(14, key=&quot;Cover&quot;),   # a second claim on the same cover within two weeks, for review
+    rules.repeat(14, key=&quot;Cover&quot;),   # a second claim under the same cover within 14 days, for review
 ])
 print(flags[&quot;summary&quot;])</code></pre>
-<p class="read" style="color:var(--muted)">This exact code runs in the test suite (<code>tests/test_guides.py</code>) against generated rows in these column names.</p></section>
-<section class="two">
-  <div class="card"><h3>Domain knowledge: <code>claims_365</code></h3><p>Recent claim frequency is the strongest known signal; make it explicit.</p></div>
-  <div class="card"><h3>Checks</h3><ul><li><code>rules.repeat(14, key=&quot;Cover&quot;)</code>: a second claim on the same cover within two weeks, for review</li></ul></div>
+<p class="note-s">This code is executed by the test suite (<code>tests/test_guides.py</code>) against generated records with these column names.</p></section>
+<section class="grid">
+  <div class="card"><h3>Recommended plugin</h3><p><code>claims_365</code>: Recent claim frequency is a strong predictor of further claims.</p></div>
+  <div class="card"><h3>Validation rules</h3><ul><li><code>rules.repeat(14, key=&quot;Cover&quot;)</code>: a second claim under the same cover within 14 days, for review</li></ul></div>
   
+  <div class="card"><h3>Implementation notes</h3><ul><li>Flags support human review and are not used for automated denial.</li><li>Exclude protected attributes such as age, gender and religion from features.</li></ul></div>
+  <div class="card"><h3>Validation</h3><ul><li>Insurance tables, a domain excluded from Vertiq LM training</li><li>Every deployment: the evaluation gate measures each model on the organisation&#x27;s own held-out records before promotion.</li></ul></div>
 </section>
-<section class="two">
-  <div class="card"><h3>Before you rely on it</h3><ul><li>Flags are for human review, never automatic denial.</li><li>Keep protected attributes (age, gender, religion, caste) out of features.</li></ul></div>
-  <div class="card"><h3>Evidence so far</h3><ul style="list-style:none;padding:0;display:grid;gap:8px"><li><span class='pill ok'>mapping tested</span> Insurance tables, a domain Vertiq LM never saw in training</li><li><span class='pill wait'>not yet tested</span> No insurance benchmark yet</li></ul></div>
-</section>
-<section class="read"><p><a href="tax-accounting.html">← Tax and accounting practices</a> · <a href="logistics.html">Logistics and delivery →</a></p></section>
+<section class="pager"><a href="financial-services.html">← Banking and financial services</a><a href="healthcare-life-sciences.html">Healthcare and life sciences →</a></section>
 </main>
-<footer><div><span>Vertiq 0.1.0 · Apache-2.0 · pure Python, no dependencies</span><a href="https://github.com/ideatorlabs/vertiq">Source on GitHub</a><span>Benchmarks generated 2026-10-11</span></div></footer>
+<footer><div><span>Vertiq 0.1.0 · Apache License 2.0</span><a href="https://github.com/ideatorlabs/vertiq">Source on GitHub</a><a href="../benchmarks.html">Benchmarks</a><a href="../guides/index.html">Industry guides</a></div></footer>
 </body></html>

@@ -1,143 +1,163 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Vertiq benchmarks</title><meta name="description" content="Seven synthetic scenarios with planted truths, and every Vertiq LM run.">
+<title>Vertiq benchmarks</title><meta name="description" content="Benchmark results for Vertiq on synthetic data with known ground truth, and Vertiq LM evaluation results.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%20role%3D%22img%22%20aria-label%3D%22Vertiq%22%3E%0A%20%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232346d3%22/%3E%0A%20%20%3Crect%20x%3D%2213%22%20y%3D%2235%22%20width%3D%229%22%20height%3D%2216%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Crect%20x%3D%2227.5%22%20y%3D%2226%22%20width%3D%229%22%20height%3D%2225%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Crect%20x%3D%2242%22%20y%3D%2217%22%20width%3D%229%22%20height%3D%2234%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Ccircle%20cx%3D%2246.5%22%20cy%3D%2210.5%22%20r%3D%223.6%22%20fill%3D%22%23f2b84b%22/%3E%0A%3C/svg%3E" type="image/svg+xml">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%20role%3D%22img%22%20aria-label%3D%22Vertiq%22%3E%0A%20%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2212%22%20fill%3D%22%234f5b3c%22/%3E%0A%20%20%3Crect%20x%3D%2213%22%20y%3D%2235%22%20width%3D%229%22%20height%3D%2216%22%20rx%3D%222%22%20fill%3D%22%23f4f5ee%22/%3E%0A%20%20%3Crect%20x%3D%2227.5%22%20y%3D%2226%22%20width%3D%229%22%20height%3D%2225%22%20rx%3D%222%22%20fill%3D%22%23f4f5ee%22/%3E%0A%20%20%3Crect%20x%3D%2242%22%20y%3D%2217%22%20width%3D%229%22%20height%3D%2234%22%20rx%3D%222%22%20fill%3D%22%23f4f5ee%22/%3E%0A%20%20%3Ccircle%20cx%3D%2246.5%22%20cy%3D%2210.5%22%20r%3D%223.6%22%20fill%3D%22%23c9a54e%22/%3E%0A%3C/svg%3E" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
-/* Vertiq docs: one stylesheet for every page.
-   Light theme only. Layout: a top bar with the section nav, a single reading column (max 1080px) that widens for
-   diagrams and tables, quiet cards only where an object stands apart. */
+/* Vertiq documentation. Light theme only.
+   Layout: a quiet top bar with spaced uppercase navigation, one reading column (max 1120px) that widens for
+   diagrams, tables and the industry tiles. Olive and sage tones; serif display headings in olive. */
 :root {
-  --bg: #f4f6f9; --panel: #ffffff; --ink: #121826; --muted: #566074; --line: #d5dbe5; --soft: #e8ecf3;
-  --accent: #2346d3; --accent-ink: #ffffff; --accent-soft: #e3e9ff;
-  --ok: #1d7f55; --wait: #a86b12;
-  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --bg: #f6f6f1; --panel: #ffffff; --ink: #22271d; --muted: #5d6456; --line: #dcdfd2; --soft: #eef0e6;
+  --head: #3c472f; --olive: #56633f; --olive-2: #7a8765; --sage: #a9b394; --sage-2: #cfd5c0;
+  --accent: #56633f; --accent-ink: #ffffff; --accent-soft: #e8ebde; --gold: #b8953c;
+  --display: "Newsreader", Georgia, "Times New Roman", serif;
   --body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
   color-scheme: light;
 }
+
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--body); }
-a { color: var(--accent); text-underline-offset: 3px; }
-a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.65 var(--body); }
+a { color: var(--olive); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--olive); outline-offset: 3px; border-radius: 4px; }
 
-.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
-.bar-in { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 10px; display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: center; }
-.mark { font: 700 21px/1 var(--display); color: var(--ink); text-decoration: none; letter-spacing: -.01em; display: inline-flex; gap: 8px; align-items: center; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: rgba(255, 255, 255, .96); border-bottom: 1px solid var(--line); }
+.bar-in { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 12px; display: flex; flex-wrap: wrap; gap: 8px 30px; align-items: center; }
+.mark { font: 600 22px/1 var(--body); color: var(--head); text-decoration: none; letter-spacing: -.01em; display: inline-flex; gap: 10px; align-items: center; }
 .mark svg { display: block; width: 28px; height: 28px; }
-.nav { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 15px; }
-.nav a { color: var(--muted); text-decoration: none; padding-block: 4px; border-bottom: 2px solid transparent; }
-.nav a:hover { color: var(--ink); }
-.nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.nav { display: flex; flex-wrap: wrap; gap: 4px 22px; }
+.nav a { color: var(--muted); text-decoration: none; font: 600 12px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; padding-block: 6px; border-bottom: 1px solid transparent; }
+.nav a:hover { color: var(--head); }
+.nav a[aria-current="page"] { color: var(--head); border-bottom-color: var(--olive); }
 
-main { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 36px 64px; display: grid; gap: 40px; }
-.read { max-width: 72ch; }
-h1, h2, h3 { font-family: var(--display); text-wrap: balance; letter-spacing: -.012em; margin: 0; }
-h1 { font-size: clamp(32px, 4.4vw, 46px); line-height: 1.08; font-weight: 700; }
-h2 { font-size: 26px; line-height: 1.2; font-weight: 650; }
-h3 { font-size: 19px; line-height: 1.3; font-weight: 650; }
-.kicker { font: 500 12.5px/1.3 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
-.lede { font-size: 19.5px; color: var(--muted); margin: 14px 0 0; max-width: 64ch; }
-section { display: grid; gap: 14px; min-width: 0; }
-section > p, section > ul, section > ol { margin: 0; max-width: 72ch; }
+main { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 44px 72px; display: grid; gap: 64px; }
+.read { max-width: 74ch; }
+h1, h2 { font-family: var(--display); color: var(--head); font-weight: 500; text-wrap: balance; letter-spacing: -.01em; margin: 0; }
+h1 { font-size: clamp(36px, 4.8vw, 54px); line-height: 1.08; }
+h2 { font-size: clamp(26px, 3vw, 34px); line-height: 1.18; }
+h3 { font: 600 18px/1.35 var(--body); color: var(--ink); margin: 0; text-wrap: balance; }
+.kicker { font: 600 12px/1.3 var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--olive-2); margin-bottom: 12px; }
+.kicker a { color: inherit; }
+.lede { font-size: 19px; color: var(--muted); margin: 16px 0 0; max-width: 62ch; }
+section { display: grid; gap: 18px; min-width: 0; }
+section > p, section > ul, section > ol { margin: 0; max-width: 74ch; }
 ul, ol { padding-left: 22px; }
-li + li { margin-top: 4px; }
-code { font: 14.5px var(--mono); background: var(--soft); padding: 1px 5px; border-radius: 4px; }
-pre { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 13.5px/1.6 var(--mono); }
-pre code { background: none; padding: 0; font-size: inherit; }
+li + li { margin-top: 5px; }
+code { font: 14px var(--mono); background: var(--soft); padding: 1px 5px; border-radius: 4px; color: var(--head); }
+pre { margin: 0; background: #fbfbf8; border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; overflow-x: auto; font: 13.5px/1.65 var(--mono); }
+pre code { background: none; padding: 0; font-size: inherit; color: var(--ink); }
 
-.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; display: grid; gap: 6px; align-content: start; }
+.hero-split { display: grid; gap: 40px; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; }
+.hero-split > * { min-width: 0; }
+.hero-visual svg { display: block; width: 100%; height: auto; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 26px 0 0; }
+.btn { display: inline-block; padding: 12px 20px; border-radius: 4px; background: var(--olive); color: var(--accent-ink); font: 600 13px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; text-decoration: none; border: 1px solid var(--olive); }
+.btn.ghost { background: transparent; color: var(--olive); }
+.btn:hover { background: var(--head); border-color: var(--head); color: #fff; }
+
+.section-head { display: grid; gap: 6px; max-width: 74ch; }
+.section-head p { color: var(--muted); margin: 6px 0 0; }
+
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px 22px; min-width: 0; display: grid; gap: 8px; align-content: start; }
 .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
-a.card { text-decoration: none; color: inherit; }
-a.card:hover { border-color: var(--accent); }
-a.card h3 { color: var(--ink); }
+.card .fix { color: var(--ink); border-top: 1px solid var(--line); padding-top: 10px; }
+.card .api { font: 13px var(--mono); color: var(--olive-2); }
+.card ul { margin: 0; padding-left: 18px; font-size: 15.5px; }
 
-.stats { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-.stat { background: var(--panel); padding: 16px 18px; display: grid; gap: 4px; }
-.stat b { font: 700 30px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.stats { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); background: var(--line); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.stat { background: var(--panel); padding: 20px 22px; display: grid; gap: 6px; align-content: start; }
+.stat b { font: 500 34px/1.05 var(--display); color: var(--head); font-variant-numeric: tabular-nums; }
 .stat span { color: var(--muted); font-size: 14.5px; }
+.note-s { color: var(--muted); font-size: 14px; margin: 0; }
 
-figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+.tiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.tile { position: relative; aspect-ratio: 1 / 1; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 20px; text-align: center; text-decoration: none; border-radius: 2px; }
+.tile::after { content: ""; position: absolute; inset: 10px; border: 1px solid currentColor; opacity: .45; pointer-events: none; }
+.tile svg { width: 52px; height: 52px; }
+.tile span { font: 600 12.5px/1.35 var(--body); letter-spacing: .14em; text-transform: uppercase; max-width: 15ch; }
+.t1 { background: var(--olive); color: #f3f5ec; }
+.t2 { background: var(--sage); color: #22271d; }
+.t3 { background: var(--olive-2); color: #f6f7f1; }
+.t4 { background: var(--sage-2); color: #2c3424; }
+a.tile:hover::after { opacity: .9; }
+
+figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px; min-width: 0; }
 .scroll { overflow-x: auto; }
 figure svg { display: block; width: 100%; height: auto; color: var(--ink); }
 .scroll svg { min-width: 760px; }
-figcaption { color: var(--muted); font-size: 15px; margin-top: 10px; max-width: 80ch; }
+figcaption { color: var(--muted); font-size: 15px; margin-top: 12px; max-width: 82ch; }
 svg text { font-family: var(--body); font-size: 13px; fill: var(--ink); }
-svg .t { font-family: var(--display); font-weight: 650; font-size: 15px; }
+svg .t { font-weight: 600; font-size: 15px; fill: var(--head); }
 svg .s { font-size: 12px; fill: var(--muted); }
-svg .k { font-family: var(--mono); font-size: 11px; fill: var(--muted); letter-spacing: .08em; }
+svg .k { font-size: 10.5px; font-weight: 600; fill: var(--olive-2); letter-spacing: .14em; }
 svg .lbl { font-size: 12px; fill: var(--muted); }
-svg .box { fill: var(--panel); stroke: var(--ink); stroke-width: 1.2; }
-svg .hot { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.6; }
-svg .gate { fill: var(--panel); stroke: var(--accent); stroke-width: 2; }
+svg .m { font-family: var(--mono); font-size: 12.5px; }
+svg .box { fill: var(--panel); stroke: #b7bea8; stroke-width: 1.2; }
+svg .hot { fill: var(--accent-soft); stroke: var(--olive-2); stroke-width: 1.3; }
+svg .gate { fill: #f1f3ea; stroke: var(--olive); stroke-width: 2; }
+svg .fillo { fill: var(--olive); }
+svg .fills { fill: var(--sage-2); }
 svg .dash { stroke-dasharray: 6 4; }
-svg .ln { stroke: var(--ink); stroke-width: 1.3; fill: none; }
-svg .ln.acc { stroke: var(--accent); stroke-width: 1.8; }
+svg .ln { stroke: #6f775f; stroke-width: 1.3; fill: none; }
+svg .ln.acc { stroke: var(--olive); stroke-width: 2; }
 svg .ln.dash { stroke-dasharray: 6 4; }
-svg .ah { fill: var(--ink); }
-svg .ah.acc { fill: var(--accent); }
-svg .bar0 { fill: var(--line); }
-svg .bar1 { fill: var(--muted); }
-svg .bar2 { fill: var(--accent); }
+svg .ah { fill: #6f775f; }
+svg .ah.acc { fill: var(--olive); }
+svg .bar0 { fill: var(--sage-2); }
+svg .bar1 { fill: var(--sage); }
+svg .bar2 { fill: var(--olive); }
 svg .grid-l { stroke: var(--line); stroke-width: 1; }
 
-.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
 table { border-collapse: collapse; width: 100%; font-size: 15px; }
-th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-top: 1px solid var(--line); }
-th { font: 500 12px/1.3 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); border-top: 0; white-space: nowrap; }
+th, td { text-align: left; vertical-align: top; padding: 12px 16px; border-top: 1px solid var(--line); }
+th { font: 600 11.5px/1.3 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--olive-2); border-top: 0; white-space: nowrap; background: #fafbf7; }
 td .s { color: var(--muted); font-size: 13.5px; }
 td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 tr.best td { background: var(--accent-soft); }
-.pill { display: inline-block; font: 500 12px/1 var(--mono); padding: 5px 9px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
-.pill.ok { color: var(--ok); }
-.pill.wait { color: var(--wait); }
-.pill.plain { color: var(--muted); }
-.note { border-left: 3px solid var(--wait); padding: 8px 14px; background: var(--panel); border-radius: 0 8px 8px 0; color: var(--ink); max-width: 80ch; }
-.note b { color: var(--wait); }
-.two { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+.note { border-left: 3px solid var(--olive-2); padding: 12px 18px; background: var(--panel); border-radius: 0 6px 6px 0; max-width: 82ch; }
+.note b { color: var(--head); }
+.two { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
 .two > * { min-width: 0; }
-dl.map { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 0; }
-dl.map dt { font: 500 13px/1.6 var(--mono); color: var(--muted); }
+dl.map { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; }
+dl.map dt { font: 600 11.5px/1.9 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--olive-2); }
 dl.map dd { margin: 0; }
-footer { border-top: 1px solid var(--line); }
-footer div { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 18px 28px; color: var(--muted); font-size: 14.5px; display: flex; flex-wrap: wrap; gap: 8px 24px; }
-@media (prefers-reduced-motion: no-preference) { a.card { transition: border-color .15s; } }
-@media (max-width: 560px) { body { font-size: 16px; } .lede { font-size: 17.5px; } dl.map { grid-template-columns: 1fr; gap: 2px; } dl.map dd { margin-bottom: 8px; } }
-
-.hero { display: grid; gap: 14px; }
-.hero h1 { max-width: 20ch; }
-.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 4px 0 0; }
-.btn { display: inline-block; padding: 11px 18px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-weight: 600; text-decoration: none; border: 1px solid var(--accent); }
-.btn.ghost { background: transparent; color: var(--accent); }
-.btn:hover { filter: brightness(1.06); }
-.pains .card { gap: 8px; }
-.pains .fix { color: var(--ink); border-top: 1px solid var(--line); padding-top: 8px; }
+.guide-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 24px; align-items: center; }
+.guide-head .tile { width: 120px; }
+.guide-head .tile svg { width: 40px; height: 40px; }
+.pager { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-top: 1px solid var(--line); padding-top: 18px; }
+footer { border-top: 1px solid var(--line); background: var(--panel); }
+footer div { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 20px 30px; color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 26px; }
+@media (prefers-reduced-motion: no-preference) { a.tile::after, .btn { transition: opacity .15s, background .15s; } }
+@media (max-width: 860px) { .hero-split { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { body { font-size: 16px; } .lede { font-size: 17.5px; } dl.map { grid-template-columns: 1fr; gap: 2px; } dl.map dd { margin-bottom: 8px; } .guide-head { grid-template-columns: 1fr; } .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 </head><body>
 <header class="bar"><div class="bar-in"><a class="mark" href="index.html"><svg width="28" height="28" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#2346d3"/>
-  <rect x="13" y="35" width="9" height="16" rx="2.5" fill="#ffffff"/>
-  <rect x="27.5" y="26" width="9" height="25" rx="2.5" fill="#ffffff"/>
-  <rect x="42" y="17" width="9" height="34" rx="2.5" fill="#ffffff"/>
-  <circle cx="46.5" cy="10.5" r="3.6" fill="#f2b84b"/>
-</svg>vertiq</a><nav class="nav" aria-label="Sections"><a href="index.html">Overview</a><a href="architecture.html">Architecture</a><a href="learning.html">How it learns</a><a href="lm.html">Vertiq LM</a><a href="benchmarks.html" aria-current="page">Benchmarks</a><a href="guides/index.html">Sector guides</a></nav></div></header>
+  <rect width="64" height="64" rx="12" fill="#4f5b3c"/>
+  <rect x="13" y="35" width="9" height="16" rx="2" fill="#f4f5ee"/>
+  <rect x="27.5" y="26" width="9" height="25" rx="2" fill="#f4f5ee"/>
+  <rect x="42" y="17" width="9" height="34" rx="2" fill="#f4f5ee"/>
+  <circle cx="46.5" cy="10.5" r="3.6" fill="#c9a54e"/>
+</svg>vertiq</a><nav class="nav" aria-label="Sections"><a href="index.html">Overview</a><a href="architecture.html">Architecture</a><a href="learning.html">Methodology</a><a href="lm.html">Vertiq LM</a><a href="benchmarks.html" aria-current="page">Benchmarks</a><a href="guides/index.html">Industries</a></nav></div></header>
 <main>
 
-<section class="read"><div class="kicker">Benchmarks</div><h1>Planted truths, five seeds each</h1>
-<p class="lede">Every scenario is synthetic with a known answer, so each result can be checked against it. Means ± standard deviation over
-5 seeds; the whole suite runs in 28 seconds on arm64 with Python 3.10.10.</p></section>
-<section><div class="tbl"><table><thead><tr><th>Scenario</th><th>Result</th><th>What it shows</th></tr></thead><tbody><tr><td><b>Customer return</b><br><span class='s' style='color:var(--muted)'>Two cafés, 500 customers, irregular rhythms; two in three leavers slow down first</span></td><td>AUC 0.976 <span class='s'>± 0.005</span> vs 0.969 <span class='s'>± 0.005</span>; Brier 0.043 <span class='s'>± 0.004</span> vs 0.061 <span class='s'>± 0.006</span></td><td>Ranks about as well as the recency formula; its probabilities are about 30% more accurate</td></tr><tr><td><b>Machine breakdowns</b><br><span class='s' style='color:var(--muted)'>240 machines; each skipped maintenance in 60 days triples the breakdown chance</span></td><td>AUC 0.674 <span class='s'>± 0.050</span> baseline → 0.735 <span class='s'>± 0.059</span> general → 0.767 <span class='s'>± 0.043</span> with a plugin</td><td>The general task finds signal; one line of domain knowledge adds more</td></tr><tr><td><b>Length of stay</b><br><span class='s' style='color:var(--muted)'>300 patients; stays grow with recent admissions</span></td><td>Error 1.61 <span class='s'>± 0.06</span> days vs 2.18 <span class='s'>± 0.14</span> for same-as-last-time</td><td>Value prediction beats the obvious rule</td></tr><tr><td><b>Pure noise</b><br><span class='s' style='color:var(--muted)'>300 entities, a memoryless 4% weekly event: nothing to learn</span></td><td>Models shipped: 0 of 5; status kept</td><td>The gate refuses to ship a model that doesn&#x27;t beat the baseline</td></tr><tr><td><b>Who a message brings back</b><br><span class='s' style='color:var(--muted)'>800 customers; a message adds 30 points only for the overdue; 25% held out</span></td><td>Lift in the top-ranked half 23.6 pts <span class='s'>± 5.9</span>; bottom half -1.8 pts <span class='s'>± 5.2</span></td><td>Uplift ranking separates who the message helps</td></tr><tr><td><b>Offer effect on the bill</b><br><span class='s' style='color:var(--muted)'>Half the messages carry an offer that shrinks the bill by 20%</span></td><td>Measured -20.2% <span class='s'>± 0.9</span> (planted −20%)</td><td>The bill model recovers the planted effect</td></tr><tr><td><b>Tested insights</b><br><span class='s' style='color:var(--muted)'>600 first-timers; one first-order item doubles returns; a twin dataset with none</span></td><td>Planted pattern found 5/5; false item patterns in noise 0</td><td>False-discovery control holds</td></tr><tr><td><b>Mapping repair safety</b><br><span class='s' style='color:var(--muted)'>2,100 correct mappings across 15 domains</span></td><td>Changed by the repair: 0</td><td>The repair never damages a correct answer</td></tr></tbody></table></div></section>
-<section><h2>What a plugin adds</h2><figure><div class="scroll"><svg viewBox="0 0 1080 168" role="img" aria-label="Breakdown prediction AUC (x100)"><line x1="300.0" y1="16" x2="300.0" y2="142" class="grid-l"/><text x="300.0" y="160" class="s" text-anchor="middle">0</text><line x1="440.0" y1="16" x2="440.0" y2="142" class="grid-l"/><text x="440.0" y="160" class="s" text-anchor="middle">20</text><line x1="580.0" y1="16" x2="580.0" y2="142" class="grid-l"/><text x="580.0" y="160" class="s" text-anchor="middle">40</text><line x1="720.0" y1="16" x2="720.0" y2="142" class="grid-l"/><text x="720.0" y="160" class="s" text-anchor="middle">60</text><line x1="860.0" y1="16" x2="860.0" y2="142" class="grid-l"/><text x="860.0" y="160" class="s" text-anchor="middle">80</text><line x1="1000.0" y1="16" x2="1000.0" y2="142" class="grid-l"/><text x="1000.0" y="160" class="s" text-anchor="middle">100</text><text x="288" y="38" text-anchor="end">Recency baseline</text><rect x="300" y="24" width="472.1" height="15" rx="3" class="bar0"><title>AUC: 67.4</title></rect><text x="778.1" y="36" class="s">67.4</text><text x="288" y="76" text-anchor="end">General task</text><rect x="300" y="62" width="514.4" height="15" rx="3" class="bar1"><title>AUC: 73.5</title></rect><text x="820.4" y="74" class="s">73.5</text><text x="288" y="114" text-anchor="end">With one plugin</text><rect x="300" y="100" width="536.6" height="15" rx="3" class="bar2"><title>AUC: 76.7</title></rect><text x="842.6" y="112" class="s">76.7</text></svg></div><figcaption>Breakdown prediction on held-out machines (AUC × 100). One
-feature that counts skipped maintenance carries knowledge the event log doesn't state.</figcaption></figure></section>
-<section class="note"><b>What these don't show.</b> Synthetic benchmarks prove the machinery: it finds a real signal, ignores noise and refuses to ship
-a worse model. They do not prove accuracy on your data; the evaluation gate measures that on your own held-out records every time it trains.
-Public datasets (Online Retail II, the Hillstrom email uplift test, NASA C-MAPSS engines) are next.</section>
-<section class="read"><h2>Run them</h2><pre><code>python benchmarks/run.py --seeds 5        # writes benchmarks/results/core.json
+<section class="read"><div class="kicker">Benchmarks</div><h1>Benchmark results</h1>
+<p class="lede">Each scenario uses synthetic data with a known ground truth, so results can be checked against the correct answer. Values
+are means ± standard deviation over 5 runs. The full suite runs in 28 seconds on arm64 with Python 3.10.10.</p></section>
+<section><div class="tbl"><table><thead><tr><th>Scenario</th><th>Result</th><th>Interpretation</th></tr></thead><tbody><tr><td><b>Customer retention</b><br><span class='s'>Two businesses, 500 customers with irregular purchase intervals; two thirds of churners slow down before leaving</span></td><td>AUC 0.976 <span class='s'>± 0.005</span> vs 0.969 <span class='s'>± 0.005</span>; Brier 0.043 <span class='s'>± 0.004</span> vs 0.061 <span class='s'>± 0.006</span></td><td>Ranking comparable to the recency rule; probability estimates about 30% more accurate (Brier score)</td></tr><tr><td><b>Equipment failure</b><br><span class='s'>240 assets; each skipped maintenance in the last 60 days triples failure probability</span></td><td>AUC 0.674 <span class='s'>± 0.050</span> baseline, 0.735 <span class='s'>± 0.059</span> generic, 0.767 <span class='s'>± 0.043</span> with a plugin</td><td>The generic task detects the signal; one domain feature improves it further</td></tr><tr><td><b>Length of stay</b><br><span class='s'>300 patients; stay length increases with recent admissions</span></td><td>MAE 1.61 <span class='s'>± 0.06</span> days vs 2.18 <span class='s'>± 0.14</span> for the previous value</td><td>Value prediction outperforms the previous-value baseline</td></tr><tr><td><b>Random data</b><br><span class='s'>300 entities with a memoryless 4% weekly event rate</span></td><td>Models promoted: 0 of 5</td><td>The evaluation gate retains the baseline when no signal exists</td></tr><tr><td><b>Intervention uplift</b><br><span class='s'>800 customers; the intervention raises response by 30 points for overdue customers only; 25% held out</span></td><td>Top-ranked half 23.6 pts <span class='s'>± 5.9</span>; bottom half -1.8 pts <span class='s'>± 5.2</span></td><td>Uplift ranking separates responsive from non-responsive customers</td></tr><tr><td><b>Offer effect on order value</b><br><span class='s'>Half of interventions include an offer that reduces order value by 20%</span></td><td>Estimated -20.2% <span class='s'>± 0.9</span></td><td>The order-value model recovers the true effect</td></tr><tr><td><b>Insight detection</b><br><span class='s'>600 new customers; one first-order product doubles the repeat rate; a matched dataset with no effect</span></td><td>Planted pattern detected 5/5; false patterns on random data: 0</td><td>False-discovery control holds</td></tr><tr><td><b>Mapping validation</b><br><span class='s'>2,100 correct mappings across 15 domains</span></td><td>Correct mappings altered: 0</td><td>Validation never alters a correct mapping</td></tr></tbody></table></div></section>
+<section><h2>Effect of a domain plugin</h2><figure><div class="scroll"><svg viewBox="0 0 1080 168" role="img" aria-label="Equipment failure AUC × 100"><line x1="320.0" y1="16" x2="320.0" y2="142" class="grid-l"/><text x="320.0" y="160" class="s" text-anchor="middle">0</text><line x1="456.0" y1="16" x2="456.0" y2="142" class="grid-l"/><text x="456.0" y="160" class="s" text-anchor="middle">20</text><line x1="592.0" y1="16" x2="592.0" y2="142" class="grid-l"/><text x="592.0" y="160" class="s" text-anchor="middle">40</text><line x1="728.0" y1="16" x2="728.0" y2="142" class="grid-l"/><text x="728.0" y="160" class="s" text-anchor="middle">60</text><line x1="864.0" y1="16" x2="864.0" y2="142" class="grid-l"/><text x="864.0" y="160" class="s" text-anchor="middle">80</text><line x1="1000.0" y1="16" x2="1000.0" y2="142" class="grid-l"/><text x="1000.0" y="160" class="s" text-anchor="middle">100</text><text x="308" y="38" text-anchor="end">Rule baseline</text><rect x="320" y="24" width="458.6" height="15" rx="2" class="bar0"><title>AUC: 67.4</title></rect><text x="784.6" y="36" class="s">67.4</text><text x="308" y="76" text-anchor="end">Generic task</text><rect x="320" y="62" width="499.7" height="15" rx="2" class="bar1"><title>AUC: 73.5</title></rect><text x="825.7" y="74" class="s">73.5</text><text x="308" y="114" text-anchor="end">With domain plugin</text><rect x="320" y="100" width="521.3" height="15" rx="2" class="bar2"><title>AUC: 76.7</title></rect><text x="847.3" y="112" class="s">76.7</text></svg></div><figcaption>Equipment failure prediction on held-out
+assets (AUC × 100). A single feature counting skipped maintenance adds information that is not present in the event log.</figcaption></figure></section>
+<section class="note"><b>Scope.</b> These benchmarks verify that the methods detect real signal, reject noise and do not promote weaker
+models. They do not measure accuracy on a specific organisation's data; the evaluation gate measures that on held-out records at every
+training run. Benchmarks on public datasets (Online Retail II, the Hillstrom email uplift dataset and NASA C-MAPSS) are planned.</section>
+<section class="read"><h2>Reproduction</h2><pre><code>python benchmarks/run.py --seeds 5        # writes benchmarks/results/core.json
 python benchmarks/collect_lm.py --lm lm   # summarises scored Vertiq LM runs into results/lm.json
-python docs/build.py                      # rebuilds this portal from both</code></pre></section>
+python docs/build.py                      # rebuilds this site and the README</code></pre></section>
 </main>
-<footer><div><span>Vertiq 0.1.0 · Apache-2.0 · pure Python, no dependencies</span><a href="https://github.com/ideatorlabs/vertiq">Source on GitHub</a><span>Benchmarks generated 2026-10-11</span></div></footer>
+<footer><div><span>Vertiq 0.1.0 · Apache License 2.0</span><a href="https://github.com/ideatorlabs/vertiq">Source on GitHub</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Industry guides</a></div></footer>
 </body></html>
