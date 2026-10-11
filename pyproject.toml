@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vertiq"
 version = "0.1.0"
-description = "Decision models for any business, trained on its own outcomes: event and value prediction, uplift from control groups, choices, inventory and tested insights, with an evaluation gate that ships only models that beat the baseline."
+description = "Self-improving decision intelligence: a local language model that maps any operational dataset and decision models trained on real outcomes, improved through recursive self-improvement under an evaluation gate."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
