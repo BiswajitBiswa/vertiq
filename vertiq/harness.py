@@ -61,6 +61,7 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
             better = better and m["mae"] <= m["previous_mae"] * 1.005
     if not better:
         return {"status": "kept", "reason": "the baseline (or the current model) is still better", "metrics": m}
-    final = learner_cls(model.names).fit(rows, y, **fit_kw)
-    final.fit_offsets(rows, y, groups)
+    final = (learner_cls(model.names) if hasattr(model, "names") else learner_cls()).fit(rows, y, **fit_kw)
+    if hasattr(final, "fit_offsets"):            # optional: a learned correction per group
+        final.fit_offsets(rows, y, groups)
     return {"status": "trained", "metrics": m, "model": final}

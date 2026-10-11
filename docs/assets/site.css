@@ -19,7 +19,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outlin
 .bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
 .bar-in { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 10px; display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: center; }
 .mark { font: 700 21px/1 var(--display); color: var(--ink); text-decoration: none; letter-spacing: -.01em; display: inline-flex; gap: 8px; align-items: center; }
-.mark img { display: block; width: 28px; height: 28px; }
+.mark svg { display: block; width: 28px; height: 28px; }
 .nav { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 15px; }
 .nav a { color: var(--muted); text-decoration: none; padding-block: 4px; border-bottom: 2px solid transparent; }
 .nav a:hover { color: var(--ink); }
@@ -99,3 +99,12 @@ footer { border-top: 1px solid var(--line); }
 footer div { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 18px 28px; color: var(--muted); font-size: 14.5px; display: flex; flex-wrap: wrap; gap: 8px 24px; }
 @media (prefers-reduced-motion: no-preference) { a.card { transition: border-color .15s; } }
 @media (max-width: 560px) { body { font-size: 16px; } .lede { font-size: 17.5px; } dl.map { grid-template-columns: 1fr; gap: 2px; } dl.map dd { margin-bottom: 8px; } }
+
+.hero { display: grid; gap: 14px; }
+.hero h1 { max-width: 20ch; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 4px 0 0; }
+.btn { display: inline-block; padding: 11px 18px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-weight: 600; text-decoration: none; border: 1px solid var(--accent); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:hover { filter: brightness(1.06); }
+.pains .card { gap: 8px; }
+.pains .fix { color: var(--ink); border-top: 1px solid var(--line); padding-top: 8px; }

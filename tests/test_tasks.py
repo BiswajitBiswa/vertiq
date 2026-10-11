@@ -125,3 +125,32 @@ def test_learners_are_pluggable_and_checked():
         plugins.register_learner("bad", NotALearner)
     with pytest.raises(KeyError):
         plugins.learner("nope")
+
+
+def test_a_minimal_custom_learner_runs_through_the_gate():
+    """Only fit, predict, to_dict and from_dict are required; offsets and reasons are optional."""
+    class MeanRate:
+        def fit(self, rows, y, **kw):
+            self.p = sum(y) / len(y) if y else 0.0
+            self.w = {"since_target": -0.2}
+            return self
+
+        def predict(self, row, group=None):
+            z = self.w["since_target"] * row.get("since_target", 0.0)
+            return max(0.0, min(1.0, self.p + z / 10))
+
+        def to_dict(self):
+            return {"p": self.p}
+
+        @classmethod
+        def from_dict(cls, d):
+            m = cls()
+            m.p = d["p"]
+            return m
+
+    plugins.register_learner("mean_rate", MeanRate)
+    task = predict_event(_plant_data(seed=6), target="breakdown", window_days=30, learner="mean_rate")
+    assert task.status in ("trained", "kept")
+    if task.status == "trained":
+        s = task.score("M1")
+        assert 0 <= s["chance"] <= 1 and s["raises"] == [] and s["lowers"] == []

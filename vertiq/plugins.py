@@ -3,7 +3,10 @@
   @feature(pack)   fn(entity, events_before, cutoff) -> {name: number}; events_before holds only what
                    was known before the cutoff, so a plugin can't leak the future
   @rule(pack)      fn(entity, events) -> [flag dicts]; see vertiq.rules for ready-made rule types
-  register_learner(name, cls)   any class with fit(rows, y) / predict(row, group) / to_dict / from_dict
+  register_learner(name, cls)   any class with fit(rows, y, **kw) -> self, predict(row, group=None) -> float,
+                                to_dict() and from_dict(d); optional: names (constructor argument),
+                                fit_offsets(rows, y, groups) for per-group corrections, and
+                                contributions(row) -> [(feature, push)] for the reasons on each score
 
 Plugins are registered under a pack name ("manufacturing", "healthcare", or your own) and a task picks
 up the pack's plugins when you pass pack=... .
