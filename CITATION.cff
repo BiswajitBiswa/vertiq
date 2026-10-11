@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use Vertiq, please cite it as below."
+title: "Vertiq: decision models trained on a business's own outcomes"
+authors:
+  - family-names: Tripathy
+    given-names: Biswajit
+    affiliation: Ideator Labs
+version: 0.1.0
+date-released: 2026-10-11
+license: Apache-2.0
+repository-code: "https://github.com/ideatorlabs/vertiq"
+url: "https://ideatorlabs.github.io/vertiq/"
+keywords: [decision models, uplift, churn, predictive maintenance, evaluation, table mapping, MLX]

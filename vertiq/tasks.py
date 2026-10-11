@@ -121,7 +121,8 @@ class Task:
             out["chance"] = round(raw, 4)
         else:
             out["value"] = round(math.expm1(raw), 2)
-        pushes = [(k, c) for k, c in self.model.contributions(f) if abs(c) >= 0.05][: top * 2]
+        contrib = self.model.contributions(f) if hasattr(self.model, "contributions") else []   # optional for custom learners
+        pushes = [(k, c) for k, c in contrib if abs(c) >= 0.05][: top * 2]
         out["raises"] = [_label(k, self.b.target) for k, c in pushes if c > 0][:top]
         out["lowers"] = [_label(k, self.b.target) for k, c in pushes if c < 0][:top]
         return out

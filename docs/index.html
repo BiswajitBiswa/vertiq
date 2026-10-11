@@ -1,60 +1,210 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Vertiq</title><meta name="description" content="Decision models for any business, trained on its own outcomes.">
+<title>Vertiq</title><meta name="description" content="Decisions you can trust, learned from your own outcomes. Open source, pure Python.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap"><link rel="stylesheet" href="assets/site.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%20role%3D%22img%22%20aria-label%3D%22Vertiq%22%3E%0A%20%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232346d3%22/%3E%0A%20%20%3Crect%20x%3D%2213%22%20y%3D%2235%22%20width%3D%229%22%20height%3D%2216%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Crect%20x%3D%2227.5%22%20y%3D%2226%22%20width%3D%229%22%20height%3D%2225%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Crect%20x%3D%2242%22%20y%3D%2217%22%20width%3D%229%22%20height%3D%2234%22%20rx%3D%222.5%22%20fill%3D%22%23ffffff%22/%3E%0A%20%20%3Ccircle%20cx%3D%2246.5%22%20cy%3D%2210.5%22%20r%3D%223.6%22%20fill%3D%22%23f2b84b%22/%3E%0A%3C/svg%3E" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Vertiq docs: one stylesheet for every page.
+   Light theme only. Layout: a top bar with the section nav, a single reading column (max 1080px) that widens for
+   diagrams and tables, quiet cards only where an object stands apart. */
+:root {
+  --bg: #f4f6f9; --panel: #ffffff; --ink: #121826; --muted: #566074; --line: #d5dbe5; --soft: #e8ecf3;
+  --accent: #2346d3; --accent-ink: #ffffff; --accent-soft: #e3e9ff;
+  --ok: #1d7f55; --wait: #a86b12;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--body); }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
+.bar-in { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 10px; display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: center; }
+.mark { font: 700 21px/1 var(--display); color: var(--ink); text-decoration: none; letter-spacing: -.01em; display: inline-flex; gap: 8px; align-items: center; }
+.mark svg { display: block; width: 28px; height: 28px; }
+.nav { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 15px; }
+.nav a { color: var(--muted); text-decoration: none; padding-block: 4px; border-bottom: 2px solid transparent; }
+.nav a:hover { color: var(--ink); }
+.nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+main { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 36px 64px; display: grid; gap: 40px; }
+.read { max-width: 72ch; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; letter-spacing: -.012em; margin: 0; }
+h1 { font-size: clamp(32px, 4.4vw, 46px); line-height: 1.08; font-weight: 700; }
+h2 { font-size: 26px; line-height: 1.2; font-weight: 650; }
+h3 { font-size: 19px; line-height: 1.3; font-weight: 650; }
+.kicker { font: 500 12.5px/1.3 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.lede { font-size: 19.5px; color: var(--muted); margin: 14px 0 0; max-width: 64ch; }
+section { display: grid; gap: 14px; min-width: 0; }
+section > p, section > ul, section > ol { margin: 0; max-width: 72ch; }
+ul, ol { padding-left: 22px; }
+li + li { margin-top: 4px; }
+code { font: 14.5px var(--mono); background: var(--soft); padding: 1px 5px; border-radius: 4px; }
+pre { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 13.5px/1.6 var(--mono); }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; display: grid; gap: 6px; align-content: start; }
+.card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+a.card { text-decoration: none; color: inherit; }
+a.card:hover { border-color: var(--accent); }
+a.card h3 { color: var(--ink); }
+
+.stats { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.stat { background: var(--panel); padding: 16px 18px; display: grid; gap: 4px; }
+.stat b { font: 700 30px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 14.5px; }
+
+figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+.scroll { overflow-x: auto; }
+figure svg { display: block; width: 100%; height: auto; color: var(--ink); }
+.scroll svg { min-width: 760px; }
+figcaption { color: var(--muted); font-size: 15px; margin-top: 10px; max-width: 80ch; }
+svg text { font-family: var(--body); font-size: 13px; fill: var(--ink); }
+svg .t { font-family: var(--display); font-weight: 650; font-size: 15px; }
+svg .s { font-size: 12px; fill: var(--muted); }
+svg .k { font-family: var(--mono); font-size: 11px; fill: var(--muted); letter-spacing: .08em; }
+svg .lbl { font-size: 12px; fill: var(--muted); }
+svg .box { fill: var(--panel); stroke: var(--ink); stroke-width: 1.2; }
+svg .hot { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.6; }
+svg .gate { fill: var(--panel); stroke: var(--accent); stroke-width: 2; }
+svg .dash { stroke-dasharray: 6 4; }
+svg .ln { stroke: var(--ink); stroke-width: 1.3; fill: none; }
+svg .ln.acc { stroke: var(--accent); stroke-width: 1.8; }
+svg .ln.dash { stroke-dasharray: 6 4; }
+svg .ah { fill: var(--ink); }
+svg .ah.acc { fill: var(--accent); }
+svg .bar0 { fill: var(--line); }
+svg .bar1 { fill: var(--muted); }
+svg .bar2 { fill: var(--accent); }
+svg .grid-l { stroke: var(--line); stroke-width: 1; }
+
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-top: 1px solid var(--line); }
+th { font: 500 12px/1.3 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); border-top: 0; white-space: nowrap; }
+td .s { color: var(--muted); font-size: 13.5px; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.best td { background: var(--accent-soft); }
+.pill { display: inline-block; font: 500 12px/1 var(--mono); padding: 5px 9px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.pill.ok { color: var(--ok); }
+.pill.wait { color: var(--wait); }
+.pill.plain { color: var(--muted); }
+.note { border-left: 3px solid var(--wait); padding: 8px 14px; background: var(--panel); border-radius: 0 8px 8px 0; color: var(--ink); max-width: 80ch; }
+.note b { color: var(--wait); }
+.two { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+.two > * { min-width: 0; }
+dl.map { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 0; }
+dl.map dt { font: 500 13px/1.6 var(--mono); color: var(--muted); }
+dl.map dd { margin: 0; }
+footer { border-top: 1px solid var(--line); }
+footer div { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 18px 28px; color: var(--muted); font-size: 14.5px; display: flex; flex-wrap: wrap; gap: 8px 24px; }
+@media (prefers-reduced-motion: no-preference) { a.card { transition: border-color .15s; } }
+@media (max-width: 560px) { body { font-size: 16px; } .lede { font-size: 17.5px; } dl.map { grid-template-columns: 1fr; gap: 2px; } dl.map dd { margin-bottom: 8px; } }
+
+.hero { display: grid; gap: 14px; }
+.hero h1 { max-width: 20ch; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 4px 0 0; }
+.btn { display: inline-block; padding: 11px 18px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-weight: 600; text-decoration: none; border: 1px solid var(--accent); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:hover { filter: brightness(1.06); }
+.pains .card { gap: 8px; }
+.pains .fix { color: var(--ink); border-top: 1px solid var(--line); padding-top: 8px; }
+</style>
 </head><body>
-<header class="bar"><div class="bar-in"><a class="mark" href="index.html"><img src="assets/mark.svg" alt="" width="28" height="28">vertiq</a><nav class="nav" aria-label="Sections"><a href="index.html" aria-current="page">Overview</a><a href="architecture.html">Architecture</a><a href="learning.html">How it learns</a><a href="lm.html">Vertiq LM</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Sector guides</a></nav></div></header>
+<header class="bar"><div class="bar-in"><a class="mark" href="index.html"><svg width="28" height="28" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#2346d3"/>
+  <rect x="13" y="35" width="9" height="16" rx="2.5" fill="#ffffff"/>
+  <rect x="27.5" y="26" width="9" height="25" rx="2.5" fill="#ffffff"/>
+  <rect x="42" y="17" width="9" height="34" rx="2.5" fill="#ffffff"/>
+  <circle cx="46.5" cy="10.5" r="3.6" fill="#f2b84b"/>
+</svg>vertiq</a><nav class="nav" aria-label="Sections"><a href="index.html" aria-current="page">Overview</a><a href="architecture.html">Architecture</a><a href="learning.html">How it learns</a><a href="lm.html">Vertiq LM</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Sector guides</a></nav></div></header>
 <main>
 
-<section class="read">
-  <div class="kicker">Local decision models</div>
-  <h1>Decision models for any business, trained on its own outcomes</h1>
-  <p class="lede">Vertiq predicts what happens next to a customer, a machine, a patient or an account. It measures what actually
-  worked against a control group, and it only ships a model that beats the obvious rule on records it never saw. Pure Python, no
-  dependencies; it runs on a laptop, a server or a till.</p>
+<section class="hero">
+  <div class="kicker">Open source · Apache-2.0 · pure Python</div>
+  <h1>Decisions you can trust, learned from your own outcomes</h1>
+  <p class="lede">Vertiq predicts what happens next to a customer, a machine, a patient or an account, measures which actions actually
+  changed the result, and replaces a model only when the new one wins on records it has never seen. No dependencies, no network calls,
+  and a local language model that maps any sector's data.</p>
+  <p class="cta"><a class="btn" href="https://github.com/ideatorlabs/vertiq">View on GitHub</a><a class="btn ghost" href="benchmarks.html">See the benchmarks</a></p>
 </section>
 <section aria-label="Benchmark highlights">
   <div class="stats">
-    <div class="stat"><b>0.767</b><span>AUC predicting breakdowns with one domain plugin, against 0.674 for the recency rule</span></div>
+    <div class="stat"><b>0.767</b><span>AUC on breakdowns with one domain plugin, against 0.674 for the recency rule</span></div>
     <div class="stat"><b>-20.2%</b><span>offer effect on the bill recovered, planted at −20%</span></div>
-    <div class="stat"><b>0 of 5</b><span>models shipped on pure noise: the gate kept the baseline</span></div>
-    <div class="stat"><b>99.1%</b><span>of held-out tables Vertiq LM maps so every row loads, after the data repair (4B model, on a Mac)</span></div>
+    <div class="stat"><b>0 of 5</b><span>models shipped on pure noise; the gate kept the baseline</span></div>
+    <div class="stat"><b>99.1%</b><span>of held-out tables mapped so every row loads (4B model, on a laptop)</span></div>
   </div>
 </section>
 <section>
-  <h2>Three ideas</h2>
-  <div class="grid">
-    <div class="card"><h3>Map once</h3><p>Any sector's records become entities, events and actions. Vertiq LM proposes the mapping from a header and three rows; the rows correct it.</p></div>
-    <div class="card"><h3>Ask general questions</h3><p>Will it happen within N days? How much will the next one be worth? Who does a message bring back? The same tasks answer them in every sector.</p></div>
-    <div class="card"><h3>Earn its place</h3><p>Every model is tested on entities it never saw, against the obvious rule and the model you already run. If it doesn't win, you keep what you had.</p></div>
-  </div>
+  <div class="kicker">The problem</div>
+  <h2>Most teams have the data. What they lack is a decision they can defend.</h2>
+  <div class="grid pains"><div class="card"><h3>Every source exports data differently</h3><p>Mapping a new client&#x27;s tables to your schema is weeks of manual work, and it is redone for every new source.</p><p class="fix">Vertiq LM proposes the mapping from a header and three rows. The rows then settle what they can prove: real column names, value types and the date format.</p></div><div class="card"><h3>Campaigns take credit for customers who were coming anyway</h3><p>Most attribution compares people who got a message with people who didn&#x27;t, so it rewards targeting the already loyal.</p><p class="fix">Uplift is learned from held-out control groups, so Vertiq ranks people by how much the action changes their behaviour.</p></div><div class="card"><h3>A retrained model can quietly be worse</h3><p>Models are refreshed on a schedule and promoted without a fair test against what was already running.</p><p class="fix">The evaluation gate scores every candidate on entities it never saw, against the obvious rule and the current model. It ships only if it wins.</p></div><div class="card"><h3>Dashboards surface patterns that are noise</h3><p>Slice data enough ways and something always looks significant.</p><p class="fix">Insights carry a p-value and are filtered with Benjamini-Hochberg false-discovery control before anyone sees them.</p></div><div class="card"><h3>Domain experts know things the data doesn&#x27;t say</h3><p>A maintenance engineer knows skipped servicing matters; a clinician knows which codes are chronic. Generic models never hear it.</p><p class="fix">Plugins add that knowledge as features and rules, in a few lines, without forking the engine.</p></div><div class="card"><h3>Data can&#x27;t leave the building</h3><p>Sending customer or patient records to a hosted model is often not allowed, and heavy ML stacks don&#x27;t fit at the edge.</p><p class="fix">The core is pure Python with no dependencies and no network calls. Vertiq LM runs locally on a Mac.</p></div></div>
 </section>
 <section>
-  <h2>Quick start</h2>
-  <pre><code>pip install git+https://github.com/ideatorlabs/vertiq
-
-from vertiq.mapping import Mapping, apply, repair
+  <div class="kicker">What it answers</div>
+  <h2>Six questions, the same in every sector</h2>
+  <div class="grid"><div class="card"><h3>Will it happen?</h3><p>A customer returning, a machine failing, a patient readmitted, an invoice paid late.</p><p><code>tasks.predict_event</code></p></div><div class="card"><h3>How much will it be worth?</h3><p>The next bill, repair cost, length of stay or renewal.</p><p><code>tasks.predict_value</code></p></div><div class="card"><h3>Who should we act on?</h3><p>The people an action actually changes, not the ones who would act anyway.</p><p><code>uplift</code></p></div><div class="card"><h3>What goes together?</h3><p>Items bought together, each customer&#x27;s next item, refill rhythms.</p><p><code>affinity</code></p></div><div class="card"><h3>What in this data is real?</h3><p>Patterns tested before they are shown.</p><p><code>insights</code></p></div><div class="card"><h3>What broke the rules?</h3><p>Repeats, overdue work, parts beyond the bill of materials, empty notes.</p><p><code>rules</code></p></div></div>
+</section>
+<section>
+  <div class="kicker">Recursive improvement</div>
+  <h2>A teacher, a student and a gate</h2>
+  <p>Vertiq gets better by repeating one loop. A stronger model writes harder examples, the data verifies every one, the student learns,
+  and the gate decides whether the result replaces what is running. The student's own mistakes become the next round's lessons, and
+  new outcomes arrive every cycle. On the mapping task this loop took a 4B model from 3.5% to
+  35.1% exactly right on the same held-out tables.</p>
+  <figure><div class="scroll"><svg viewBox="0 0 1080 360" role="img" aria-label="A teacher writes harder cases, the data verifies them, the student learns, the gate ships it only if it beats the current model, and its mistakes become the next round's lessons."><defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="br" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><rect x="16" y="30" width="230" height="116" rx="9" class="box"/><text x="30" y="52" class="k">TEACHER</text><text x="30" y="74" class="t">Writes harder cases</text><text x="30" y="96" class="s">a larger open model,</text><text x="30" y="114" class="s">or an API model you choose</text><rect x="286" y="30" width="230" height="116" rx="9" class="box"/><text x="300" y="52" class="k">VERIFY</text><text x="300" y="74" class="t">The data checks it</text><text x="300" y="96" class="s">kept only if it loads and</text><text x="300" y="114" class="s">the teacher, mapping it</text><text x="300" y="132" class="s">blind, agrees with itself</text><rect x="556" y="30" width="230" height="116" rx="9" class="box"/><text x="570" y="52" class="k">STUDENT</text><text x="570" y="74" class="t">Learns</text><text x="570" y="96" class="s">Vertiq LM, or a</text><text x="570" y="114" class="s">decision model</text><rect x="826" y="30" width="230" height="116" rx="9" class="gate"/><text x="840" y="52" class="k">GATE</text><text x="840" y="74" class="t">Earns its place</text><text x="840" y="96" class="s">beats the baseline and</text><text x="840" y="114" class="s">the current model on</text><text x="840" y="132" class="s">held-out records</text><line x1="246" y1="88" x2="284" y2="88" class="ln" marker-end="url(#ar)"/><line x1="516" y1="88" x2="554" y2="88" class="ln" marker-end="url(#ar)"/><line x1="786" y1="88" x2="824" y2="88" class="ln" marker-end="url(#ar)"/><rect x="826" y="226" width="230" height="116" rx="9" class="box"/><text x="840" y="248" class="k">MISTAKES</text><text x="840" y="270" class="t">Become lessons</text><text x="840" y="292" class="s">the model&#x27;s own wrong</text><text x="840" y="310" class="s">answers are punished</text><text x="840" y="328" class="s">in the next round</text><rect x="286" y="226" width="230" height="116" rx="9" class="box dash"/><text x="300" y="248" class="k">OUTCOMES</text><text x="300" y="270" class="t">New outcomes arrive</text><text x="300" y="292" class="s">bills, breakdowns,</text><text x="300" y="310" class="s">renewals, returns</text><line x1="941" y1="146" x2="941" y2="224" class="ln acc" marker-end="url(#br)"/><text x="951" y="190" class="lbl">after it ships</text><path d="M826 284 H686 V148" class="ln" marker-end="url(#ar)"/><text x="756" y="276" class="lbl" text-anchor="middle">next round</text><path d="M516 284 H626 V148" class="ln dash" marker-end="url(#ar)"/><text x="571" y="276" class="lbl" text-anchor="middle">each cycle</text></svg></div><figcaption>Each round starts from the model that won the last one. The teacher is never trusted on its word, the student is punished for its own mistakes, and nothing ships unless it beats what is already running. Closed models whose terms forbid training on their output are refused as teachers.</figcaption></figure>
+</section>
+<section class="two">
+  <div>
+    <div class="kicker">Plugins</div>
+    <h2>Add what your experts know</h2>
+    <p>Features, rules, learners and vertical profiles all register under a pack name. A feature sees only events before the cutoff, so
+    it cannot leak the future, and the gate still decides whether it helped. In the benchmark this plugin lifted breakdown AUC from
+    0.735 to 0.767.</p>
+    <ul><li><code>@plugins.feature(pack)</code> domain features</li><li><code>@plugins.rule(pack)</code> and <code>vertiq.rules</code> audit checks</li>
+    <li><code>plugins.register_learner(name, cls)</code> bring your own model, for example gradient boosting</li>
+    <li><code>verticals.register(...)</code> windows and vocabulary for a sector</li><li>teacher endpoints for Vertiq LM, any OpenAI-compatible server</li></ul>
+  </div>
+  <pre><code>from datetime import timedelta
+from vertiq import plugins
 from vertiq.tasks import predict_event
 
-m, notes = repair(Mapping.parse({&quot;entity&quot;: &quot;Equipment No&quot;, &quot;time&quot;: &quot;Work Order Date&quot;, &quot;type&quot;: &quot;Order Type&quot;,
-                                 &quot;value&quot;: &quot;Cost&quot;, &quot;group&quot;: &quot;Plant&quot;, &quot;attrs&quot;: [], &quot;date_format&quot;: &quot;%Y-%m-%d&quot;}), rows)
-ds, problems = apply(m, rows)
-task = predict_event(ds, target=&quot;breakdown&quot;, window_days=30)
-print(task.status, task.report()[&quot;metrics&quot;])   # trained, kept (baseline wins) or learning (too little data)
-print(task.score(&quot;EQ-602&quot;))                    # {&quot;chance&quot;: 0.31, &quot;raises&quot;: [...], &quot;lowers&quot;: [...]}</code></pre>
+@plugins.feature(&quot;plants&quot;)
+def skipped_maintenance(entity, before, cut):
+    # `before` holds only events earlier than the cutoff, so a plugin cannot see the future
+    return {&quot;skipped_pm_60&quot;: sum(1 for e in before
+                                 if e.type == &quot;pm&quot; and e.attrs.get(&quot;PM Done&quot;) == &quot;no&quot;
+                                 and e.at &gt;= cut - timedelta(days=60))}
+
+task = predict_event(ds, target=&quot;breakdown&quot;, window_days=30, pack=&quot;plants&quot;)</code></pre>
 </section>
 <section>
-  <h2>Where to go next</h2>
+  <div class="kicker">Trust</div>
+  <h2>Built to be audited</h2>
   <div class="grid">
-    <a class="card" href="architecture.html"><h3>Architecture</h3><p>The contract, the tasks, the gate, and the boundary that keeps Vertiq independent of any product.</p></a>
-    <a class="card" href="learning.html"><h3>How it learns</h3><p>No peeking at the future, held-out entities, control groups, tested insights.</p></a>
-    <a class="card" href="lm.html"><h3>Vertiq LM</h3><p>An open 4B model fine-tuned on a Mac to map any table, punished for its own mistakes.</p></a>
-    <a class="card" href="benchmarks.html"><h3>Benchmarks</h3><p>Seven scenarios with a planted truth, five seeds each, and every LM run.</p></a>
-    <a class="card" href="guides/index.html"><h3>Sector guides</h3><p>14 sectors: how their records map, which questions apply, what has been tested.</p></a>
+    <div class="card"><h3>Runs where your data is</h3><p>No network calls and no dependencies in the core. Vertiq LM runs on a Mac; teachers are optional.</p></div>
+    <div class="card"><h3>No look-ahead</h3><p>Features come only from events before each cutoff. A plugin is handed the same restricted history.</p></div>
+    <div class="card"><h3>Every score explained</h3><p>Each prediction lists what raises and lowers it, in words, and every flag carries its evidence.</p></div>
+    <div class="card"><h3>Reproducible</h3><p>Benchmarks, docs and README are generated from committed results; CI fails if they drift.</p></div>
   </div>
 </section>
+<section>
+  <div class="kicker">Sector guides</div>
+  <h2>One engine, 14 worked guides</h2>
+  <p><a href="guides/restaurants-cafes.html">Restaurants and cafés</a> · <a href="guides/retail-ecommerce.html">Retail and e-commerce</a> · <a href="guides/salons-gyms-services.html">Salons, gyms and appointment services</a> · <a href="guides/b2b-distribution.html">B2B distribution and invoicing</a> · <a href="guides/saas-subscriptions.html">SaaS and subscriptions</a> · <a href="guides/healthcare-clinics.html">Healthcare and clinics</a> · <a href="guides/manufacturing-maintenance.html">Manufacturing and maintenance</a> · <a href="guides/supply-chain-inventory.html">Supply chain and inventory</a> · <a href="guides/finance-portfolios.html">Finance and portfolio operations</a> · <a href="guides/tax-accounting.html">Tax and accounting practices</a> · <a href="guides/insurance.html">Insurance</a> · <a href="guides/logistics.html">Logistics and delivery</a> · <a href="guides/telecom-utilities.html">Telecom and utilities</a> · <a href="guides/education.html">Education</a></p>
+</section>
+<section class="hero">
+  <h2>Try it on your own export</h2>
+  <pre><code>pip install git+https://github.com/ideatorlabs/vertiq</code></pre>
+  <p class="cta"><a class="btn" href="guides/index.html">Pick your sector</a><a class="btn ghost" href="architecture.html">Read the architecture</a></p>
+</section>
 </main>
-<footer><div><span>Vertiq 0.1.0 · Apache-2.0 · pure Python, no dependencies</span><a href="https://github.com/ideatorlabs/vertiq">Source</a><span>Benchmarks generated 2026-10-11</span></div></footer>
+<footer><div><span>Vertiq 0.1.0 · Apache-2.0 · pure Python, no dependencies</span><a href="https://github.com/ideatorlabs/vertiq">Source on GitHub</a><span>Benchmarks generated 2026-10-11</span></div></footer>
 </body></html>

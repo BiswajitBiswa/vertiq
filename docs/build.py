@@ -9,6 +9,7 @@ import html
 import json
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 DOCS = Path(__file__).resolve().parent
 ROOT = DOCS.parent
@@ -35,22 +36,29 @@ def mean(name, key, nd=3):
 
 
 def page(path: str, title: str, body: str, desc: str) -> None:
+    """Every page carries its own styles and logo, so a page saved on its own still renders."""
     depth = path.count("/")
     up = "../" * depth
     cur = ' aria-current="page"'
     nav = "".join(f'<a href="{up}{href}"{cur if href == path else ""}>{label}</a>' for href, label in NAV)
+    css = (DOCS / "assets" / "site.css").read_text()
+    mark = (DOCS / "assets" / "mark.svg").read_text().strip()
+    logo = mark.replace("<svg ", '<svg width="28" height="28" aria-hidden="true" ', 1).replace(' role="img" aria-label="Vertiq"', "")
+    icon = "data:image/svg+xml," + quote(mark)
     doc = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{E(title)}</title><meta name="description" content="{E(desc)}">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="icon" href="{up}assets/mark.svg" type="image/svg+xml">
-<link rel="stylesheet" href="{FONTS}"><link rel="stylesheet" href="{up}assets/site.css">
+<link rel="icon" href="{icon}" type="image/svg+xml">
+<link rel="stylesheet" href="{FONTS}">
+<style>
+{css}</style>
 </head><body>
-<header class="bar"><div class="bar-in"><a class="mark" href="{up}index.html"><img src="{up}assets/mark.svg" alt="" width="28" height="28">vertiq</a><nav class="nav" aria-label="Sections">{nav}</nav></div></header>
+<header class="bar"><div class="bar-in"><a class="mark" href="{up}index.html">{logo}vertiq</a><nav class="nav" aria-label="Sections">{nav}</nav></div></header>
 <main>
 {body}
 </main>
-<footer><div><span>Vertiq {E(CORE.get('version', '0.1.0'))} · Apache-2.0 · pure Python, no dependencies</span><a href="{REPO}">Source</a><span>Benchmarks generated {E(CORE['generated'])}</span></div></footer>
+<footer><div><span>Vertiq {E(CORE.get('version', '0.1.0'))} · Apache-2.0 · pure Python, no dependencies</span><a href="{REPO}">Source on GitHub</a><span>Benchmarks generated {E(CORE['generated'])}</span></div></footer>
 </body></html>
 """
     out = DOCS / path
@@ -223,57 +231,151 @@ def lm_run(name):
     return next(r for r in LM["runs"] if r["run"] == name)
 
 
+PLUGIN_EXAMPLE = '''from datetime import timedelta
+from vertiq import plugins
+from vertiq.tasks import predict_event
+
+@plugins.feature("plants")
+def skipped_maintenance(entity, before, cut):
+    # `before` holds only events earlier than the cutoff, so a plugin cannot see the future
+    return {"skipped_pm_60": sum(1 for e in before
+                                 if e.type == "pm" and e.attrs.get("PM Done") == "no"
+                                 and e.at >= cut - timedelta(days=60))}
+
+task = predict_event(ds, target="breakdown", window_days=30, pack="plants")'''
+
+PAINS = [
+    ("Every source exports data differently",
+     "Mapping a new client's tables to your schema is weeks of manual work, and it is redone for every new source.",
+     "Vertiq LM proposes the mapping from a header and three rows. The rows then settle what they can prove: real column names, value types and the date format."),
+    ("Campaigns take credit for customers who were coming anyway",
+     "Most attribution compares people who got a message with people who didn't, so it rewards targeting the already loyal.",
+     "Uplift is learned from held-out control groups, so Vertiq ranks people by how much the action changes their behaviour."),
+    ("A retrained model can quietly be worse",
+     "Models are refreshed on a schedule and promoted without a fair test against what was already running.",
+     "The evaluation gate scores every candidate on entities it never saw, against the obvious rule and the current model. It ships only if it wins."),
+    ("Dashboards surface patterns that are noise",
+     "Slice data enough ways and something always looks significant.",
+     "Insights carry a p-value and are filtered with Benjamini-Hochberg false-discovery control before anyone sees them."),
+    ("Domain experts know things the data doesn't say",
+     "A maintenance engineer knows skipped servicing matters; a clinician knows which codes are chronic. Generic models never hear it.",
+     "Plugins add that knowledge as features and rules, in a few lines, without forking the engine."),
+    ("Data can't leave the building",
+     "Sending customer or patient records to a hosted model is often not allowed, and heavy ML stacks don't fit at the edge.",
+     "The core is pure Python with no dependencies and no network calls. Vertiq LM runs locally on a Mac."),
+]
+
+QUESTIONS = [
+    ("Will it happen?", "A customer returning, a machine failing, a patient readmitted, an invoice paid late.", "tasks.predict_event"),
+    ("How much will it be worth?", "The next bill, repair cost, length of stay or renewal.", "tasks.predict_value"),
+    ("Who should we act on?", "The people an action actually changes, not the ones who would act anyway.", "uplift"),
+    ("What goes together?", "Items bought together, each customer's next item, refill rhythms.", "affinity"),
+    ("What in this data is real?", "Patterns tested before they are shown.", "insights"),
+    ("What broke the rules?", "Repeats, overdue work, parts beyond the bill of materials, empty notes.", "rules"),
+]
+
+
+def fig_loop() -> str:
+    g = [arrow_defs("r")]
+    xs, w, h = [16, 286, 556, 826], 230, 116
+    top = [("TEACHER", "Writes harder cases", ["~a larger open model,", "~or an API model you choose"], "box"),
+           ("VERIFY", "The data checks it", ["~kept only if it loads and", "~the teacher, mapping it", "~blind, agrees with itself"], "box"),
+           ("STUDENT", "Learns", ["~Vertiq LM, or a", "~decision model"], "box"),
+           ("GATE", "Earns its place", ["~beats the baseline and", "~the current model on", "~held-out records"], "gate")]
+    for (k, t, ls, c), x in zip(top, xs):
+        g.append(box(x, 30, w, h, t, ls, c, kicker=k))
+    for i in range(3):
+        g.append(f'<line x1="{xs[i] + w}" y1="88" x2="{xs[i + 1] - 2}" y2="88" class="ln" marker-end="url(#ar)"/>')
+    g.append(box(826, 226, w, h, "Become lessons", ["~the model's own wrong", "~answers are punished", "~in the next round"], "box", kicker="MISTAKES"))
+    g.append(box(286, 226, w, h, "New outcomes arrive", ["~bills, breakdowns,", "~renewals, returns"], "box dash", kicker="OUTCOMES"))
+    g.append('<line x1="941" y1="146" x2="941" y2="224" class="ln acc" marker-end="url(#br)"/>')
+    g.append('<text x="951" y="190" class="lbl">after it ships</text>')
+    g.append('<path d="M826 284 H686 V148" class="ln" marker-end="url(#ar)"/>')
+    g.append('<text x="756" y="276" class="lbl" text-anchor="middle">next round</text>')
+    g.append('<path d="M516 284 H626 V148" class="ln dash" marker-end="url(#ar)"/>')
+    g.append('<text x="571" y="276" class="lbl" text-anchor="middle">each cycle</text>')
+    return ('<figure><div class="scroll"><svg viewBox="0 0 1080 360" role="img" aria-label="A teacher writes harder cases, the data verifies them, '
+            'the student learns, the gate ships it only if it beats the current model, and its mistakes become the next round\'s lessons.">'
+            f'{"".join(g)}</svg></div><figcaption>Each round starts from the model that won the last one. The teacher is never trusted on its word, '
+            'the student is punished for its own mistakes, and nothing ships unless it beats what is already running. Closed models whose terms '
+            'forbid training on their output are refused as teachers.</figcaption></figure>')
+
+
 def build_index():
     best = lm_run("v2-sft")
+    pains = "".join(f'<div class="card"><h3>{E(t)}</h3><p>{E(p)}</p><p class="fix">{E(f)}</p></div>' for t, p, f in PAINS)
+    qs = "".join(f'<div class="card"><h3>{E(q)}</h3><p>{E(d)}</p><p><code>{E(m)}</code></p></div>' for q, d, m in QUESTIONS)
+    sectors = " · ".join(f'<a href="guides/{g["slug"]}.html">{E(g["name"])}</a>' for g in GUIDES)
     body = f"""
-<section class="read">
-  <div class="kicker">Local decision models</div>
-  <h1>Decision models for any business, trained on its own outcomes</h1>
-  <p class="lede">Vertiq predicts what happens next to a customer, a machine, a patient or an account. It measures what actually
-  worked against a control group, and it only ships a model that beats the obvious rule on records it never saw. Pure Python, no
-  dependencies; it runs on a laptop, a server or a till.</p>
+<section class="hero">
+  <div class="kicker">Open source · Apache-2.0 · pure Python</div>
+  <h1>Decisions you can trust, learned from your own outcomes</h1>
+  <p class="lede">Vertiq predicts what happens next to a customer, a machine, a patient or an account, measures which actions actually
+  changed the result, and replaces a model only when the new one wins on records it has never seen. No dependencies, no network calls,
+  and a local language model that maps any sector's data.</p>
+  <p class="cta"><a class="btn" href="{REPO}">View on GitHub</a><a class="btn ghost" href="benchmarks.html">See the benchmarks</a></p>
 </section>
 <section aria-label="Benchmark highlights">
   <div class="stats">
-    <div class="stat"><b>{mean('machines', 'plugin_auc')}</b><span>AUC predicting breakdowns with one domain plugin, against {mean('machines', 'baseline_auc')} for the recency rule</span></div>
+    <div class="stat"><b>{mean('machines', 'plugin_auc')}</b><span>AUC on breakdowns with one domain plugin, against {mean('machines', 'baseline_auc')} for the recency rule</span></div>
     <div class="stat"><b>{S('uplift_targeting')['offer_effect_pct']['mean']:+.1f}%</b><span>offer effect on the bill recovered, planted at −20%</span></div>
-    <div class="stat"><b>{S('noise')['shipped_worse_than_baseline'].split('/')[0]} of {CORE['scenarios']['noise']['seeds']}</b><span>models shipped on pure noise: the gate kept the baseline</span></div>
-    <div class="stat"><b>{best['overall']['loads_repaired'] * 100:.1f}%</b><span>of held-out tables Vertiq LM maps so every row loads, after the data repair (4B model, on a Mac)</span></div>
+    <div class="stat"><b>{S('noise')['shipped_worse_than_baseline'].split('/')[0]} of {CORE['scenarios']['noise']['seeds']}</b><span>models shipped on pure noise; the gate kept the baseline</span></div>
+    <div class="stat"><b>{best['overall']['loads_repaired'] * 100:.1f}%</b><span>of held-out tables mapped so every row loads (4B model, on a laptop)</span></div>
   </div>
 </section>
 <section>
-  <h2>Three ideas</h2>
+  <div class="kicker">The problem</div>
+  <h2>Most teams have the data. What they lack is a decision they can defend.</h2>
+  <div class="grid pains">{pains}</div>
+</section>
+<section>
+  <div class="kicker">What it answers</div>
+  <h2>Six questions, the same in every sector</h2>
+  <div class="grid">{qs}</div>
+</section>
+<section>
+  <div class="kicker">Recursive improvement</div>
+  <h2>A teacher, a student and a gate</h2>
+  <p>Vertiq gets better by repeating one loop. A stronger model writes harder examples, the data verifies every one, the student learns,
+  and the gate decides whether the result replaces what is running. The student's own mistakes become the next round's lessons, and
+  new outcomes arrive every cycle. On the mapping task this loop took a 4B model from {lm_run('base')['overall']['exact'] * 100:.1f}% to
+  {lm_run('v2-sft-on-v1')['overall']['exact'] * 100:.1f}% exactly right on the same held-out tables.</p>
+  {fig_loop()}
+</section>
+<section class="two">
+  <div>
+    <div class="kicker">Plugins</div>
+    <h2>Add what your experts know</h2>
+    <p>Features, rules, learners and vertical profiles all register under a pack name. A feature sees only events before the cutoff, so
+    it cannot leak the future, and the gate still decides whether it helped. In the benchmark this plugin lifted breakdown AUC from
+    {mean('machines', 'generic_auc')} to {mean('machines', 'plugin_auc')}.</p>
+    <ul><li><code>@plugins.feature(pack)</code> domain features</li><li><code>@plugins.rule(pack)</code> and <code>vertiq.rules</code> audit checks</li>
+    <li><code>plugins.register_learner(name, cls)</code> bring your own model, for example gradient boosting</li>
+    <li><code>verticals.register(...)</code> windows and vocabulary for a sector</li><li>teacher endpoints for Vertiq LM, any OpenAI-compatible server</li></ul>
+  </div>
+  <pre><code>{E(PLUGIN_EXAMPLE)}</code></pre>
+</section>
+<section>
+  <div class="kicker">Trust</div>
+  <h2>Built to be audited</h2>
   <div class="grid">
-    <div class="card"><h3>Map once</h3><p>Any sector's records become entities, events and actions. Vertiq LM proposes the mapping from a header and three rows; the rows correct it.</p></div>
-    <div class="card"><h3>Ask general questions</h3><p>Will it happen within N days? How much will the next one be worth? Who does a message bring back? The same tasks answer them in every sector.</p></div>
-    <div class="card"><h3>Earn its place</h3><p>Every model is tested on entities it never saw, against the obvious rule and the model you already run. If it doesn't win, you keep what you had.</p></div>
+    <div class="card"><h3>Runs where your data is</h3><p>No network calls and no dependencies in the core. Vertiq LM runs on a Mac; teachers are optional.</p></div>
+    <div class="card"><h3>No look-ahead</h3><p>Features come only from events before each cutoff. A plugin is handed the same restricted history.</p></div>
+    <div class="card"><h3>Every score explained</h3><p>Each prediction lists what raises and lowers it, in words, and every flag carries its evidence.</p></div>
+    <div class="card"><h3>Reproducible</h3><p>Benchmarks, docs and README are generated from committed results; CI fails if they drift.</p></div>
   </div>
 </section>
 <section>
-  <h2>Quick start</h2>
-  <pre><code>{E('''pip install git+https://github.com/ideatorlabs/vertiq
-
-from vertiq.mapping import Mapping, apply, repair
-from vertiq.tasks import predict_event
-
-m, notes = repair(Mapping.parse({"entity": "Equipment No", "time": "Work Order Date", "type": "Order Type",
-                                 "value": "Cost", "group": "Plant", "attrs": [], "date_format": "%Y-%m-%d"}), rows)
-ds, problems = apply(m, rows)
-task = predict_event(ds, target="breakdown", window_days=30)
-print(task.status, task.report()["metrics"])   # trained, kept (baseline wins) or learning (too little data)
-print(task.score("EQ-602"))                    # {"chance": 0.31, "raises": [...], "lowers": [...]}''')}</code></pre>
+  <div class="kicker">Sector guides</div>
+  <h2>One engine, {len(GUIDES)} worked guides</h2>
+  <p>{sectors}</p>
 </section>
-<section>
-  <h2>Where to go next</h2>
-  <div class="grid">
-    <a class="card" href="architecture.html"><h3>Architecture</h3><p>The contract, the tasks, the gate, and the boundary that keeps Vertiq independent of any product.</p></a>
-    <a class="card" href="learning.html"><h3>How it learns</h3><p>No peeking at the future, held-out entities, control groups, tested insights.</p></a>
-    <a class="card" href="lm.html"><h3>Vertiq LM</h3><p>An open 4B model fine-tuned on a Mac to map any table, punished for its own mistakes.</p></a>
-    <a class="card" href="benchmarks.html"><h3>Benchmarks</h3><p>Seven scenarios with a planted truth, five seeds each, and every LM run.</p></a>
-    <a class="card" href="guides/index.html"><h3>Sector guides</h3><p>{len(GUIDES)} sectors: how their records map, which questions apply, what has been tested.</p></a>
-  </div>
+<section class="hero">
+  <h2>Try it on your own export</h2>
+  <pre><code>pip install git+https://github.com/ideatorlabs/vertiq</code></pre>
+  <p class="cta"><a class="btn" href="guides/index.html">Pick your sector</a><a class="btn ghost" href="architecture.html">Read the architecture</a></p>
 </section>"""
-    page("index.html", "Vertiq", body, "Decision models for any business, trained on its own outcomes.")
+    page("index.html", "Vertiq", body, "Decisions you can trust, learned from your own outcomes. Open source, pure Python.")
 
 
 def build_architecture():
@@ -491,7 +593,7 @@ def build_readme():
          f"recency formula: AUC {mm('churn_customers', 'baseline_auc')}, Brier {mm('churn_customers', 'baseline_brier')}"),
         ("Machine breakdowns", f"AUC {mm('machines', 'generic_auc')}; with one plugin {mm('machines', 'plugin_auc')}", f"recency: AUC {mm('machines', 'baseline_auc')}"),
         ("Length of stay", f"error {mm('patients', 'model_mae_days', 2)} days", f"same as last time: {mm('patients', 'baseline_mae_days', 2)} days"),
-        ("Pure noise", f"models shipped: {S('noise')['shipped_worse_than_baseline'].split('/')[0]} of {CORE['scenarios']['noise']['seeds']}", "baseline kept every time"),
+        ("Pure noise", f"models shipped: {S('noise')['shipped_worse_than_baseline'].split('/')[0]} of {CORE['scenarios']['noise']['seeds']}", "the baseline must be kept"),
         ("Who a message brings back", f"top-ranked half +{mm('uplift_targeting', 'lift_top_half', 1, 100)} pts, bottom half {mm('uplift_targeting', 'lift_bottom_half', 1, 100)} pts", "planted: +30 pts for the overdue only"),
         ("Offer effect on the bill", f"{mm('uplift_targeting', 'offer_effect_pct', 1)}%", "planted: −20%"),
         ("Tested insights", f"planted pattern found {S('insight_discovery')['found_planted']}; false patterns in noise {S('insight_discovery')['false_item_findings_in_noise']['mean']:.0f}", "Benjamini-Hochberg at 10%"),
@@ -503,22 +605,132 @@ def build_readme():
         return "\n".join(f"| {r['model']} | {r['overall']['loads'] * 100:.1f}% | {r['overall']['exact'] * 100:.1f}% | "
                          f"{r['overall']['exact_repaired'] * 100:.1f}% | {r['unseen']['exact'] * 100:.1f}% |"
                          for r in LM["runs"] if r["test_set"] == test)
+    pains = "\n".join(f"| {t} | {f} |" for t, _p, f in PAINS)
+    qs = "\n".join(f"| {q} | `{m}` | {d} |" for q, d, m in QUESTIONS)
     guides = "\n".join(f"- [{g['name']}]({SITE}guides/{g['slug']}.html): {g['blurb']}" for g in GUIDES)
+    best = lm_run("v2-sft")
     text = f"""<p align="center"><img src="docs/assets/logo.svg" alt="Vertiq" width="290"></p>
 
-<p align="center"><b>Decision models for any business, trained on its own outcomes.</b><br>
-<a href="{SITE}">Docs portal</a> · <a href="{SITE}benchmarks.html">Benchmarks</a> · <a href="{SITE}guides/">Sector guides</a></p>
+<p align="center"><b>Decisions you can trust, learned from your own outcomes.</b></p>
 
-Vertiq predicts what happens next to a customer, a machine, a patient or an account, measures what actually worked
-against a control group, and only ships a model that beats the obvious rule on records it never saw. It is pure Python
-with no dependencies, so it runs on a laptop, a server or a till. Vertiq LM, an open 4B model fine-tuned on a Mac, maps
-any sector's export to Vertiq's contract.
+<p align="center">
+<a href="https://github.com/ideatorlabs/vertiq/actions/workflows/tests.yml"><img alt="tests" src="https://github.com/ideatorlabs/vertiq/actions/workflows/tests.yml/badge.svg"></a>
+<a href="LICENSE"><img alt="Apache-2.0" src="https://img.shields.io/badge/licence-Apache--2.0-2346d3"></a>
+<img alt="Python 3.10 to 3.12" src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-2346d3">
+<img alt="no dependencies" src="https://img.shields.io/badge/dependencies-0-1d7f55">
+</p>
 
-- **Map once.** Any table becomes entities, events and actions (`vertiq.mapping`, `vertiq.contract`).
-- **Ask general questions.** Will it happen within N days, how much will the next one be worth, who does a message bring
-  back (`vertiq.tasks`, `uplift`, `affinity`, `insights`, `rules`).
-- **Earn its place.** Every model is scored on held-out entities against the baseline and the current model
-  (`vertiq.harness`); if it doesn't win, you keep what you had.
+<p align="center"><a href="{SITE}">Docs</a> · <a href="{SITE}benchmarks.html">Benchmarks</a> · <a href="{SITE}guides/">Sector guides</a> · <a href="lm/README.md">Vertiq LM</a></p>
+
+Vertiq is a Python library for business decision models. It predicts what happens next to a customer, a machine, a patient or an
+account; it measures which actions actually changed the outcome, using control groups; and it replaces a model only when the new
+one beats both a simple baseline and the current model on records it has never seen. The core has no dependencies and makes no
+network calls. A companion model, Vertiq LM, maps an unfamiliar export from any sector into Vertiq's data contract, running
+locally on a laptop.
+
+## Why Vertiq
+
+| The problem | What Vertiq does |
+|---|---|
+{pains}
+
+## What it answers
+
+| Question | API | Examples |
+|---|---|---|
+{qs}
+
+Every task works on the same contract (entities, events, actions), so one engine serves every sector. There is no sector-specific
+code; [sector guides]({SITE}guides/) show the mapping and the questions for each.
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Your export<br/>CSV, POS, ERP, EHR] --> B[Mapping<br/>Vertiq LM + data repair]
+    B --> C[Contract<br/>Entity, Event, Action]
+    C --> D[Tasks<br/>event, value, uplift,<br/>affinity, insights, rules]
+    P[Your plugins<br/>features, rules, learners] --> D
+    D --> G{{Evaluation gate<br/>held-out entities}}
+    G -- beats baseline and current model --> R[Scores with reasons,<br/>ranked actions, flags]
+    G -- otherwise --> K[Current model kept]
+```
+
+1. **Map.** A host maps its records once. Vertiq LM proposes the mapping; `vertiq.mapping.repair` lets the rows settle column names,
+   value types and the date format, and it never invents a column.
+2. **Learn.** Tasks step back through history to several cutoffs and build features only from what was known at each one.
+3. **Gate.** About a fifth of entities, chosen by a hash of their id, never appear in training. A candidate ships only if it beats
+   the obvious rule and the model already running on those entities (`vertiq.harness`).
+4. **Explain.** Every score lists what raises and lowers it; every rule flag carries its evidence.
+
+## Recursive improvement
+
+```mermaid
+flowchart LR
+    T[Teacher<br/>writes harder cases] --> V[Verify<br/>data checks every one]
+    V --> S[Student learns]
+    S --> G{{Gate}}
+    G -- ships --> M[Its mistakes]
+    M -- punished next round --> S
+    O[New outcomes] -- each cycle --> S
+```
+
+Each round starts from the model that won the last one. For Vertiq LM, a larger open model (or an OpenAI-compatible endpoint you
+configure) writes new tables; a table is kept only if it loads with its own mapping and the teacher, mapping it blind, agrees with
+itself. The student's own wrong answers become rejected examples for preference training (ORPO). Closed models whose terms forbid
+training on their output are refused as teachers. On the mapping task this loop took a 4B model from
+{lm_run('base')['overall']['exact'] * 100:.1f}% to {lm_run('v2-sft-on-v1')['overall']['exact'] * 100:.1f}% exactly right on the same held-out tables.
+The decision models follow the same rule: retrained on new outcomes each cycle, promoted only through the gate.
+
+## Install
+
+```bash
+pip install git+https://github.com/ideatorlabs/vertiq        # Python 3.10+, no dependencies
+pip install "vertiq[lm] @ git+https://github.com/ideatorlabs/vertiq"   # Vertiq LM tooling, Apple Silicon
+```
+
+## Quick start
+
+```python
+import csv
+from vertiq.mapping import Mapping, apply, repair
+from vertiq.tasks import predict_event
+
+rows = list(csv.DictReader(open("work_orders.csv")))
+m, notes = repair(Mapping.parse({{"entity": "Equipment No", "time": "Work Order Date", "type": "Order Type",
+                                 "value": "Cost", "group": "Plant", "attrs": [], "date_format": "%Y-%m-%d"}}), rows)
+ds, problems = apply(m, rows)            # rows that don't load are listed, never guessed
+
+task = predict_event(ds, target="breakdown", window_days=30)
+print(task.status)                        # trained, kept (the baseline won) or learning (too little data)
+print(task.report()["metrics"])           # AUC, Brier, calibration, baseline AUC, held-out entities
+print(task.score("EQ-602"))               # {{"chance": ..., "raises": [...], "lowers": [...]}}
+```
+
+## Extend with plugins
+
+```python
+{PLUGIN_EXAMPLE}
+```
+
+| Extension point | Contract |
+|---|---|
+| `@plugins.feature(pack)` | `fn(entity, events_before, cutoff) -> {{name: number}}`; sees only events before the cutoff |
+| `@plugins.rule(pack)`, `vertiq.rules` | `repeat`, `overdue`, `exceeds`, `too_short`, configured with data |
+| `plugins.register_learner(name, cls)` | required: `fit(rows, y, **kw) -> self`, `predict(row, group=None)`, `to_dict()`, `from_dict(d)`; optional: `fit_offsets`, `contributions` |
+| `verticals.register(Vertical(...))` | windows, nouns and currency for a sector |
+| Vertiq LM teachers | `TEACHER_API_KEY`, `TEACHER_BASE_URL`, `TEACHER_MODEL` for any OpenAI-compatible server |
+
+A plugin can only add signal. Whether it helped is still decided by the gate on held-out entities.
+
+## Guarantees
+
+- **No look-ahead.** Features, including plugin features, are built only from events before each cutoff.
+- **Held out by entity.** No entity appears in both training and evaluation.
+- **No silent regressions.** A candidate replaces the current model only if it is no worse on the same held-out entities.
+- **No invented data.** The mapping repair snaps to real columns or drops the role; rows that fail are named.
+- **No network, no I/O.** The package never opens a connection or a file. `tests/test_boundary.py` fails on framework, ORM or HTTP imports.
+- **Reproducible.** Benchmarks, the docs and this README are generated from committed results; CI fails if they drift.
 
 ## Benchmarks
 
@@ -529,15 +741,10 @@ Synthetic scenarios with a planted truth, {CORE['scenarios']['machines']['seeds'
 |---|---|---|
 {core_rows}
 
-These prove the machinery finds real signal, ignores noise and refuses to ship a worse model. They don't prove accuracy on
-your data; the evaluation gate measures that on your own held-out records every time it trains. Public datasets (Online
-Retail II, Hillstrom email uplift, NASA C-MAPSS) are next.
-
 ### Vertiq LM: mapping unseen tables
 
 Qwen 3.5 4B (Apache-2.0, 4-bit MLX), LoRA on an Apple M1 Pro with 16 GB. 114 held-out tables over 15 domains; 4 domains
-(energy, insurance, manufacturing, retail sales) never appear in training. "Repaired" = after `vertiq.mapping.repair`,
-which lets the rows settle column names, value types and the date format.
+(energy, insurance, manufacturing, retail sales) never appear in training. "Repaired" means after `vertiq.mapping.repair`.
 
 Original test set:
 
@@ -551,55 +758,57 @@ Realistic test set (real audit columns, amounts in local styles):
 |---|---|---|---|---|
 {lm_rows('v2')}
 
-## Quick start
+## Where Vertiq fits
 
-```bash
-pip install git+https://github.com/ideatorlabs/vertiq
-```
+- **Not a general ML library.** For custom modelling use scikit-learn, LightGBM or XGBoost. Any of them can run inside Vertiq's
+  tasks and gate through `register_learner`.
+- **Not an experiment tracker.** MLflow and similar tools record and serve models. Vertiq decides whether a retrained model should be
+  promoted at all, and the two work together.
+- **Not a general extraction library.** Schema-forcing libraries make an LLM fill a schema. Vertiq LM is trained for one job, mapping a
+  table to a contract, and every answer is checked against the table's own rows.
 
-```python
-from vertiq.mapping import Mapping, apply, repair
-from vertiq.tasks import predict_event
+## Known limitations
 
-rows = [...]   # your export as a list of dicts, e.g. list(csv.DictReader(open("work_orders.csv")))
-m, notes = repair(Mapping.parse({{"entity": "Equipment No", "time": "Work Order Date", "type": "Order Type",
-                                 "value": "Cost", "group": "Plant", "attrs": [], "date_format": "%Y-%m-%d"}}), rows)
-ds, problems = apply(m, rows)
-task = predict_event(ds, target="breakdown", window_days=30)
-print(task.status, task.report()["metrics"])   # trained, kept (the baseline wins) or learning (too little data)
-print(task.score("EQ-602"))                    # the chance, and what raises or lowers it
-```
+- The benchmarks are synthetic. They show the machinery finds planted signal, ignores noise and refuses worse models; they do not
+  show accuracy on your data. Public datasets are next on the roadmap.
+- Vertiq LM gets {best['overall']['exact_repaired'] * 100:.0f}% of unseen tables exactly right after repair and loads
+  {best['overall']['loads_repaired'] * 100:.0f}%. Treat its mapping as a proposal for a person to confirm.
+- Uplift needs a held-out control group on every campaign. Without one, Vertiq falls back to rules and says so.
+- The built-in learners are regularised logistic and linear models, chosen for speed and explanations. Register a stronger learner
+  when the data supports it.
+- Version 0.1. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+
+## Roadmap
+
+- Benchmarks on public data: Online Retail II (repeat purchase), the Hillstrom email test (uplift), NASA C-MAPSS (engine failure).
+- A release on PyPI.
+- Vertiq LM: finish preference training on the realistic set, try a 9B student, publish the adapter.
+- Generic uplift on any `Action` in the contract, beyond customer messages.
+- A gradient-boosting learner plugin with explanations.
 
 ## Sector guides
 
-Vertiq has no sector-specific code. Each guide shows how a sector's records map, which questions apply, the domain
-knowledge worth adding as a plugin, and what has been tested. Every guide's example runs in `tests/test_guides.py`.
-
 {guides}
 
-## Docs portal
+## Project layout
 
-Live at **{SITE}**: architecture, how it learns, Vertiq LM, benchmarks and the sector guides. `docs/` is a static site
-built by `python docs/build.py` from the results files, and GitHub Pages serves it from `main`.
-
-## Layout
-
-| Path | What |
+| Path | Contents |
 |---|---|
-| `vertiq/` | the package: contract, mapping, tasks, harness, plugins, rules, churn, uplift, value, affinity, insights, inventory, offers |
-| `tests/` | unit tests, the boundary test (no framework, ORM or HTTP imports) and the guide examples |
-| `benchmarks/` | `run.py` (planted-truth scenarios), `collect_lm.py`, `results/*.json` |
-| `lm/` | Vertiq LM: data generation, LoRA fine-tuning, scoring, preference training, the verified teacher ([lm/README.md](lm/README.md)) |
-| `docs/` | the portal and its builder |
+| `vertiq/` | contract, mapping, tasks, harness, plugins, rules, churn, uplift, value, affinity, insights, inventory, offers |
+| `tests/` | unit tests, the boundary test, and every sector guide's example |
+| `benchmarks/` | `run.py`, `collect_lm.py`, `results/*.json` |
+| `lm/` | Vertiq LM: data generation, LoRA fine-tuning, scoring, preference training, the verified teacher |
+| `docs/` | the portal and `build.py`, which also writes this README |
 
-## Status
+## Contributing
 
-Version 0.1.0.
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Security reports go through
+[SECURITY.md](SECURITY.md). To cite Vertiq, use [CITATION.cff](CITATION.cff).
 
 ## Licence
 
-Apache License 2.0, see [LICENSE](LICENSE). The Qwen 3.5 model weights Vertiq LM fine-tunes are not in this repository;
-they are downloaded separately and carry their own Apache-2.0 licence.
+Apache License 2.0, see [LICENSE](LICENSE). The Qwen 3.5 weights Vertiq LM fine-tunes are not in this repository; they are
+downloaded separately under their own Apache-2.0 licence.
 """
     (ROOT / "README.md").write_text(text)
 

@@ -1,0 +1,16 @@
+name: Feature or sector request
+description: A question Vertiq should answer, or a sector guide you need
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The decision you're trying to make
+      description: For example, "which machines to service first next week".
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: What your records look like
+      description: Column names and one made-up row are enough.
