@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/assets/logo.svg" alt="Vertiq" width="290"></p>
 
-<p align="center"><b>Predictive and causal models for operational decisions.</b></p>
+<p align="center"><b>Self-improving decision intelligence: a local language model and outcome-trained decision models,<br>improved recursively under an evaluation gate.</b></p>
 
 <p align="center">
 <a href="https://github.com/BiswajitBiswa/vertiq/actions/workflows/tests.yml"><img alt="tests" src="https://github.com/BiswajitBiswa/vertiq/actions/workflows/tests.yml/badge.svg"></a>
@@ -13,18 +13,41 @@
 
 ## Overview
 
-Vertiq is an open-source Python library that predicts customer, asset and account outcomes from historical records, estimates the
-effect of interventions using control groups, and promotes a model to production only after it outperforms the current baseline on
-held-out data. The core library has no third-party dependencies and makes no network calls. Vertiq LM, a companion language model,
-maps source tables from any industry to the library's data contract and runs locally on Apple Silicon.
+Vertiq is an open-source, self-improving decision intelligence system with three components:
+
+- **Vertiq LM**, a 4-billion-parameter language model fine-tuned locally to map any source table to a common data contract.
+- **The decision engine**, which predicts customer, asset and account outcomes, estimates the effect of interventions against control
+  groups, and reports tested patterns and rule violations. It is a dependency-free Python package that runs inside the host application.
+- **Recursive self-improvement (RSI)**: each generation of a model trains its successor, and a generation is promoted only after it
+  outperforms the one in production on held-out data.
+
+## Recursive self-improvement (RSI)
+
+```mermaid
+flowchart LR
+    T[Teacher model<br/>generates examples] --> V[Validation<br/>each example verified]
+    V --> S[Student model trains]
+    S --> G{{Evaluation gate}}
+    G -- promoted --> M[Incorrect outputs]
+    M -- negative examples, next round --> S
+    O[New outcome data] -- each cycle --> S
+```
+
+Vertiq improves its models through recursive self-improvement (RSI) under evaluation control. In each round a teacher model generates additional training examples, and every example is validated against its own data before it is used. The student model is trained and evaluated on held-out records; it is promoted only if it outperforms the production model, and the promoted model becomes the starting point for the next round. Its incorrect outputs are retained as negative examples for the following round, and new outcome data is added at every cycle. No iteration reaches production without passing the evaluation gate.
+
+For Vertiq LM, the teacher is a larger open-weight model or an OpenAI-compatible endpoint configured by the user. A generated table is
+retained only if it loads with its own mapping and the teacher reproduces the mapping without seeing it. Incorrect student outputs are
+used as negative examples in preference training (ORPO). Providers whose terms prohibit training on generated output (OpenAI, Anthropic,
+Google) are excluded. Applied to table mapping, this process raised exact-match accuracy of a 4-billion-parameter model from
+3.5% to 35.1% on the same held-out set.
 
 ## Role alongside large language models
 
-Vertiq does not compete with foundation models. It is the decision layer between operational data and production: a small local model proposes how source data maps to a common contract, deterministic validation checks the proposal, and predictive models are promoted only when they measurably outperform what is already running.
+Vertiq is a specialised model system, not a general-purpose assistant. Where foundation models generate text, Vertiq makes and verifies operational decisions: its local model maps source data to a common contract, deterministic validation checks the mapping, and each new generation of its decision models is promoted only when it measurably outperforms the generation in production.
 
 | Property | Detail |
 |---|---|
-| No dependency footprint | The core library uses only the Python standard library, so it can be vendored into an existing service, run on a server or embedded in an edge device without adding packages to the environment. |
+| No dependency footprint | The decision engine uses only the Python standard library, so it can be vendored into an existing service, run on a server or embedded in an edge device without adding packages to the environment. |
 | Local schema mapping | Vertiq LM runs on Apple Silicon and maps source tables without sending data to an external API. Its output is validated against the rows before it is used. |
 | Promotion control | The evaluation gate compares every candidate with a rule-based baseline and the production model on held-out entities, with an optional minimum margin (min_gain). |
 | Measured outcomes | Uplift is estimated against randomised control groups, so reported effects reflect the intervention rather than pre-existing behaviour. |
@@ -37,8 +60,8 @@ Vertiq does not compete with foundation models. It is the decision layer between
 | Attribution bias | Uplift models are trained against randomised hold-out groups and rank entities by the expected change an intervention produces. |
 | Unvalidated retraining | Each candidate is evaluated on held-out entities against a rule-based baseline and the production model, and is promoted only if it performs better. |
 | False discoveries | Candidate insights are reported only after Benjamini–Hochberg false-discovery-rate control. |
-| Domain knowledge | Feature and rule plugins encode that knowledge without modifying the core library. The evaluation gate measures their contribution. |
-| Data residency | The core library has no third-party dependencies and makes no network calls. Vertiq LM runs locally on Apple Silicon. |
+| Domain knowledge | Feature and rule plugins encode that knowledge without modifying the decision engine. The evaluation gate measures their contribution. |
+| Data residency | The decision engine has no third-party dependencies and makes no network calls. Vertiq LM runs locally on Apple Silicon. |
 
 ## Capabilities
 
@@ -51,7 +74,7 @@ Vertiq does not compete with foundation models. It is the decision layer between
 | Tested insights | `insights` | Segment-level patterns reported only after false-discovery-rate control. |
 | Rule-based monitoring | `rules` | Repeat events, overdue tasks, consumption above specification and incomplete records. |
 
-All analyses operate on one data contract of entities, events and actions. The library contains no industry-specific code; the
+All analyses operate on one data contract of entities, events and actions. Vertiq contains no industry-specific code; the
 [industry guides](https://biswajitbiswa.github.io/vertiq/guides/) document the mapping and analyses for each industry.
 
 ## Design principles
@@ -70,7 +93,7 @@ Intervention effects are estimated against control groups rather than inferred f
 
 - **Control-group uplift.** vertiq.uplift compares treated entities with a randomly held-out group over the same window and ranks entities by estimated incremental effect. In the benchmark it estimated a planted −20% offer effect at -20.2%.
 - **Configurable horizons.** window_days sets the prediction horizon, cutoffs the number of historical training points and history the event types used as inputs, so each task matches the operating cycle of the industry.
-- **Small footprint.** The library has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 28 seconds on a laptop.
+- **Small footprint.** The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 28 seconds on a laptop.
 
 ### Defensive deployment
 
@@ -106,31 +129,11 @@ flowchart LR
    promoted only if it outperforms the rule-based baseline and the production model on those entities (`vertiq.harness`).
 4. **Explanation.** Each score lists the factors that raised and lowered it; each rule flag includes its supporting evidence.
 
-## Recursive self-improvement (RSI)
-
-```mermaid
-flowchart LR
-    T[Teacher model<br/>generates examples] --> V[Validation<br/>each example verified]
-    V --> S[Student model trains]
-    S --> G{{Evaluation gate}}
-    G -- promoted --> M[Incorrect outputs]
-    M -- negative examples, next round --> S
-    O[New outcome data] -- each cycle --> S
-```
-
-Vertiq improves its models through recursive self-improvement (RSI) under evaluation control. In each round a teacher model generates additional training examples, and every example is validated against its own data before it is used. The student model is trained and evaluated on held-out records; it is promoted only if it outperforms the production model, and the promoted model becomes the starting point for the next round. Its incorrect outputs are retained as negative examples for the following round, and new outcome data is added at every cycle. No iteration reaches production without passing the evaluation gate.
-
-For Vertiq LM, the teacher is a larger open-weight model or an OpenAI-compatible endpoint configured by the user. A generated table is
-retained only if it loads with its own mapping and the teacher reproduces the mapping without seeing it. Incorrect student outputs are
-used as negative examples in preference training (ORPO). Providers whose terms prohibit training on generated output (OpenAI, Anthropic,
-Google) are excluded. Applied to table mapping, this process raised exact-match accuracy of a 4-billion-parameter model from
-3.5% to 35.1% on the same held-out set.
-
 ## Requirements
 
 | Component | Requirement |
 |---|---|
-| `vertiq` library | Python 3.10, 3.11 or 3.12; no third-party dependencies; any operating system |
+| Decision engine (`vertiq`) | Python 3.10, 3.11 or 3.12; no third-party dependencies; any operating system |
 | Vertiq LM tooling | Apple Silicon, 16 GB of memory or more, `mlx-lm` and `mlx-lm-lora` (installed with the `lm` extra) |
 
 ## Installation
@@ -234,7 +237,7 @@ Production-like test set (audit columns and locale-specific number formats):
 
 ## Verify the results
 
-Every core-library figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 28 seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
+Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 28 seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
 
 ```bash
 git clone https://github.com/BiswajitBiswa/vertiq && cd vertiq
@@ -274,6 +277,8 @@ The methods are established and deliberately transparent: regularised logistic a
 - Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.
 - Uplift estimation for any `Action` in the data contract, beyond customer messaging.
 - A gradient-boosting learner plugin with factor attribution.
+- Statistical validation: Benjamini–Yekutieli FDR control, matched-cohort effect estimation and sequential testing
+  ([proposal 0001](proposals/0001-statistical-validation.md)).
 
 ## Industry guides
 
@@ -295,7 +300,7 @@ The methods are established and deliberately transparent: regularised logistic a
 
 | Path | Contents |
 |---|---|
-| `vertiq/` | Library: contract, mapping, tasks, harness, plugins, rules, churn, uplift, value, affinity, insights, inventory, offers |
+| `vertiq/` | Decision engine: contract, mapping, tasks, harness, plugins, rules, churn, uplift, value, affinity, insights, inventory, offers |
 | `tests/` | Unit tests, the dependency boundary test and every industry guide's reference implementation |
 | `benchmarks/` | `run.py`, `collect_lm.py` and `results/*.json` |
 | `lm/` | Vertiq LM: data generation, LoRA fine-tuning, evaluation, preference training and the teacher pipeline |

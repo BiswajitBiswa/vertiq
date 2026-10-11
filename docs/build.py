@@ -58,10 +58,10 @@ CHALLENGES = [
      "Candidate insights are reported only after Benjamini–Hochberg false-discovery-rate control."),
     ("Domain knowledge",
      "Engineers, clinicians and analysts hold knowledge that is not recorded in event data.",
-     "Feature and rule plugins encode that knowledge without modifying the core library. The evaluation gate measures their contribution."),
+     "Feature and rule plugins encode that knowledge without modifying the decision engine. The evaluation gate measures their contribution."),
     ("Data residency",
      "Regulated data often cannot be sent to external services, and full ML platforms are heavy to deploy at the edge.",
-     "The core library has no third-party dependencies and makes no network calls. Vertiq LM runs locally on Apple Silicon."),
+     "The decision engine has no third-party dependencies and makes no network calls. Vertiq LM runs locally on Apple Silicon."),
 ]
 
 CAPABILITIES = [
@@ -86,12 +86,22 @@ def skipped_maintenance(entity, before, cut):
 
 task = predict_event(ds, target="breakdown", window_days=30, pack="plants")'''
 
-STACK_ROLE = ("Vertiq does not compete with foundation models. It is the decision layer between operational data and production: "
-              "a small local model proposes how source data maps to a common contract, deterministic validation checks the proposal, "
-              "and predictive models are promoted only when they measurably outperform what is already running.")
+STACK_ROLE = ("Vertiq is a specialised model system, not a general-purpose assistant. Where foundation models generate text, Vertiq "
+              "makes and verifies operational decisions: its local model maps source data to a common contract, deterministic "
+              "validation checks the mapping, and each new generation of its decision models is promoted only when it measurably "
+              "outperforms the generation in production.")
+
+COMPONENTS = [
+    ("Vertiq LM", "A 4-billion-parameter language model fine-tuned locally to map any source table to Vertiq's data contract. It runs "
+     "on Apple Silicon, so source data does not leave the machine."),
+    ("Decision engine", "Event prediction, value prediction, uplift, affinity, tested insights and rule-based monitoring, trained on an "
+     "organisation's own outcomes and embedded directly in its applications."),
+    ("RSI loop", "Teacher generation, validation, training, evaluation and error feedback. Each promoted generation becomes the starting "
+     "point for the next, and every generation passes the evaluation gate."),
+]
 
 STACK = [
-    ("No dependency footprint", "The core library uses only the Python standard library, so it can be vendored into an existing "
+    ("No dependency footprint", "The decision engine uses only the Python standard library, so it can be vendored into an existing "
      "service, run on a server or embedded in an edge device without adding packages to the environment."),
     ("Local schema mapping", "Vertiq LM runs on Apple Silicon and maps source tables without sending data to an external API. "
      "Its output is validated against the rows before it is used."),
@@ -132,7 +142,7 @@ def principles():
              f"ranks entities by estimated incremental effect. In the benchmark it estimated a planted −20% offer effect at {offer:+.1f}%."),
             ("Configurable horizons", "window_days sets the prediction horizon, cutoffs the number of historical training points and "
              "history the event types used as inputs, so each task matches the operating cycle of the industry."),
-            ("Small footprint", "The library has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; "
+            ("Small footprint", "The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; "
              f"the full benchmark suite completes in {CORE['seconds']:.0f} seconds on a laptop.")]),
         ("Defensive deployment", "A candidate model is treated as unproven until it has been evaluated.", [
             ("Held-out evaluation", "Candidates are scored on entities excluded from training, using features built only from events "
@@ -473,12 +483,12 @@ def build_index():
     body = f"""
 <section class="hero-split">
   <div>
-    <div class="kicker">Open-source decision intelligence · Apache 2.0</div>
-    <h1>Predictive and causal models for operational decisions</h1>
-    <p class="lede">Vertiq is a Python library that predicts customer, asset and account outcomes from historical records, estimates the
-    effect of interventions using control groups, and promotes a model to production only after it outperforms the current baseline on
-    held-out data.</p>
-    <p class="cta"><a class="btn" href="{REPO}">View on GitHub</a><a class="btn ghost" href="architecture.html">Read the architecture</a></p>
+    <div class="kicker">Self-improving decision intelligence · open source</div>
+    <h1>A self-improving model system for operational decisions</h1>
+    <p class="lede">Vertiq combines a local language model that reads any operational dataset with decision models trained on real
+    outcomes. Both improve through recursive self-improvement: each generation trains its successor, and a generation reaches production
+    only after it outperforms the current one on held-out data.</p>
+    <p class="cta"><a class="btn" href="{REPO}">View on GitHub</a><a class="btn ghost" href="#rsi">How RSI works</a></p>
   </div>
   {fig_hero()}
 </section>
@@ -491,8 +501,16 @@ def build_index():
   </div>
   <p class="note-s">Synthetic benchmarks with known ground truth, {RUNS} runs each. See <a href="benchmarks.html">benchmark methodology</a>.</p>
 </section>
+<section id="rsi">
+  <div class="section-head"><div class="kicker">Recursive self-improvement</div><h2>Each generation trains the next. Only better generations ship.</h2>
+  <p>{E(RSI_TEXT)}</p>
+  <p>Applied to table mapping, this process raised the exact-match accuracy of a 4-billion-parameter model from
+  {lm_run('base')['overall']['exact'] * 100:.1f}% to {lm_run('v2-sft-on-v1')['overall']['exact'] * 100:.1f}% on the same held-out set.</p></div>
+  <div class="grid">{"".join(f'<div class="card"><h3>{E(t)}</h3><p>{E(d)}</p></div>' for t, d in COMPONENTS)}</div>
+  {fig_rsi()}
+</section>
 <section>
-  <div class="section-head"><div class="kicker">Role in an AI stack</div><h2>The decision layer between operational data and production</h2>
+  <div class="section-head"><div class="kicker">Role in an AI stack</div><h2>A specialised model system for decisions</h2>
   <p>{E(STACK_ROLE)}</p></div>
   <div class="grid">{"".join(f'<div class="card"><h3>{E(t)}</h3><p>{E(d)}</p></div>' for t, d in STACK)}</div>
 </section>
@@ -502,20 +520,13 @@ def build_index():
 </section>
 <section>
   <div class="section-head"><div class="kicker">Capabilities</div><h2>Supported analyses</h2>
-  <p>All analyses operate on one data contract of entities, events and actions, so the same library serves every industry.</p></div>
+  <p>All analyses operate on one data contract of entities, events and actions, so the same system serves every industry.</p></div>
   <div class="grid">{caps}</div>
 </section>
 <section>
   <div class="section-head"><div class="kicker">Design principles</div><h2>Structural intelligence, causal measurement, defensive deployment</h2>
   <p>Each principle is implemented in a specific module and can be inspected and configured.</p></div>
   {principles_html()}
-</section>
-<section>
-  <div class="section-head"><div class="kicker">Recursive self-improvement</div><h2>RSI under evaluation control</h2>
-  <p>{E(RSI_TEXT)}</p>
-  <p>Applied to table mapping, this process raised the exact-match accuracy of a 4-billion-parameter model from
-  {lm_run('base')['overall']['exact'] * 100:.1f}% to {lm_run('v2-sft-on-v1')['overall']['exact'] * 100:.1f}% on the same held-out set.</p></div>
-  {fig_rsi()}
 </section>
 <section class="two">
   <div class="section-head">
@@ -532,9 +543,9 @@ def build_index():
   <pre><code>{E(PLUGIN_EXAMPLE)}</code></pre>
 </section>
 <section>
-  <div class="section-head"><div class="kicker">Security and governance</div><h2>Controls built into the library</h2></div>
+  <div class="section-head"><div class="kicker">Security and governance</div><h2>Controls built into the system</h2></div>
   <div class="grid">
-    <div class="card"><h3>Local execution</h3><p>The core library performs no network or file I/O. Data is passed in by the host application, which retains control of storage and access.</p></div>
+    <div class="card"><h3>Local execution</h3><p>The decision engine performs no network or file I/O. Data is passed in by the host application, which retains control of storage and access.</p></div>
     <div class="card"><h3>Point-in-time correctness</h3><p>Features, including plugin features, are computed only from events recorded before each cutoff.</p></div>
     <div class="card"><h3>Explainability</h3><p>Each prediction lists the factors that raised and lowered it. Each rule flag includes its supporting evidence.</p></div>
     <div class="card"><h3>Reproducibility</h3><p>Benchmarks, documentation and the README are generated from committed results. Continuous integration fails if they diverge.</p></div>
@@ -546,12 +557,12 @@ def build_index():
   <div class="tiles">{tiles}</div>
 </section>
 <section class="section-head">
-  <div class="kicker">Get started</div><h2>Install the library</h2>
+  <div class="kicker">Get started</div><h2>Install Vertiq</h2>
   <p>Python 3.10 or later; no third-party dependencies.</p>
   <pre><code>pip install git+https://github.com/BiswajitBiswa/vertiq</code></pre>
   <p class="cta"><a class="btn" href="guides/index.html">Industry guides</a><a class="btn ghost" href="{REPO}#quick-start">Quick start</a></p>
 </section>"""
-    page("index.html", "Vertiq", body, "Open-source Python library for predictive and causal models in operational decisions.")
+    page("index.html", "Vertiq", body, "Self-improving decision intelligence: a local language model and outcome-trained decision models, improved through recursive self-improvement under an evaluation gate.")
 
 
 def build_architecture():
@@ -571,8 +582,9 @@ def build_architecture():
     rows = "".join(f"<tr><td><code>{E(a)}</code></td><td>{E(b)}</td></tr>" for a, b in mods)
     body = f"""
 <section class="read"><div class="kicker">Architecture</div><h1>Architecture</h1>
-<p class="lede">Vertiq is a library, not a service. The host application loads its records into a common data contract, calls Vertiq
-functions and stores the resulting models, which are plain dictionaries. The package does not import web frameworks, ORMs or HTTP
+<p class="lede">Vertiq has three components: Vertiq LM, the decision engine and the recursive self-improvement loop. The decision
+engine runs inside the host application rather than as a separate service: the host loads its records into a common data contract,
+calls Vertiq and stores the resulting models, which are plain dictionaries. The engine does not import web frameworks, ORMs or HTTP
 clients; <code>tests/test_boundary.py</code> enforces this.</p></section>
 <section>{fig_system()}</section>
 <section><h2>Design principles</h2>{principles_html()}</section>
@@ -583,7 +595,7 @@ clients; <code>tests/test_boundary.py</code> enforces this.</p></section>
   require <code>fit</code>, <code>predict</code>, <code>to_dict</code> and <code>from_dict</code>; per-group offsets and contributing factors are optional.</p></div>
   <div class="card"><h3>Deployment footprint</h3><p>Python 3.10 or later with no third-party dependencies. The complete benchmark suite runs in
   {CORE['seconds']:.0f} seconds on a laptop.</p></div>
-  <div class="card"><h3>Integration</h3><p>The host application owns data access, storage and serving. The library has no knowledge of the product that embeds it.</p></div>
+  <div class="card"><h3>Integration</h3><p>The host application owns data access, storage and serving. The decision engine has no knowledge of the product that embeds it.</p></div>
 </section>"""
     page("architecture.html", "Vertiq architecture", body, "Vertiq architecture: data contract, analysis tasks, plugins and the evaluation gate.")
 
@@ -776,7 +788,7 @@ def build_readme():
     best = lm_run("v2-sft")
     text = f"""<p align="center"><img src="docs/assets/logo.svg" alt="Vertiq" width="290"></p>
 
-<p align="center"><b>Predictive and causal models for operational decisions.</b></p>
+<p align="center"><b>Self-improving decision intelligence: a local language model and outcome-trained decision models,<br>improved recursively under an evaluation gate.</b></p>
 
 <p align="center">
 <a href="https://github.com/BiswajitBiswa/vertiq/actions/workflows/tests.yml"><img alt="tests" src="https://github.com/BiswajitBiswa/vertiq/actions/workflows/tests.yml/badge.svg"></a>
@@ -789,10 +801,33 @@ def build_readme():
 
 ## Overview
 
-Vertiq is an open-source Python library that predicts customer, asset and account outcomes from historical records, estimates the
-effect of interventions using control groups, and promotes a model to production only after it outperforms the current baseline on
-held-out data. The core library has no third-party dependencies and makes no network calls. Vertiq LM, a companion language model,
-maps source tables from any industry to the library's data contract and runs locally on Apple Silicon.
+Vertiq is an open-source, self-improving decision intelligence system with three components:
+
+- **Vertiq LM**, a 4-billion-parameter language model fine-tuned locally to map any source table to a common data contract.
+- **The decision engine**, which predicts customer, asset and account outcomes, estimates the effect of interventions against control
+  groups, and reports tested patterns and rule violations. It is a dependency-free Python package that runs inside the host application.
+- **Recursive self-improvement (RSI)**: each generation of a model trains its successor, and a generation is promoted only after it
+  outperforms the one in production on held-out data.
+
+## Recursive self-improvement (RSI)
+
+```mermaid
+flowchart LR
+    T[Teacher model<br/>generates examples] --> V[Validation<br/>each example verified]
+    V --> S[Student model trains]
+    S --> G{{{{Evaluation gate}}}}
+    G -- promoted --> M[Incorrect outputs]
+    M -- negative examples, next round --> S
+    O[New outcome data] -- each cycle --> S
+```
+
+{RSI_TEXT}
+
+For Vertiq LM, the teacher is a larger open-weight model or an OpenAI-compatible endpoint configured by the user. A generated table is
+retained only if it loads with its own mapping and the teacher reproduces the mapping without seeing it. Incorrect student outputs are
+used as negative examples in preference training (ORPO). Providers whose terms prohibit training on generated output (OpenAI, Anthropic,
+Google) are excluded. Applied to table mapping, this process raised exact-match accuracy of a 4-billion-parameter model from
+{lm_run('base')['overall']['exact'] * 100:.1f}% to {lm_run('v2-sft-on-v1')['overall']['exact'] * 100:.1f}% on the same held-out set.
 
 ## Role alongside large language models
 
@@ -814,7 +849,7 @@ maps source tables from any industry to the library's data contract and runs loc
 |---|---|---|
 {caps}
 
-All analyses operate on one data contract of entities, events and actions. The library contains no industry-specific code; the
+All analyses operate on one data contract of entities, events and actions. Vertiq contains no industry-specific code; the
 [industry guides]({SITE}guides/) document the mapping and analyses for each industry.
 
 ## Design principles
@@ -841,31 +876,11 @@ flowchart LR
    promoted only if it outperforms the rule-based baseline and the production model on those entities (`vertiq.harness`).
 4. **Explanation.** Each score lists the factors that raised and lowered it; each rule flag includes its supporting evidence.
 
-## Recursive self-improvement (RSI)
-
-```mermaid
-flowchart LR
-    T[Teacher model<br/>generates examples] --> V[Validation<br/>each example verified]
-    V --> S[Student model trains]
-    S --> G{{{{Evaluation gate}}}}
-    G -- promoted --> M[Incorrect outputs]
-    M -- negative examples, next round --> S
-    O[New outcome data] -- each cycle --> S
-```
-
-{RSI_TEXT}
-
-For Vertiq LM, the teacher is a larger open-weight model or an OpenAI-compatible endpoint configured by the user. A generated table is
-retained only if it loads with its own mapping and the teacher reproduces the mapping without seeing it. Incorrect student outputs are
-used as negative examples in preference training (ORPO). Providers whose terms prohibit training on generated output (OpenAI, Anthropic,
-Google) are excluded. Applied to table mapping, this process raised exact-match accuracy of a 4-billion-parameter model from
-{lm_run('base')['overall']['exact'] * 100:.1f}% to {lm_run('v2-sft-on-v1')['overall']['exact'] * 100:.1f}% on the same held-out set.
-
 ## Requirements
 
 | Component | Requirement |
 |---|---|
-| `vertiq` library | Python 3.10, 3.11 or 3.12; no third-party dependencies; any operating system |
+| Decision engine (`vertiq`) | Python 3.10, 3.11 or 3.12; no third-party dependencies; any operating system |
 | Vertiq LM tooling | Apple Silicon, 16 GB of memory or more, `mlx-lm` and `mlx-lm-lora` (installed with the `lm` extra) |
 
 ## Installation
@@ -947,7 +962,7 @@ Production-like test set (audit columns and locale-specific number formats):
 
 ## Verify the results
 
-Every core-library figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about {CORE['seconds']:.0f} seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
+Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about {CORE['seconds']:.0f} seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
 
 ```bash
 git clone https://github.com/BiswajitBiswa/vertiq && cd vertiq
@@ -987,6 +1002,8 @@ python docs/build.py && git diff --stat                 # regenerates the site a
 - Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.
 - Uplift estimation for any `Action` in the data contract, beyond customer messaging.
 - A gradient-boosting learner plugin with factor attribution.
+- Statistical validation: Benjamini–Yekutieli FDR control, matched-cohort effect estimation and sequential testing
+  ([proposal 0001](proposals/0001-statistical-validation.md)).
 
 ## Industry guides
 
@@ -996,7 +1013,7 @@ python docs/build.py && git diff --stat                 # regenerates the site a
 
 | Path | Contents |
 |---|---|
-| `vertiq/` | Library: contract, mapping, tasks, harness, plugins, rules, churn, uplift, value, affinity, insights, inventory, offers |
+| `vertiq/` | Decision engine: contract, mapping, tasks, harness, plugins, rules, churn, uplift, value, affinity, insights, inventory, offers |
 | `tests/` | Unit tests, the dependency boundary test and every industry guide's reference implementation |
 | `benchmarks/` | `run.py`, `collect_lm.py` and `results/*.json` |
 | `lm/` | Vertiq LM: data generation, LoRA fine-tuning, evaluation, preference training and the teacher pipeline |
