@@ -128,3 +128,6 @@ footer div { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-bl
 @media (prefers-reduced-motion: no-preference) { a.tile::after, .btn { transition: opacity .15s, background .15s; } }
 @media (max-width: 860px) { .hero-split { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { body { font-size: 16px; } .lede { font-size: 17.5px; } dl.map { grid-template-columns: 1fr; gap: 2px; } dl.map dd { margin-bottom: 8px; } .guide-head { grid-template-columns: 1fr; } .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.principles .lead { color: var(--head); font-weight: 600; }
+.principle ul { display: grid; gap: 8px; color: var(--muted); }
+.principle li b { color: var(--ink); }

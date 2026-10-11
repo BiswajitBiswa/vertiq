@@ -86,12 +86,97 @@ def skipped_maintenance(entity, before, cut):
 
 task = predict_event(ds, target="breakdown", window_days=30, pack="plants")'''
 
+STACK_ROLE = ("Vertiq does not compete with foundation models. It is the decision layer between operational data and production: "
+              "a small local model proposes how source data maps to a common contract, deterministic validation checks the proposal, "
+              "and predictive models are promoted only when they measurably outperform what is already running.")
+
+STACK = [
+    ("No dependency footprint", "The core library uses only the Python standard library, so it can be vendored into an existing "
+     "service, run on a server or embedded in an edge device without adding packages to the environment."),
+    ("Local schema mapping", "Vertiq LM runs on Apple Silicon and maps source tables without sending data to an external API. "
+     "Its output is validated against the rows before it is used."),
+    ("Promotion control", "The evaluation gate compares every candidate with a rule-based baseline and the production model on "
+     "held-out entities, with an optional minimum margin (min_gain)."),
+    ("Measured outcomes", "Uplift is estimated against randomised control groups, so reported effects reflect the intervention "
+     "rather than pre-existing behaviour."),
+]
+
+METHODS = ("The methods are established and deliberately transparent: regularised logistic and linear regression with "
+           "per-group offsets, a single-model (S-learner) uplift formulation with treatment interaction terms, Benjamini–Hochberg false-discovery "
+           "control and rule-based checks. Vertiq's contribution is the structure around them: point-in-time features, "
+           "entity-level holdout, control-group measurement, the promotion gate and local mapping. Stronger estimators can be "
+           "registered through register_learner and are evaluated by the same gate.")
+
+
 RSI_TEXT = ("Vertiq improves its models through recursive self-improvement (RSI) under evaluation control. In each round a teacher "
             "model generates additional training examples, and every example is validated against its own data before it is used. "
             "The student model is trained and evaluated on held-out records; it is promoted only if it outperforms the production model, "
             "and the promoted model becomes the starting point for the next round. Its incorrect outputs are retained as negative examples "
             "for the following round, and new outcome data is added at every cycle. No iteration reaches production without passing "
             "the evaluation gate.")
+
+
+def principles():
+    """The three design principles, each tied to the code that implements it. Figures come from the results."""
+    offer = S("uplift_targeting")["offer_effect_pct"]["mean"]
+    return [
+        ("Structural intelligence", "Language-model output is constrained by verification against the data.", [
+            ("Local schema resolution", "Vertiq LM, a 4-billion-parameter model fine-tuned with LoRA, proposes a mapping from the column "
+             "headers and sample rows. It runs on the user's machine; source data is not sent to an external service."),
+            ("Deterministic validation", "vertiq.mapping.repair checks the proposal against the rows: names are matched to existing "
+             "columns, roles are checked against value types and the date format is inferred. It never introduces a column that does not exist."),
+            ("Bounded data contract", "Every record is expressed as an entity, a timestamp, an event type, a value and attributes. Rows "
+             "that fail validation are reported to the caller, so models train only on records that loaded.")]),
+        ("Causal measurement", "Intervention effects are estimated against control groups rather than inferred from correlation.", [
+            ("Control-group uplift", "vertiq.uplift compares treated entities with a randomly held-out group over the same window and "
+             f"ranks entities by estimated incremental effect. In the benchmark it estimated a planted −20% offer effect at {offer:+.1f}%."),
+            ("Configurable horizons", "window_days sets the prediction horizon, cutoffs the number of historical training points and "
+             "history the event types used as inputs, so each task matches the operating cycle of the industry."),
+            ("Small footprint", "The library has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; "
+             f"the full benchmark suite completes in {CORE['seconds']:.0f} seconds on a laptop.")]),
+        ("Defensive deployment", "A candidate model is treated as unproven until it has been evaluated.", [
+            ("Held-out evaluation", "Candidates are scored on entities excluded from training, using features built only from events "
+             "recorded before each cutoff."),
+            ("Champion–challenger gate", "A candidate must outperform the rule-based baseline and the production model. min_gain sets "
+             "the required margin: an AUC margin for event tasks and a relative error reduction for value tasks."),
+            ("Explicit rejection", "A rejected candidate returns status \"kept\" with the reason, such as the AUC it reached against the "
+             "required threshold. The production model remains in service.")]),
+    ]
+
+
+MATRIX = [
+    ("Structural intelligence", "Local mapping proposal, validated against the rows",
+     "Fine-tune Vertiq LM on your naming conventions (lm/); vertiq.mapping.repair",
+     "Source data stays on premises; new sources are onboarded without hand-written mappings"),
+    ("Causal measurement", "Control-group uplift and point-in-time tasks",
+     "window_days, cutoffs and history in vertiq.tasks; a hold-out share on every campaign",
+     "Intervention effects are measured rather than assumed; horizons match each industry's cycle"),
+    ("Defensive deployment", "Entity-level holdout with champion–challenger comparison",
+     "min_gain in vertiq.tasks and vertiq.harness",
+     "Weaker or unstable candidates are not promoted; the production model stays in service"),
+]
+
+
+def principles_html() -> str:
+    cols = ""
+    for title, lead, items in principles():
+        lis = "".join(f"<li><b>{E(h)}.</b> {E(t)}</li>" for h, t in items)
+        cols += f'<div class="card principle"><h3>{E(title)}</h3><p class="lead">{E(lead)}</p><ul>{lis}</ul></div>'
+    rows = "".join(f"<tr><td><b>{E(a)}</b></td><td>{E(b)}</td><td>{E(c)}</td><td>{E(d)}</td></tr>" for a, b, c, d in MATRIX)
+    return (f'<div class="grid principles">{cols}</div>'
+            '<div class="tbl"><table><thead><tr><th>Principle</th><th>Mechanism</th><th>Configuration</th><th>Operational value</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table></div>')
+
+
+def principles_md() -> str:
+    out = []
+    for title, lead, items in principles():
+        out.append(f"### {title}\n\n{lead}\n")
+        out += [f"- **{h}.** {t}" for h, t in items]
+        out.append("")
+    out.append("| Principle | Mechanism | Configuration | Operational value |\n|---|---|---|---|")
+    out += [f"| {a} | {b} | {c} | {d} |" for a, b, c, d in MATRIX]
+    return "\n".join(out)
 
 
 # ---- layout ------------------------------------------------------------------------------------
@@ -407,6 +492,11 @@ def build_index():
   <p class="note-s">Synthetic benchmarks with known ground truth, {RUNS} runs each. See <a href="benchmarks.html">benchmark methodology</a>.</p>
 </section>
 <section>
+  <div class="section-head"><div class="kicker">Role in an AI stack</div><h2>The decision layer between operational data and production</h2>
+  <p>{E(STACK_ROLE)}</p></div>
+  <div class="grid">{"".join(f'<div class="card"><h3>{E(t)}</h3><p>{E(d)}</p></div>' for t, d in STACK)}</div>
+</section>
+<section>
   <div class="section-head"><div class="kicker">Challenges</div><h2>Common obstacles to reliable decision models</h2></div>
   <div class="grid">{challenges}</div>
 </section>
@@ -414,6 +504,11 @@ def build_index():
   <div class="section-head"><div class="kicker">Capabilities</div><h2>Supported analyses</h2>
   <p>All analyses operate on one data contract of entities, events and actions, so the same library serves every industry.</p></div>
   <div class="grid">{caps}</div>
+</section>
+<section>
+  <div class="section-head"><div class="kicker">Design principles</div><h2>Structural intelligence, causal measurement, defensive deployment</h2>
+  <p>Each principle is implemented in a specific module and can be inspected and configured.</p></div>
+  {principles_html()}
 </section>
 <section>
   <div class="section-head"><div class="kicker">Recursive self-improvement</div><h2>RSI under evaluation control</h2>
@@ -480,6 +575,8 @@ def build_architecture():
 functions and stores the resulting models, which are plain dictionaries. The package does not import web frameworks, ORMs or HTTP
 clients; <code>tests/test_boundary.py</code> enforces this.</p></section>
 <section>{fig_system()}</section>
+<section><h2>Design principles</h2>{principles_html()}</section>
+<section class="note"><b>Methods.</b> {E(METHODS)}</section>
 <section><h2>Modules</h2><div class="tbl"><table><thead><tr><th>Module</th><th>Responsibility</th></tr></thead><tbody>{rows}</tbody></table></div></section>
 <section class="grid">
   <div class="card"><h3>Extensibility</h3><p>Features and rules are registered under a pack name and selected with <code>pack=</code>. Custom learners
@@ -697,6 +794,14 @@ effect of interventions using control groups, and promotes a model to production
 held-out data. The core library has no third-party dependencies and makes no network calls. Vertiq LM, a companion language model,
 maps source tables from any industry to the library's data contract and runs locally on Apple Silicon.
 
+## Role alongside large language models
+
+{STACK_ROLE}
+
+| Property | Detail |
+|---|---|
+{chr(10).join(f"| {t} | {d} |" for t, d in STACK)}
+
 ## Challenges addressed
 
 | Challenge | Approach |
@@ -711,6 +816,10 @@ maps source tables from any industry to the library's data contract and runs loc
 
 All analyses operate on one data contract of entities, events and actions. The library contains no industry-specific code; the
 [industry guides]({SITE}guides/) document the mapping and analyses for each industry.
+
+## Design principles
+
+{principles_md()}
 
 ## Architecture
 
@@ -804,7 +913,7 @@ Plugins add features; the evaluation gate determines whether they improve perfor
 
 - **No look-ahead.** Features, including plugin features, use only events recorded before each cutoff.
 - **Entity-level holdout.** No entity appears in both training and evaluation data.
-- **No unvalidated promotion.** A candidate replaces the production model only if it performs at least as well on the same held-out entities.
+- **No unvalidated promotion.** A candidate replaces the production model only if it performs at least as well on the same held-out entities, or by the margin set with `min_gain`.
 - **No imputed structure.** Mapping validation selects existing columns or removes the role; rows that fail to load are reported.
 - **No network or file access.** The package opens no connections or files. `tests/test_boundary.py` rejects framework, ORM and HTTP imports.
 - **Reproducibility.** Benchmarks, the documentation site and this README are generated from committed results; CI fails if they diverge.
@@ -835,6 +944,21 @@ Production-like test set (audit columns and locale-specific number formats):
 | Model | Loads | Exact | Exact, validated | Unseen domains, exact |
 |---|---|---|---|---|
 {lm_rows('v2')}
+
+## Verify the results
+
+Every core-library figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about {CORE['seconds']:.0f} seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
+
+```bash
+git clone https://github.com/ideatorlabs/vertiq && cd vertiq
+python -m pip install pytest && python -m pytest -q     # unit tests and every industry guide's reference implementation
+python benchmarks/run.py --seeds 5                      # regenerates benchmarks/results/core.json
+python docs/build.py && git diff --stat                 # regenerates the site and this README; no diff means the figures match
+```
+
+## Methods
+
+{METHODS}
 
 ## Positioning
 

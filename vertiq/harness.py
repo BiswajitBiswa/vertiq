@@ -26,9 +26,13 @@ def _r(x):
 
 
 def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], baseline: list[float], learner_cls,
-             *, kind: str = "classify", previous=None, min_rows: int = MIN_ROWS, fit_kw: dict | None = None) -> dict:
+             *, kind: str = "classify", previous=None, min_rows: int = MIN_ROWS, fit_kw: dict | None = None,
+             min_gain: float = 0.0) -> dict:
     """{"status": learning | kept | trained, "metrics", "model" (when trained), "reason" (when kept)}.
-    `keys` decide the held-out split (use the entity id, so no entity is in both halves)."""
+    `keys` decide the held-out split (use the entity id, so no entity is in both halves).
+    `min_gain`: the margin a candidate must win by. For classification, an absolute AUC margin over the
+    baseline and the previous model (0.02 = two points); for regression, a relative reduction in mean
+    absolute error (0.05 = 5% lower). 0 means it must simply not be worse."""
     n = len(y)
     fit_kw = fit_kw or {}
     if kind == "classify":
@@ -48,19 +52,29 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
     if kind == "classify":
         m.update(auc=_r(auc(pred, held_y)), brier=_r(brier(pred, held_y)), calibration=calibration(pred, held_y),
                  baseline_auc=_r(auc(held_base, held_y)), rate=round(sum(y) / n, 4))
-        better = m["auc"] is not None and (m["baseline_auc"] is None or m["auc"] >= m["baseline_auc"])
+        m["min_gain"] = min_gain
+        reasons = []
+        if m["auc"] is None or (m["baseline_auc"] is not None and m["auc"] < m["baseline_auc"] + min_gain):
+            reasons.append(f"AUC {m['auc']} does not exceed the baseline's {m['baseline_auc']} by {min_gain}")
         if previous is not None:
             m["previous_auc"] = _r(auc([previous.predict(r) for r in held_rows], held_y))
-            better = better and m["auc"] >= (m["previous_auc"] or 0) - 0.005
+            if m["auc"] is not None and m["auc"] < (m["previous_auc"] or 0) + (min_gain if min_gain > 0 else -0.005):
+                reasons.append(f"AUC {m['auc']} does not exceed the production model's {m['previous_auc']} by {min_gain}")
+        better = not reasons
     else:
         mae = lambda p: sum(abs(math.expm1(a) - math.expm1(b)) for a, b in zip(p, held_y)) / len(held_y)  # noqa: E731
         m.update(mae=_r(mae(pred)), baseline_mae=_r(mae(held_base)), r2=_r(r2(pred, held_y)))
-        better = m["mae"] <= m["baseline_mae"]
+        m["min_gain"] = min_gain
+        reasons = []
+        if m["mae"] > m["baseline_mae"] * (1 - min_gain):
+            reasons.append(f"MAE {m['mae']} is not {min_gain:.0%} below the baseline's {m['baseline_mae']}")
         if previous is not None:
             m["previous_mae"] = _r(mae([previous.predict(r) for r in held_rows]))
-            better = better and m["mae"] <= m["previous_mae"] * 1.005
+            if m["mae"] > m["previous_mae"] * ((1 - min_gain) if min_gain > 0 else 1.005):
+                reasons.append(f"MAE {m['mae']} is not {min_gain:.0%} below the production model's {m['previous_mae']}")
+        better = not reasons
     if not better:
-        return {"status": "kept", "reason": "the baseline (or the current model) is still better", "metrics": m}
+        return {"status": "kept", "reason": "; ".join(reasons), "metrics": m}
     final = (learner_cls(model.names) if hasattr(model, "names") else learner_cls()).fit(rows, y, **fit_kw)
     if hasattr(final, "fit_offsets"):            # optional: a learned correction per group
         final.fit_offsets(rows, y, groups)

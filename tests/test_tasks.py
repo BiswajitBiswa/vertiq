@@ -154,3 +154,28 @@ def test_a_minimal_custom_learner_runs_through_the_gate():
     if task.status == "trained":
         s = task.score("M1")
         assert 0 <= s["chance"] <= 1 and s["raises"] == [] and s["lowers"] == []
+
+
+def test_a_required_margin_keeps_the_baseline_and_says_why():
+    ds = _plant_data()
+    plain = predict_event(ds, target="breakdown", window_days=30)
+    strict = predict_event(ds, target="breakdown", window_days=30, min_gain=0.5)
+    assert strict.status == "kept" and "does not exceed the baseline" in strict.report()["reason"]
+    assert strict.report()["metrics"]["min_gain"] == 0.5
+    if plain.status == "trained":                 # the default margin of 0 still promotes a better model
+        assert plain.report()["metrics"]["auc"] >= plain.report()["metrics"]["baseline_auc"]
+
+
+def test_value_tasks_take_a_relative_margin():
+    rnd = random.Random(5)
+    ents, evs = [], []
+    for i in range(300):
+        pid = f"P{i}"
+        ents.append(Entity(pid, group=f"hospital-{i % 2}"))
+        t = NOW - timedelta(days=700 - rnd.randint(0, 60))
+        while t < NOW:
+            recent = sum(1 for e in evs if e.entity == pid and e.at >= t - timedelta(days=90))
+            evs.append(Event(pid, t, "admission", max(1.0, rnd.gauss(2 + 2.5 * recent, 0.8))))
+            t += timedelta(days=rnd.choice([20, 35, 60, 120]))
+    task = predict_value(Dataset(ents, evs), target="admission", window_days=120, min_gain=0.9)
+    assert task.status == "kept" and "below the baseline" in task.report()["reason"]
