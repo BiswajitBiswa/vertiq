@@ -1,11 +1,13 @@
-# Proposal 0001: Statistical validation module
+# Proposal 0001: Statistical validation and temporal pattern extensions
 
 | | |
 |---|---|
 | **Status** | Proposed. Not implemented. |
 | **Target** | 0.2 |
-| **Scope** | Multiple-testing control, matched-cohort effect estimation and sequential evaluation, in pure Python |
+| **Scope** | Part A: multiple-testing control, matched-cohort effect estimation and sequential evaluation. Part B: survival-based repeat prediction, lagged category sequences and precomputed serving profiles. Pure Python. |
 | **Dependencies** | None (Python 3.10+ standard library) |
+
+# Part A: Statistical validation
 
 ## 1. Motivation
 
@@ -213,6 +215,152 @@ class SequentialTest:
 - A two-sample sequential test (mixture SPRT) for concurrent arms.
 - Doubly robust estimation, combining a propensity model with an outcome model, as a stronger alternative to matching.
 
+# Part B: Temporal pattern intelligence
+
+## 8. Motivation
+
+Aggregate metrics such as "orders twice a month" hide the signals that matter for repeat purchase: an individual customer slowing
+down relative to their own rhythm, a purchase in one category that reliably precedes a purchase in another, and differences in
+velocity between stores or channels. Part B extends the decision engine to estimate these patterns directly and to serve them without
+recomputing history at request time. The examples use retail; the methods apply to any entity with repeated events.
+
+## 9. What exists today
+
+| Capability | Implementation |
+|---|---|
+| Individual rhythm | `features.snapshot`: each entity's median inter-event gap, shrunk toward the cohort cadence (`cohort_cadence`) when history is short |
+| Overdue against own rhythm | `log_due` feature: recency divided by the entity's expected gap |
+| Irregularity and trend | `gap_cv` (coefficient of variation of gaps), `trend` (last 90 days against the previous 90), `spend_trend` |
+| Replenishment cycles | `affinity._refills`: per-item median repurchase interval across repeat buyers |
+| Co-purchase and next product | `affinity`: lift between items bought together or by the same customers |
+| Group effects | per-group offsets in the learned models (`Logistic.fit_offsets`) |
+| Scoring cost | the learned models are logistic or linear, so scoring a prepared feature vector is a weighted sum |
+
+These features are inputs to a learned model, and the evaluation gate decides whether the model is used. Part B adds explicit
+estimators alongside them.
+
+## 10. Methods
+
+### 10.1 Survival-based repeat prediction (proposed)
+
+Treat the time from one purchase to the next as a duration. Gaps still open at the cutoff are right-censored. The Kaplan–Meier estimator
+gives the survival function
+
+$$\hat S(t) = \prod_{t_i \le t} \left(1 - \frac{d_i}{n_i}\right)$$
+
+where $d_i$ purchases occur at time $t_i$ among $n_i$ gaps still at risk. The probability of a purchase within a window $w$, given
+none for $e$ days, is
+
+$$P(T \le e + w \mid T > e) = 1 - \frac{\hat S(e + w)}{\hat S(e)}$$
+
+One cohort curve can serve customers with different rhythms by rescaling time by each customer's expected gap relative to the cohort's
+(an accelerated-failure-time assumption). The output is a feature and a directly interpretable probability; the evaluation gate decides
+whether it improves on the existing model.
+
+```python
+def kaplan_meier(durations: list[float], observed: list[bool]) -> list[tuple[float, float]]:
+    """Survival curve S(t) of the time to the next purchase. A gap still open at the cutoff is censored
+    (observed=False): it counts as 'at risk' until it ends, but not as a purchase."""
+    pts, s, at_risk = [(0.0, 1.0)], 1.0, len(durations)
+    for t in sorted(set(durations)):
+        events = sum(1 for d, o in zip(durations, observed) if d == t and o)
+        if events:
+            s *= 1 - events / at_risk
+            pts.append((t, s))
+        at_risk -= sum(1 for d in durations if d == t)
+    return pts
+
+
+def survival_at(curve, t: float) -> float:
+    s = 1.0
+    for x, v in curve:
+        if x > t:
+            break
+        s = v
+    return s
+
+
+def purchase_within(curve, elapsed: float, window: float, scale: float = 1.0) -> float:
+    """P(next purchase within `window` days | none for `elapsed` days) = 1 - S(e + w) / S(e).
+    `scale` rescales time by the entity's own rhythm (its expected gap / the cohort's), so one cohort
+    curve serves fast and slow buyers."""
+    s0 = survival_at(curve, elapsed / scale)
+    return 0.0 if s0 == 0 else 1 - survival_at(curve, (elapsed + window) / scale) / s0
+```
+
+Verification on simulated exponential gaps with a 12-day mean and 19% independent censoring: $P(\text{within 7 days})$ was 0.457
+against a theoretical 0.442, and 0.448 after 12 days without a purchase (theory 0.442, by memorylessness). A customer with a 24-day
+rhythm, evaluated through the rescaled curve over 14 days, gave 0.457 against 0.442. Censoring must be independent of the purchase
+time; censoring that depends on the outcome biases the estimate.
+
+### 10.2 Lagged category sequences (proposed)
+
+For each pair of consecutive orders by the same customer, count category A followed by category B, and record the lag. Report pairs
+whose lift, $P(B \text{ next} \mid A) / P(B \text{ next})$, and support exceed thresholds, with the median lag. Before results are
+shown, test each pair's lift with `vertiq.learn.two_proportion_p` and filter the family with Benjamini–Hochberg, as `vertiq.insights`
+does for other patterns.
+
+```python
+from collections import Counter, defaultdict
+from statistics import median
+
+def lagged_transitions(orders: dict[str, list[tuple[int, str]]], min_support: int = 20) -> list[dict]:
+    """Category A followed by category B on the customer's next order: support, lift over B's base rate,
+    and the median lag in days. orders: {customer: [(day, category), ...]} sorted by day."""
+    pair, first, nxt, lags, n = Counter(), Counter(), Counter(), defaultdict(list), 0
+    for seq in orders.values():
+        for (d1, a), (d2, b) in zip(seq, seq[1:]):
+            pair[(a, b)] += 1
+            first[a] += 1
+            nxt[b] += 1
+            lags[(a, b)].append(d2 - d1)
+            n += 1
+    out = []
+    for (a, b), c in pair.items():
+        if c < min_support or a == b:
+            continue
+        lift = (c / first[a]) / (nxt[b] / n)
+        out.append({"from": a, "to": b, "support": c, "lift": round(lift, 2), "median_lag_days": median(lags[(a, b)])})
+    return sorted(out, key=lambda r: -r["lift"])
+```
+
+Verification: with a planted rule (60% of Apparel orders followed by Cosmetics 18 to 22 days later), the first result was
+Apparel → Cosmetics with lift 2.0 and a median lag of 20 days.
+
+This is a first-order transition model. Higher-order sequences multiply the number of states and need correspondingly more data; they
+are out of scope until first-order results are validated on public data.
+
+### 10.3 Precomputed serving profiles (proposed)
+
+Live requests, such as a checkout or a campaign send, should not recompute history. A scheduled batch job writes:
+
+- **Entity profiles:** the current feature vector from `features.snapshot`, the model score and its contributing factors, and the
+  survival-based probability from 10.1, stamped with the time of the latest event included.
+- **Group velocity:** units sold per item per store or channel over the reorder window, used by `vertiq.inventory` for reorder points.
+
+A profile is invalidated when a newer event arrives for that entity. Serving then reads one record and, if needed, evaluates the
+logistic model as a weighted sum over the stored features. The decision engine remains storage-agnostic: the host application
+chooses where profiles are kept.
+
+## 11. Tests required before release
+
+- **Survival:** recovery of known survival curves under independent censoring; calibration of within-window probabilities on held-out
+  customers; evaluation through the gate against the current churn model.
+- **Sequences:** planted-transition recovery and zero findings on shuffled sequences after Benjamini–Hochberg filtering.
+- **Profiles:** scores from a stored profile equal scores computed from raw history at the same cutoff.
+- Public-data validation on Online Retail II, which contains real repeat purchases across product categories.
+
+## 12. Corrections to the source notes
+
+The notes this section was drafted from described the existing engine inaccurately in places. For the record:
+
+- Vertiq does not perform tensor decompositions. Its temporal signals are the features listed in section 9.
+- The proposed hazard formula in the notes, a fixed decay of the form $0.95 \cdot e^{-0.5 d^2}$, was not estimated from data. Section 10.1
+  replaces it with a Kaplan–Meier estimate.
+- Predictions are deterministic and reproducible from the same data. That is a property of the method, not a guarantee of
+  correctness; accuracy is measured by the evaluation gate on held-out records.
+- No latency figures have been measured for serving. The claim that precomputed profiles are faster is expected but must be benchmarked.
+
 ## References
 
 - Benjamini, Y. and Hochberg, Y. (1995). Controlling the false discovery rate. *Journal of the Royal Statistical Society B*, 57(1).
@@ -220,4 +368,5 @@ class SequentialTest:
 - Rubin, D. B. (1974). Estimating causal effects of treatments in randomized and nonrandomized studies. *Journal of Educational Psychology*, 66(5).
 - Stuart, E. A. (2010). Matching methods for causal inference: a review and a look forward. *Statistical Science*, 25(1).
 - Wald, A. (1945). Sequential tests of statistical hypotheses. *Annals of Mathematical Statistics*, 16(2).
+- Kaplan, E. L. and Meier, P. (1958). Nonparametric estimation from incomplete observations. *Journal of the American Statistical Association*, 53(282).
 - Johari, R., Pekelis, L. and Walsh, D. (2017). Always valid inference: bringing sequential analysis to A/B testing. arXiv:1512.04922.

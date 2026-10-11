@@ -277,7 +277,8 @@ The methods are established and deliberately transparent: regularised logistic a
 - Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.
 - Uplift estimation for any `Action` in the data contract, beyond customer messaging.
 - A gradient-boosting learner plugin with factor attribution.
-- Statistical validation: Benjamini–Yekutieli FDR control, matched-cohort effect estimation and sequential testing
+- Statistical validation and temporal patterns: Benjamini–Yekutieli FDR control, matched-cohort effect estimation, sequential
+  testing, survival-based repeat prediction, lagged category sequences and precomputed serving profiles
   ([proposal 0001](proposals/0001-statistical-validation.md)).
 
 ## Industry guides
