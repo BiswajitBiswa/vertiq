@@ -282,6 +282,8 @@ The methods are established and deliberately transparent: regularised logistic a
   testing, survival-based repeat prediction, lagged category sequences and precomputed serving profiles
   ([proposal 0001](proposals/0001-statistical-validation.md)).
 
+Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md).
+
 ## Industry guides
 
 - [Retail and consumer goods](https://biswajitbiswa.github.io/vertiq/guides/retail-consumer-goods.html): Predict repeat purchase, recommend the next product from basket history, and plan replenishment from sales velocity.
