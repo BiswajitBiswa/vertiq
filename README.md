@@ -278,11 +278,12 @@ The methods are established and deliberately transparent: regularised logistic a
 - Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.
 - Uplift estimation for any `Action` in the data contract, beyond customer messaging.
 - A gradient-boosting learner plugin with factor attribution.
+- Drift detection: compare live prediction error and input distributions with the evaluation period, and trigger retraining through the gate.
 - Statistical validation and temporal patterns: Benjamini–Yekutieli FDR control, matched-cohort effect estimation, sequential
   testing, survival-based repeat prediction, lagged category sequences and precomputed serving profiles
   ([proposal 0001](proposals/0001-statistical-validation.md)).
 
-Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md).
+Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md), and an external assessment of the competitive landscape in [proposals/landscape-review.md](proposals/landscape-review.md).
 
 ## Industry guides
 
