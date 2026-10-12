@@ -16,7 +16,7 @@ dev = ["pytest>=7"]
 lm = ["mlx-lm==0.32.0", "mlx-lm-lora==5.8.6", "huggingface_hub"]     # Vertiq LM, Apple Silicon only
 
 [project.urls]
-Source = "https://github.com/ideatorlabs/vertiq"
+Source = "https://github.com/BiswajitBiswa/vertiq"
 
 [tool.setuptools.packages.find]
 include = ["vertiq*"]

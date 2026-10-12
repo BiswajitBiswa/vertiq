@@ -3,13 +3,13 @@
 <p align="center"><b>Self-improving decision intelligence: a local language model and outcome-trained decision models,<br>improved recursively under an evaluation gate.</b></p>
 
 <p align="center">
-<a href="https://github.com/ideatorlabs/vertiq/actions/workflows/tests.yml"><img alt="tests" src="https://github.com/ideatorlabs/vertiq/actions/workflows/tests.yml/badge.svg"></a>
+<a href="https://github.com/BiswajitBiswa/vertiq/actions/workflows/tests.yml"><img alt="tests" src="https://github.com/BiswajitBiswa/vertiq/actions/workflows/tests.yml/badge.svg"></a>
 <a href="LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/licence-Apache%202.0-56633f"></a>
 <img alt="Python 3.10 to 3.12" src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-56633f">
 <img alt="No third-party dependencies" src="https://img.shields.io/badge/dependencies-none-7a8765">
 </p>
 
-<p align="center"><a href="https://ideatorlabs.github.io/vertiq/">Documentation</a> · <a href="https://ideatorlabs.github.io/vertiq/benchmarks.html">Benchmarks</a> · <a href="https://ideatorlabs.github.io/vertiq/guides/">Industry guides</a> · <a href="lm/README.md">Vertiq LM</a></p>
+<p align="center"><a href="https://biswajitbiswa.github.io/vertiq/">Documentation</a> · <a href="https://biswajitbiswa.github.io/vertiq/benchmarks.html">Benchmarks</a> · <a href="https://biswajitbiswa.github.io/vertiq/guides/">Industry guides</a> · <a href="lm/README.md">Vertiq LM</a></p>
 
 ## Overview
 
@@ -75,7 +75,7 @@ Vertiq is a specialised model system, not a general-purpose assistant. Where fou
 | Rule-based monitoring | `rules` | Repeat events, overdue tasks, consumption above specification and incomplete records. |
 
 All analyses operate on one data contract of entities, events and actions. Vertiq contains no industry-specific code; the
-[industry guides](https://ideatorlabs.github.io/vertiq/guides/) document the mapping and analyses for each industry.
+[industry guides](https://biswajitbiswa.github.io/vertiq/guides/) document the mapping and analyses for each industry.
 
 ## Design principles
 
@@ -139,8 +139,8 @@ flowchart LR
 ## Installation
 
 ```bash
-pip install git+https://github.com/ideatorlabs/vertiq
-pip install "vertiq[lm] @ git+https://github.com/ideatorlabs/vertiq"      # Vertiq LM tooling
+pip install git+https://github.com/BiswajitBiswa/vertiq
+pip install "vertiq[lm] @ git+https://github.com/BiswajitBiswa/vertiq"      # Vertiq LM tooling
 ```
 
 ## Quick start
@@ -240,7 +240,7 @@ Production-like test set (audit columns and locale-specific number formats):
 Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 28 seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
 
 ```bash
-git clone https://github.com/ideatorlabs/vertiq && cd vertiq
+git clone https://github.com/BiswajitBiswa/vertiq && cd vertiq
 python -m pip install pytest && python -m pytest -q     # unit tests and every industry guide's reference implementation
 python benchmarks/run.py --seeds 5                      # regenerates benchmarks/results/core.json
 python docs/build.py && git diff --stat                 # regenerates the site and this README; no diff means the figures match
@@ -286,19 +286,19 @@ Further reading on recursive self-improvement is kept in [proposals/reading-list
 
 ## Industry guides
 
-- [Retail and consumer goods](https://ideatorlabs.github.io/vertiq/guides/retail-consumer-goods.html): Predict repeat purchase, recommend the next product from basket history, and plan replenishment from sales velocity.
-- [Travel and hospitality](https://ideatorlabs.github.io/vertiq/guides/travel-hospitality.html): Forecast repeat stays, estimate the value of the next booking, and measure campaign response against control groups.
-- [Banking and financial services](https://ideatorlabs.github.io/vertiq/guides/financial-services.html): Identify dormant and declining accounts from transaction activity and prioritise relationship outreach. Vertiq models client behaviour, not market prices.
-- [Insurance](https://ideatorlabs.github.io/vertiq/guides/insurance.html): Predict claims and policy lapses, estimate claim severity, and flag repeat claims for review.
-- [Healthcare and life sciences](https://ideatorlabs.github.io/vertiq/guides/healthcare-life-sciences.html): Predict readmissions, estimate length of stay, and monitor follow-up compliance.
-- [Manufacturing and industrial assets](https://ideatorlabs.github.io/vertiq/guides/manufacturing-industrial.html): Predict equipment failures, estimate repair costs, and detect skipped maintenance and parts consumption above specification.
-- [Supply chain and logistics](https://ideatorlabs.github.io/vertiq/guides/supply-chain-logistics.html): Forecast item demand, plan reorder points, and identify slow-moving inventory from stock movements.
-- [Telecommunications](https://ideatorlabs.github.io/vertiq/guides/telecommunications.html): Predict subscriber churn and recharge behaviour, and estimate next-period usage.
-- [Energy and utilities](https://ideatorlabs.github.io/vertiq/guides/energy-utilities.html): Predict outages by meter or asset, and estimate next-period consumption.
-- [Software and subscriptions](https://ideatorlabs.github.io/vertiq/guides/software-subscriptions.html): Predict cancellations and downgrades, and estimate renewal value from product usage and billing events.
-- [Wholesale and distribution](https://ideatorlabs.github.io/vertiq/guides/wholesale-distribution.html): Identify accounts with declining orders, predict late payments, and recommend the next SKU per account.
-- [Accounting and tax compliance](https://ideatorlabs.github.io/vertiq/guides/accounting-tax.html): Predict late filings, track overdue returns, and identify recurring notices by client.
-- [Education and public services](https://ideatorlabs.github.io/vertiq/guides/education-public-services.html): Identify early disengagement from attendance and assessment records so that support can be offered in time.
+- [Retail and consumer goods](https://biswajitbiswa.github.io/vertiq/guides/retail-consumer-goods.html): Predict repeat purchase, recommend the next product from basket history, and plan replenishment from sales velocity.
+- [Travel and hospitality](https://biswajitbiswa.github.io/vertiq/guides/travel-hospitality.html): Forecast repeat stays, estimate the value of the next booking, and measure campaign response against control groups.
+- [Banking and financial services](https://biswajitbiswa.github.io/vertiq/guides/financial-services.html): Identify dormant and declining accounts from transaction activity and prioritise relationship outreach. Vertiq models client behaviour, not market prices.
+- [Insurance](https://biswajitbiswa.github.io/vertiq/guides/insurance.html): Predict claims and policy lapses, estimate claim severity, and flag repeat claims for review.
+- [Healthcare and life sciences](https://biswajitbiswa.github.io/vertiq/guides/healthcare-life-sciences.html): Predict readmissions, estimate length of stay, and monitor follow-up compliance.
+- [Manufacturing and industrial assets](https://biswajitbiswa.github.io/vertiq/guides/manufacturing-industrial.html): Predict equipment failures, estimate repair costs, and detect skipped maintenance and parts consumption above specification.
+- [Supply chain and logistics](https://biswajitbiswa.github.io/vertiq/guides/supply-chain-logistics.html): Forecast item demand, plan reorder points, and identify slow-moving inventory from stock movements.
+- [Telecommunications](https://biswajitbiswa.github.io/vertiq/guides/telecommunications.html): Predict subscriber churn and recharge behaviour, and estimate next-period usage.
+- [Energy and utilities](https://biswajitbiswa.github.io/vertiq/guides/energy-utilities.html): Predict outages by meter or asset, and estimate next-period consumption.
+- [Software and subscriptions](https://biswajitbiswa.github.io/vertiq/guides/software-subscriptions.html): Predict cancellations and downgrades, and estimate renewal value from product usage and billing events.
+- [Wholesale and distribution](https://biswajitbiswa.github.io/vertiq/guides/wholesale-distribution.html): Identify accounts with declining orders, predict late payments, and recommend the next SKU per account.
+- [Accounting and tax compliance](https://biswajitbiswa.github.io/vertiq/guides/accounting-tax.html): Predict late filings, track overdue returns, and identify recurring notices by client.
+- [Education and public services](https://biswajitbiswa.github.io/vertiq/guides/education-public-services.html): Identify early disengagement from attendance and assessment records so that support can be offered in time.
 
 ## Repository structure
 

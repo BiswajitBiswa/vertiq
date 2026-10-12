@@ -20,8 +20,8 @@ from guides import GUIDES, snippet  # noqa: E402
 
 CORE = json.loads((ROOT / "benchmarks" / "results" / "core.json").read_text())
 LM = json.loads((ROOT / "benchmarks" / "results" / "lm.json").read_text())
-REPO = "https://github.com/ideatorlabs/vertiq"
-SITE = "https://ideatorlabs.github.io/vertiq/"
+REPO = "https://github.com/BiswajitBiswa/vertiq"
+SITE = "https://biswajitbiswa.github.io/vertiq/"
 FONTS = ("https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600"
          "&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap")
 NAV = [("index.html", "Overview"), ("architecture.html", "Architecture"), ("learning.html", "Methodology"),
@@ -559,7 +559,7 @@ def build_index():
 <section class="section-head">
   <div class="kicker">Get started</div><h2>Install Vertiq</h2>
   <p>Python 3.10 or later; no third-party dependencies.</p>
-  <pre><code>pip install git+https://github.com/ideatorlabs/vertiq</code></pre>
+  <pre><code>pip install git+https://github.com/BiswajitBiswa/vertiq</code></pre>
   <p class="cta"><a class="btn" href="guides/index.html">Industry guides</a><a class="btn ghost" href="{REPO}#quick-start">Quick start</a></p>
 </section>"""
     page("index.html", "Vertiq", body, "Self-improving decision intelligence: a local language model and outcome-trained decision models, improved through recursive self-improvement under an evaluation gate.")
@@ -791,7 +791,7 @@ def build_readme():
 <p align="center"><b>Self-improving decision intelligence: a local language model and outcome-trained decision models,<br>improved recursively under an evaluation gate.</b></p>
 
 <p align="center">
-<a href="https://github.com/ideatorlabs/vertiq/actions/workflows/tests.yml"><img alt="tests" src="https://github.com/ideatorlabs/vertiq/actions/workflows/tests.yml/badge.svg"></a>
+<a href="https://github.com/BiswajitBiswa/vertiq/actions/workflows/tests.yml"><img alt="tests" src="https://github.com/BiswajitBiswa/vertiq/actions/workflows/tests.yml/badge.svg"></a>
 <a href="LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/licence-Apache%202.0-56633f"></a>
 <img alt="Python 3.10 to 3.12" src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-56633f">
 <img alt="No third-party dependencies" src="https://img.shields.io/badge/dependencies-none-7a8765">
@@ -886,8 +886,8 @@ flowchart LR
 ## Installation
 
 ```bash
-pip install git+https://github.com/ideatorlabs/vertiq
-pip install "vertiq[lm] @ git+https://github.com/ideatorlabs/vertiq"      # Vertiq LM tooling
+pip install git+https://github.com/BiswajitBiswa/vertiq
+pip install "vertiq[lm] @ git+https://github.com/BiswajitBiswa/vertiq"      # Vertiq LM tooling
 ```
 
 ## Quick start
@@ -965,7 +965,7 @@ Production-like test set (audit columns and locale-specific number formats):
 Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about {CORE['seconds']:.0f} seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
 
 ```bash
-git clone https://github.com/ideatorlabs/vertiq && cd vertiq
+git clone https://github.com/BiswajitBiswa/vertiq && cd vertiq
 python -m pip install pytest && python -m pytest -q     # unit tests and every industry guide's reference implementation
 python benchmarks/run.py --seeds 5                      # regenerates benchmarks/results/core.json
 python docs/build.py && git diff --stat                 # regenerates the site and this README; no diff means the figures match

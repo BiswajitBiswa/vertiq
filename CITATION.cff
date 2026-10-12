@@ -8,6 +8,6 @@ authors:
 version: 0.1.0
 date-released: 2026-10-11
 license: Apache-2.0
-repository-code: "https://github.com/ideatorlabs/vertiq"
-url: "https://ideatorlabs.github.io/vertiq/"
+repository-code: "https://github.com/BiswajitBiswa/vertiq"
+url: "https://biswajitbiswa.github.io/vertiq/"
 keywords: [decision models, uplift, churn, predictive maintenance, evaluation, table mapping, MLX]

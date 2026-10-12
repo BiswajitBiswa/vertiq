@@ -157,7 +157,7 @@ section[id] { scroll-margin-top: 84px; }
     <p class="lede">Vertiq combines a local language model that reads any operational dataset with decision models trained on real
     outcomes. Both improve through recursive self-improvement: each generation trains its successor, and a generation reaches production
     only after it outperforms the current one on held-out data.</p>
-    <p class="cta"><a class="btn" href="https://github.com/ideatorlabs/vertiq">View on GitHub</a><a class="btn ghost" href="#rsi">How RSI works</a></p>
+    <p class="cta"><a class="btn" href="https://github.com/BiswajitBiswa/vertiq">View on GitHub</a><a class="btn ghost" href="#rsi">How RSI works</a></p>
   </div>
   <div class="hero-visual"><svg viewBox="0 0 560 430" role="img" aria-label="Example: a work-order export is mapped and scored; the output shows a failure probability for one asset with the factors that raised and lowered it."><rect x="0" y="0" width="560" height="430" rx="8" class="fills" opacity=".55"/><rect x="22" y="26" width="330" height="200" rx="6" class="box"/><text x="40" y="54" class="k">SOURCE EXPORT · WORK_ORDERS.CSV</text><line x1="22" y1="68" x2="352" y2="68" class="grid-l"/><text x="40" y="90" class="s">Equipment No</text><text x="130" y="90" class="s">Date</text><text x="220" y="90" class="s">Order Type</text><text x="300" y="90" class="s">PM Done</text><text x="40" y="118" class="m">EQ-602</text><text x="130" y="118" class="m">2026-09-04</text><text x="220" y="118" class="m">pm</text><text x="300" y="118" class="m">no</text><text x="40" y="144" class="m">EQ-602</text><text x="130" y="144" class="m">2026-09-19</text><text x="220" y="144" class="m">breakdown</text><text x="300" y="144" class="m">—</text><text x="40" y="170" class="m">EQ-118</text><text x="130" y="170" class="m">2026-09-20</text><text x="220" y="170" class="m">pm</text><text x="300" y="170" class="m">yes</text><text x="40" y="196" class="m">EQ-431</text><text x="130" y="196" class="m">2026-09-22</text><text x="220" y="196" class="m">pm</text><text x="300" y="196" class="m">no</text><rect x="196" y="214" width="342" height="196" rx="6" class="gate"/><text x="216" y="242" class="k">EXAMPLE OUTPUT · predict_event</text><text x="216" y="272" class="t">EQ-602 · failure within 30 days</text><text x="216" y="318" style="font-family:var(--display);font-size:40px;fill:var(--head)">0.31</text><rect x="306" y="300" width="210" height="10" rx="5" class="fills"/><rect x="306" y="300" width="65" height="10" rx="5" class="fillo"/><text x="216" y="350" class="s">Raises: skipped maintenance in the last 60 days</text><text x="216" y="372" class="s">Lowers: time since the last failure</text><text x="216" y="394" class="s">Model status: promoted (beat baseline on held-out assets)</text></svg></div>
 </section>
@@ -239,9 +239,9 @@ task = predict_event(ds, target=&quot;breakdown&quot;, window_days=30, pack=&quo
 <section class="section-head">
   <div class="kicker">Get started</div><h2>Install Vertiq</h2>
   <p>Python 3.10 or later; no third-party dependencies.</p>
-  <pre><code>pip install git+https://github.com/ideatorlabs/vertiq</code></pre>
-  <p class="cta"><a class="btn" href="guides/index.html">Industry guides</a><a class="btn ghost" href="https://github.com/ideatorlabs/vertiq#quick-start">Quick start</a></p>
+  <pre><code>pip install git+https://github.com/BiswajitBiswa/vertiq</code></pre>
+  <p class="cta"><a class="btn" href="guides/index.html">Industry guides</a><a class="btn ghost" href="https://github.com/BiswajitBiswa/vertiq#quick-start">Quick start</a></p>
 </section>
 </main>
-<footer><div><span>Vertiq 0.1.0 · Apache License 2.0</span><a href="https://github.com/ideatorlabs/vertiq">Source on GitHub</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Industry guides</a></div></footer>
+<footer><div><span>Vertiq 0.1.0 · Apache License 2.0</span><a href="https://github.com/BiswajitBiswa/vertiq">Source on GitHub</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Industry guides</a></div></footer>
 </body></html>

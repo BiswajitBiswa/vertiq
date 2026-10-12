@@ -12,7 +12,7 @@ Contributions are welcome. The following rules keep the library dependency-free,
 ## Setup
 
 ```bash
-git clone https://github.com/ideatorlabs/vertiq && cd vertiq
+git clone https://github.com/BiswajitBiswa/vertiq && cd vertiq
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
 python -m pytest -q
