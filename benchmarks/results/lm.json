@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-11",
+  "generated": "2026-10-13",
   "hardware": "Apple M1 Pro, 16 GB, MLX 0.32 (4-bit weights, LoRA rank 8 on 4 layers)",
   "base_model": "mlx-community/Qwen3.5-4B-MLX-4bit (Apache-2.0)",
   "test_sets": {
@@ -197,6 +197,68 @@
         "exact": 0.312,
         "loads_repaired": 0.979,
         "exact_repaired": 0.312
+      }
+    },
+    {
+      "run": "v2-pref-on-v1",
+      "model": "Round 3 + ORPO on its own mistakes",
+      "training": "245 preference pairs from round 3's errors (examples over 460 tokens left out), 980 single-example steps",
+      "test_set": "v1",
+      "prompt": "v2",
+      "overall": {
+        "n": 114,
+        "json": 1.0,
+        "loads": 0.851,
+        "exact": 0.526,
+        "loads_repaired": 0.982,
+        "exact_repaired": 0.632
+      },
+      "seen": {
+        "n": 66,
+        "json": 1.0,
+        "loads": 0.879,
+        "exact": 0.591,
+        "loads_repaired": 1.0,
+        "exact_repaired": 0.682
+      },
+      "unseen": {
+        "n": 48,
+        "json": 1.0,
+        "loads": 0.812,
+        "exact": 0.438,
+        "loads_repaired": 0.958,
+        "exact_repaired": 0.562
+      }
+    },
+    {
+      "run": "v2-pref",
+      "model": "Round 3 + ORPO on its own mistakes",
+      "training": "as above",
+      "test_set": "v2",
+      "prompt": "v2",
+      "overall": {
+        "n": 114,
+        "json": 1.0,
+        "loads": 0.93,
+        "exact": 0.465,
+        "loads_repaired": 1.0,
+        "exact_repaired": 0.535
+      },
+      "seen": {
+        "n": 66,
+        "json": 1.0,
+        "loads": 0.97,
+        "exact": 0.53,
+        "loads_repaired": 1.0,
+        "exact_repaired": 0.621
+      },
+      "unseen": {
+        "n": 48,
+        "json": 1.0,
+        "loads": 0.875,
+        "exact": 0.375,
+        "loads_repaired": 1.0,
+        "exact_repaired": 0.417
       }
     }
   ]

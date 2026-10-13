@@ -25,6 +25,9 @@ RUNS = [
     ("v2-sft-on-v1", "Round 3 fine-tune", "990 realistic tables + 22 teacher tables, 1000 steps, column kinds in prompt", "v1", "v2"),
     ("pref-on-v2", "+ ORPO on its own mistakes (round 1 model)", "as above", "v2", "v1"),
     ("v2-sft", "Round 3 fine-tune", "as above", "v2", "v2"),
+    ("v2-pref-on-v1", "Round 3 + ORPO on its own mistakes", "245 preference pairs from round 3's errors (examples over 460 tokens "
+     "left out), 980 single-example steps", "v1", "v2"),
+    ("v2-pref", "Round 3 + ORPO on its own mistakes", "as above", "v2", "v2"),
 ]
 
 

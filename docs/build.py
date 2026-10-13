@@ -507,7 +507,7 @@ def bars(rows, vmax: float, unit: str, label: str) -> str:
 
 # ---- pages -------------------------------------------------------------------------------------
 def build_index():
-    best = lm_run("v2-sft")
+    best = lm_run("v2-pref")
     challenges = "".join(f'<div class="card"><h3>{E(t)}</h3><p>{E(p)}</p><p class="fix">{E(f)}</p></div>' for t, p, f in CHALLENGES)
     caps = "".join(f'<div class="card"><h3>{E(t)}</h3><p>{E(d)}</p><p class="api">{E(a)}</p></div>' for t, d, a in CAPABILITIES)
     tiles = "".join(tile(g, i, f"guides/{g['slug']}.html") for i, g in enumerate(GUIDES))
@@ -536,7 +536,7 @@ def build_index():
   <div class="section-head"><div class="kicker">Recursive self-improvement</div><h2>Each generation trains the next. Only better generations ship.</h2>
   <p>{E(RSI_TEXT)}</p>
   <p>Applied to table mapping, this process raised the exact-match accuracy of a 4-billion-parameter model from
-  {lm_run('base')['overall']['exact'] * 100:.1f}% to {lm_run('v2-sft-on-v1')['overall']['exact'] * 100:.1f}% on the same held-out set.</p></div>
+  {lm_run('base')['overall']['exact'] * 100:.1f}% to {lm_run('v2-pref-on-v1')['overall']['exact'] * 100:.1f}% on the same held-out set.</p></div>
   <div class="grid">{"".join(f'<div class="card"><h3>{E(t)}</h3><p>{E(d)}</p></div>' for t, d in COMPONENTS)}</div>
   {fig_rsi()}
 </section>
@@ -701,8 +701,11 @@ with its original prompt format.</p>{table(runs_v2)}</section>
 <section class="grid">
   <div class="card"><h3>Findings</h3><p>Adding column types, inferred from the values, to the prompt raised exact matches on unseen domains from
   {lm_run('pref-on-v2')['unseen']['exact'] * 100:.1f}% to {lm_run('v2-sft')['unseen']['exact'] * 100:.1f}%. Inferring date formats and value types from the rows improved every model.</p></div>
-  <div class="card"><h3>Open items</h3><p>DPO exceeded available memory on 16 GB because it keeps a reference model, so ORPO is used instead. The
-  final ORPO round on the production-like set is pending. Constrained decoding was evaluated and not adopted: it would correct 2 of 88 remaining errors.</p></div>
+  <div class="card"><h3>Preference round</h3><p>ORPO on the round 3 model's own mistakes raised exact matches after validation from
+  {lm_run('v2-sft')['overall']['exact_repaired'] * 100:.1f}% to {lm_run('v2-pref')['overall']['exact_repaired'] * 100:.1f}%, and on unseen domains from
+  {lm_run('v2-sft')['unseen']['exact_repaired'] * 100:.1f}% to {lm_run('v2-pref')['unseen']['exact_repaired'] * 100:.1f}%. To fit 16 GB, the 8% of preference
+  examples longer than 460 tokens were left out. DPO was not used because it keeps a second copy of the model. Constrained
+  decoding was evaluated and not adopted: it would correct 2 of 88 remaining errors.</p></div>
   <div class="card"><h3>Reproduction</h3><p><code>lm/make_data.py</code>, <code>lm/train.sh</code>, <code>lm/evaluate.py</code>,
   <code>lm/collect_failures.py</code> and <code>lm/pref.sh</code>; <code>lm/round3.sh</code> runs the production-like round end to end.</p></div>
 </section>"""
@@ -893,7 +896,7 @@ def build_readme():
     challenges = "\n".join(f"| {t} | {f} |" for t, _p, f in CHALLENGES)
     caps = "\n".join(f"| {t} | `{a}` | {d} |" for t, d, a in CAPABILITIES)
     guides = "\n".join(f"- [{g['name']}]({SITE}guides/{g['slug']}.html): {g['blurb']}" for g in GUIDES)
-    best = lm_run("v2-sft")
+    best = lm_run("v2-pref")
     text = f"""<p align="center"><img src="docs/assets/logo.svg" alt="Vertiq" width="290"></p>
 
 <p align="center"><b>Self-improving decision intelligence: a local language model and outcome-trained decision models,<br>improved recursively under an evaluation gate.</b></p>
@@ -935,7 +938,7 @@ For Vertiq LM, the teacher is a larger open-weight model or an OpenAI-compatible
 retained only if it loads with its own mapping and the teacher reproduces the mapping without seeing it. Incorrect student outputs are
 used as negative examples in preference training (ORPO). Providers whose terms prohibit training on generated output (OpenAI, Anthropic,
 Google) are excluded. Applied to table mapping, this process raised exact-match accuracy of a 4-billion-parameter model from
-{lm_run('base')['overall']['exact'] * 100:.1f}% to {lm_run('v2-sft-on-v1')['overall']['exact'] * 100:.1f}% on the same held-out set.
+{lm_run('base')['overall']['exact'] * 100:.1f}% to {lm_run('v2-pref-on-v1')['overall']['exact'] * 100:.1f}% on the same held-out set.
 
 ## Role alongside large language models
 
@@ -1117,7 +1120,8 @@ python docs/build.py && git diff --stat                 # regenerates the site a
   if every number in it appears in the template and it is no longer. On 17 descriptions, Qwen 3.5 4B given the full result
   attached real numbers to the wrong quantity in 4; given only the template, its accepted rewrites were close paraphrases, and
   Qwen 3.5 9B returned the template unchanged. Fluent rewrites would need fine-tuning on reviewed examples.
-- After validation, Vertiq LM maps {best['overall']['exact_repaired'] * 100:.0f}% of unseen tables exactly and loads {best['overall']['loads_repaired'] * 100:.0f}%
+- After validation, Vertiq LM maps {best['overall']['exact_repaired'] * 100:.0f}% of held-out tables exactly ({best['unseen']['exact_repaired'] * 100:.0f}% from domains it was
+  not trained on) and loads {best['overall']['loads_repaired'] * 100:.0f}%
   without errors. Proposed mappings should be reviewed before production use.
 - Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity
   depends on every confounder being observed; `design.next_step` reports the experiment size needed to settle the question.
@@ -1137,7 +1141,7 @@ python docs/build.py && git diff --stat                 # regenerates the site a
 - Further public benchmarks: M5 (value prediction), NASA C-MAPSS (equipment failure),
   KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
-- Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.
+- Vertiq LM: evaluate a 9B student and publish the adapter.
 - `autotune` for value tasks and uplift, and candidate features proposed from the data rather than supplied by hand.
 
 Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md), and an external assessment of the competitive landscape in [proposals/landscape-review.md](proposals/landscape-review.md).
