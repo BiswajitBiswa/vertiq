@@ -2,7 +2,7 @@
   "generated": "2026-10-13",
   "python": "3.10.10",
   "machine": "arm64",
-  "seconds": 777.8,
+  "seconds": 1275.7,
   "wall_seconds": 196.1,
   "jobs": 4,
   "scenarios": {
@@ -1000,6 +1000,362 @@
         }
       ],
       "seconds": 2.9
+    },
+    "budget_plan": {
+      "seeds": 5,
+      "summary": {
+        "planned_benefit": {
+          "mean": 22332,
+          "sd": 955.0372
+        },
+        "random_benefit": {
+          "mean": 6800,
+          "sd": 1353.5139
+        },
+        "best_possible": {
+          "mean": 23896,
+          "sd": 426.7833
+        },
+        "share_of_best": {
+          "mean": 0.9344,
+          "sd": 0.0332
+        },
+        "spent": {
+          "mean": 7988.0,
+          "sd": 24.0
+        },
+        "sources": [
+          "['average', 'individual']",
+          "['individual', 'individual']"
+        ]
+      },
+      "runs": [
+        {
+          "planned_benefit": 22700,
+          "random_benefit": 6550,
+          "best_possible": 24520,
+          "share_of_best": 0.926,
+          "spent": 8000.0,
+          "sources": [
+            "average",
+            "individual"
+          ]
+        },
+        {
+          "planned_benefit": 23960,
+          "random_benefit": 5050,
+          "best_possible": 23960,
+          "share_of_best": 1.0,
+          "spent": 7940.0,
+          "sources": [
+            "individual",
+            "individual"
+          ]
+        },
+        {
+          "planned_benefit": 21300,
+          "random_benefit": 5700,
+          "best_possible": 23280,
+          "share_of_best": 0.915,
+          "spent": 8000.0,
+          "sources": [
+            "average",
+            "individual"
+          ]
+        },
+        {
+          "planned_benefit": 22200,
+          "random_benefit": 8250,
+          "best_possible": 24120,
+          "share_of_best": 0.92,
+          "spent": 8000.0,
+          "sources": [
+            "average",
+            "individual"
+          ]
+        },
+        {
+          "planned_benefit": 21500,
+          "random_benefit": 8450,
+          "best_possible": 23600,
+          "share_of_best": 0.911,
+          "spent": 8000.0,
+          "sources": [
+            "individual",
+            "individual"
+          ]
+        }
+      ],
+      "seconds": 115.8
+    },
+    "agent_guard": {
+      "seeds": 5,
+      "summary": {
+        "harmful": {
+          "mean": 99,
+          "sd": 10.6771
+        },
+        "harmful_allowed": {
+          "mean": 0,
+          "sd": 0.0
+        },
+        "helpful": {
+          "mean": 100,
+          "sd": 9.7365
+        },
+        "helpful_allowed": {
+          "mean": 53,
+          "sd": 48.183
+        },
+        "helpful_blocked": {
+          "mean": 0,
+          "sd": 0.0
+        },
+        "unmeasured": {
+          "mean": 101,
+          "sd": 5.5498
+        },
+        "unmeasured_held": {
+          "mean": 101,
+          "sd": 5.5498
+        }
+      },
+      "runs": [
+        {
+          "harmful": 85,
+          "harmful_allowed": 0,
+          "helpful": 118,
+          "helpful_allowed": 118,
+          "helpful_blocked": 0,
+          "unmeasured": 97,
+          "unmeasured_held": 97
+        },
+        {
+          "harmful": 118,
+          "harmful_allowed": 0,
+          "helpful": 89,
+          "helpful_allowed": 0,
+          "helpful_blocked": 0,
+          "unmeasured": 93,
+          "unmeasured_held": 93
+        },
+        {
+          "harmful": 97,
+          "harmful_allowed": 0,
+          "helpful": 95,
+          "helpful_allowed": 95,
+          "helpful_blocked": 0,
+          "unmeasured": 108,
+          "unmeasured_held": 108
+        },
+        {
+          "harmful": 96,
+          "harmful_allowed": 0,
+          "helpful": 98,
+          "helpful_allowed": 52,
+          "helpful_blocked": 0,
+          "unmeasured": 106,
+          "unmeasured_held": 106
+        },
+        {
+          "harmful": 99,
+          "harmful_allowed": 0,
+          "helpful": 100,
+          "helpful_allowed": 0,
+          "helpful_blocked": 0,
+          "unmeasured": 101,
+          "unmeasured_held": 101
+        }
+      ],
+      "seconds": 72.4
+    },
+    "menu_search": {
+      "seeds": 5,
+      "summary": {
+        "candidates": {
+          "mean": 15,
+          "sd": 0.0
+        },
+        "kept": {
+          "mean": 3,
+          "sd": 0.6325
+        },
+        "kept_skipped_maintenance": "5/5",
+        "tuned_promoted": "3/5",
+        "tuned_auc": {
+          "mean": 0.7777,
+          "sd": 0.0337
+        },
+        "untuned_auc": {
+          "mean": 0.7349,
+          "sd": 0.0586
+        }
+      },
+      "runs": [
+        {
+          "candidates": 15,
+          "kept": 3,
+          "kept_skipped_maintenance": true,
+          "tuned_promoted": true,
+          "tuned_auc": 0.7278,
+          "untuned_auc": 0.6393
+        },
+        {
+          "candidates": 15,
+          "kept": 2,
+          "kept_skipped_maintenance": true,
+          "tuned_promoted": false,
+          "tuned_auc": 0.7888,
+          "untuned_auc": 0.792
+        },
+        {
+          "candidates": 15,
+          "kept": 4,
+          "kept_skipped_maintenance": true,
+          "tuned_promoted": false,
+          "tuned_auc": 0.7622,
+          "untuned_auc": 0.7441
+        },
+        {
+          "candidates": 15,
+          "kept": 3,
+          "kept_skipped_maintenance": true,
+          "tuned_promoted": true,
+          "tuned_auc": 0.7791,
+          "untuned_auc": 0.7034
+        },
+        {
+          "candidates": 15,
+          "kept": 3,
+          "kept_skipped_maintenance": true,
+          "tuned_promoted": true,
+          "tuned_auc": 0.8308,
+          "untuned_auc": 0.7955
+        }
+      ],
+      "seconds": 301.3
+    },
+    "multi_outcome": {
+      "seeds": 5,
+      "summary": {
+        "status": [
+          "trained"
+        ],
+        "macro_auc": {
+          "mean": 0.8027,
+          "sd": 0.0107
+        },
+        "baseline_macro_auc": {
+          "mean": 0.6857,
+          "sd": 0.0216
+        },
+        "accuracy": {
+          "mean": 0.689,
+          "sd": 0.0172
+        },
+        "baseline_accuracy": {
+          "mean": 0.4276,
+          "sd": 0.0364
+        }
+      },
+      "runs": [
+        {
+          "status": "trained",
+          "macro_auc": 0.7831,
+          "baseline_macro_auc": 0.6771,
+          "accuracy": 0.6711,
+          "baseline_accuracy": 0.3772
+        },
+        {
+          "status": "trained",
+          "macro_auc": 0.8105,
+          "baseline_macro_auc": 0.6683,
+          "accuracy": 0.6842,
+          "baseline_accuracy": 0.3947
+        },
+        {
+          "status": "trained",
+          "macro_auc": 0.8113,
+          "baseline_macro_auc": 0.6603,
+          "accuracy": 0.6754,
+          "baseline_accuracy": 0.4408
+        },
+        {
+          "status": "trained",
+          "macro_auc": 0.7994,
+          "baseline_macro_auc": 0.7124,
+          "accuracy": 0.7193,
+          "baseline_accuracy": 0.4759
+        },
+        {
+          "status": "trained",
+          "macro_auc": 0.8093,
+          "baseline_macro_auc": 0.7103,
+          "accuracy": 0.6952,
+          "baseline_accuracy": 0.4496
+        }
+      ],
+      "seconds": 8.4
+    },
+    "change_drivers": {
+      "seeds": 5,
+      "summary": {
+        "drivers_exactly_B": "5/5",
+        "change": {
+          "mean": 0.0483,
+          "sd": 0.0058
+        },
+        "split_error": {
+          "mean": 0.0,
+          "sd": 0.0
+        },
+        "c_mix_effect": {
+          "mean": 0.0303,
+          "sd": 0.0007
+        },
+        "c_rate_effect": {
+          "mean": -0.0019,
+          "sd": 0.0022
+        }
+      },
+      "runs": [
+        {
+          "drivers_exactly_B": true,
+          "change": 0.03975,
+          "split_error": 1e-05,
+          "c_mix_effect": 0.03037,
+          "c_rate_effect": -0.00263
+        },
+        {
+          "drivers_exactly_B": true,
+          "change": 0.053,
+          "split_error": 0.0,
+          "c_mix_effect": 0.03163,
+          "c_rate_effect": -0.00263
+        },
+        {
+          "drivers_exactly_B": true,
+          "change": 0.04475,
+          "split_error": 0.0,
+          "c_mix_effect": 0.02981,
+          "c_rate_effect": -0.00506
+        },
+        {
+          "drivers_exactly_B": true,
+          "change": 0.04775,
+          "split_error": 0.0,
+          "c_mix_effect": 0.02969,
+          "c_rate_effect": -0.00019
+        },
+        {
+          "drivers_exactly_B": true,
+          "change": 0.056,
+          "split_error": 0.0,
+          "c_mix_effect": 0.02987,
+          "c_rate_effect": 0.00113
+        }
+      ],
+      "seconds": 0.0
     }
   }
 }

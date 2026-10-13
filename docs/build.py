@@ -97,7 +97,12 @@ CAPABILITIES = [
     ("Affinity and sequences", "Co-purchase associations, the next likely product, replenishment intervals and tested A-then-B patterns with their typical lag.", "affinity · sequences"),
     ("Tested insights", "Segment-level patterns reported only after false-discovery-rate control.", "insights"),
     ("Monitoring", "Input and score drift, accuracy on new outcomes, and sequential tests of one rate or two live arms that can be checked after every observation.", "drift · sequential"),
-    ("Automatic tuning", "Tries learner settings and candidate features one change at a time, keeps those that improve validation folds of training entities consistently, and lets the gate decide on held-out entities.", "autotune"),
+    ("Several possible outcomes", "Which of several events comes next (a repair, a replacement or nothing; an upgrade or a cancellation), with a probability for each.", "category.predict_category"),
+    ("Planning under a budget", "Who should receive which action, given each action's measured effect, its cost and the value of the outcome, within a budget.", "plan"),
+    ("Checks on proposed actions", "Allow, hold or block an action proposed by an agent or a person, from the measured effect of that action and rule flags; unmeasured actions are held for a person.", "guard"),
+    ("Why a number changed", "Splits a change between two periods into groups whose own rate moved and groups whose share moved, with false-discovery control.", "diagnose"),
+    ("What happened", "The last period against the one before: counts, values, active, new and quiet entities and the groups that moved, as figures and sentences.", "summary · narrate"),
+    ("Automatic tuning", "Proposes candidate features from a fixed menu (counts, recency and shares by event type and attribute value), tries them and learner settings one change at a time, keeps those that improve validation folds of training entities consistently, and lets the gate decide on held-out entities.", "autotune · menu"),
     ("Rule-based checks", "Repeat events, overdue tasks, consumption above specification and incomplete records.", "rules"),
     ("Plain-language descriptions", "Predictions, gate decisions and effect estimates written as sentences from the result's own fields; an optional local model can rewrite them, and a rewrite with any number not in the description is rejected.", "narrate"),
 ]
@@ -615,6 +620,12 @@ def build_architecture():
             ("design", "Experiment sizing, minimum detectable effects and next-step recommendations"),
             ("sequential", "Wald's SPRT for one rate and a mixture SPRT for two live arms; a result can block a promotion"),
             ("autotune", "Gated search over task settings and candidate features, scored by cross-validation on training entities"),
+            ("menu", "Candidate features as reviewable specs (count, since, share, sum, group rate, attribute); no generated code"),
+            ("category", "Which of several outcomes comes next, one model per outcome, gated on macro AUC against the past mix"),
+            ("plan", "Choice of action per entity under a budget from measured effects, costs and outcome values"),
+            ("guard", "Allow, hold or block for proposed actions, from measured effects, intervals and rule flags"),
+            ("diagnose", "Rate and mix effects of a change between two periods, by group, with false-discovery control"),
+            ("summary", "The last period against the previous one, with chance-adjusted changes"),
             ("drift", "Population Stability Index for inputs and scores, and accuracy on new outcomes"),
             ("sequences", "Lagged A-then-B patterns between consecutive events, filtered for false discoveries"),
             ("profiles", "Precomputed scores and factors for serving, with staleness checks"),
@@ -775,6 +786,27 @@ def build_benchmarks():
          f"AIPW {pm('doubly_robust_effect', 'doubly_robust')}; outcome model alone {pm('doubly_robust_effect', 'outcome_model_only')}; "
          f"naive {pm('doubly_robust_effect', 'naive_difference')}",
          f"Consistent although the outcome model is wrong; the 90% interval covered the truth in {S('doubly_robust_effect')['interval_covers_truth']} runs"),
+        ("Planning under a budget", "2,000 machines, two actions with known effects (a call and a visit), budget 8,000 for 400 machines",
+         f"Expected benefit {pm('budget_plan', 'planned_benefit', 0)} planned, {pm('budget_plan', 'random_benefit', 0)} random; "
+         f"{S('budget_plan')['share_of_best']['mean'] * 100:.0f}% of the best possible plan",
+         "The plan sends visits where they work and calls elsewhere"),
+        ("Checks on proposed actions", "300 proposals: a helpful call, a harmful overtime action and an unmeasured part replacement",
+         f"Harmful allowed: {total('agent_guard', 'harmful_allowed')} of {total('agent_guard', 'harmful')}; unmeasured held: "
+         f"{total('agent_guard', 'unmeasured_held')} of {total('agent_guard', 'unmeasured')}; helpful allowed: "
+         f"{total('agent_guard', 'helpful_allowed')} of {total('agent_guard', 'helpful')}, blocked {total('agent_guard', 'helpful_blocked')}",
+         "Harm is blocked and the unknown goes to a person; helpful actions pass only in runs where their measured effect was clear, "
+         "and are otherwise held for a person"),
+        ("Features from the menu", "The 240-asset plant without the hand-written plugin",
+         f"Skipped-maintenance count kept {S('menu_search')['kept_skipped_maintenance']}; AUC {pm('menu_search', 'tuned_auc')} tuned vs "
+         f"{pm('menu_search', 'untuned_auc')} untuned; tuned promoted {S('menu_search')['tuned_promoted']}",
+         "The search finds the feature a person wrote by hand"),
+        ("Several possible outcomes", "600 machines; repair, replacement or nothing within 60 days",
+         f"Macro AUC {pm('multi_outcome', 'macro_auc')} vs {pm('multi_outcome', 'baseline_macro_auc')} for each machine's past mix",
+         "Recent repairs predict a replacement; the past mix does not"),
+        ("Why a rate changed", "Plant B's rate doubles while plant C's share doubles",
+         f"Only B named as a driver: {S('change_drivers')['drivers_exactly_B']}; C's mix effect {pm('change_drivers', 'c_mix_effect')}, "
+         f"rate effect {pm('change_drivers', 'c_rate_effect')}",
+         "Rate and mix effects separate exactly"),
         ("Mapping validation", "2,100 correct mappings across 15 domains",
          f"Correct mappings altered: {S('mapping_repair')['changed_by_repair']['mean']:.0f}", "Validation never alters a correct mapping"),
     ]
@@ -884,6 +916,12 @@ def build_readme():
         ("Two live arms (mixture SPRT)", f"false alarms {mm('two_sample_sequential', 'false_alarm_rate')}, detection {mm('two_sample_sequential', 'detection_rate')}",
                                          f"z-test checked every 100 pairs: false alarms {mm('two_sample_sequential', 'false_alarm_rate_peeking_z_test')}"),
         ("Doubly robust effect", f"AIPW {mm('doubly_robust_effect', 'doubly_robust')}", f"true 1.0; outcome model alone {mm('doubly_robust_effect', 'outcome_model_only')}; naive {mm('doubly_robust_effect', 'naive_difference')}"),
+        ("Planning under a budget", f"{S('budget_plan')['share_of_best']['mean'] * 100:.0f}% of the best possible benefit", f"random choice: {mm('budget_plan', 'random_benefit', 0)} vs planned {mm('budget_plan', 'planned_benefit', 0)}"),
+        ("Checks on proposed actions", f"harmful allowed {total('agent_guard', 'harmful_allowed')} of {total('agent_guard', 'harmful')}, unmeasured held {total('agent_guard', 'unmeasured_held')} of {total('agent_guard', 'unmeasured')}",
+                                       f"helpful allowed {total('agent_guard', 'helpful_allowed')} of {total('agent_guard', 'helpful')}"),
+        ("Features from the menu", f"skipped-maintenance count kept {S('menu_search')['kept_skipped_maintenance']}, AUC {mm('menu_search', 'tuned_auc')}", f"untuned {mm('menu_search', 'untuned_auc')}"),
+        ("Several possible outcomes", f"macro AUC {mm('multi_outcome', 'macro_auc')}", f"past mix {mm('multi_outcome', 'baseline_macro_auc')}"),
+        ("Why a rate changed", f"only the true driver named: {S('change_drivers')['drivers_exactly_B']}", "rate and mix effects add up to the change"),
         ("Mapping validation", f"Correct mappings altered: {S('mapping_repair')['changed_by_repair']['mean']:.0f} of {S('mapping_repair')['correct_mappings']['mean']:.0f} per run", "Must be 0"),
     ]
     core_rows = "\n".join(f"| {a} | {b} | {c} |" for a, b, c in core)
@@ -1132,6 +1170,11 @@ python docs/build.py && git diff --stat                 # regenerates the site a
 - Doubly robust estimates are consistent if either the propensity or the outcome model is right, but they vary more than the
   outcome model alone (standard deviation {S('doubly_robust_effect')['doubly_robust']['sd']:.2f} across benchmark runs); large weights from extreme
   propensities are clipped and counted in the result.
+- `plan` and `guard` rely on uplift tasks, so they are only as good as the recorded actions and control groups; an action
+  that was never measured is excluded from plans and held by the check. `guard` does not decide on its own: it allows only
+  measured, clearly helpful actions.
+- `menu` proposes features from a fixed set of operations; anything outside it (external data, formulas specific to a
+  sector) is added as a plugin by a person and judged by the same gate.
 - `autotune` scores every trial on the same training entities, so many trials can still favour a lucky change; it keeps a change
   only when most validation folds agree, and the held-out gate makes the final decision.
 - Version 0.1. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
@@ -1142,7 +1185,9 @@ python docs/build.py && git diff --stat                 # regenerates the site a
   KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
 - Vertiq LM: evaluate a 9B student and publish the adapter.
-- `autotune` for value tasks and uplift, and candidate features proposed from the data rather than supplied by hand.
+- `autotune` for value tasks and uplift; menu operations for group-level signals and external series (weather, prices) joined by
+  date and location; menu items suggested by a language model for a sector, checked by `menu.parse`.
+- Turning free-text fields (support tickets, maintenance notes) into validated events.
 
 Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md), and an external assessment of the competitive landscape in [proposals/landscape-review.md](proposals/landscape-review.md).
 
