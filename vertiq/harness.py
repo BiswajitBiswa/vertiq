@@ -84,7 +84,7 @@ def _r(x):
 
 def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], baseline: list[float], learner_cls,
              *, kind: str = "classify", previous=None, min_rows: int = MIN_ROWS, fit_kw: dict | None = None,
-             min_gain: float = 0.0, confidence: float | None = None) -> dict:
+             min_gain: float = 0.0, confidence: float | None = None, evidence: dict | None = None) -> dict:
     """{"status": learning | kept | trained, "metrics", "model" (when trained), "reason" (when kept)}.
     `keys` decide the held-out split (use the entity id, so no entity is in both halves).
     `min_gain`: the margin a candidate must win by. For classification, an absolute AUC margin over the
@@ -92,7 +92,9 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
     absolute error (0.05 = 5% lower). 0 means it must simply not be worse.
     Every report carries bootstrap confidence intervals (`intervals`). With `confidence` set (for
     example 0.9), a candidate is promoted only if the lower end of its gain interval over the baseline
-    also exceeds `min_gain`: the improvement must be clear, not just observed."""
+    also exceeds `min_gain`: the improvement must be clear, not just observed.
+    `evidence`: a sequential test's state (vertiq.sequential.SequentialTest.state()); it is recorded, and
+    a decision for H0 (no improvement) blocks promotion. It never forces one."""
     n = len(y)
     fit_kw = fit_kw or {}
     if kind == "classify":
@@ -143,6 +145,10 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
         if lo <= min_gain:
             reasons.append(f"the gain over the baseline is not clear at {confidence:.0%} confidence "
                            f"(interval lower bound {lo} is not above {min_gain})")
+    if evidence:
+        m["evidence"] = evidence
+        if evidence.get("decision") == "accept_h0":
+            reasons.append(f"the sequential test found no improvement after {evidence.get('n')} observations")
     better = not reasons
     if not better:
         return {"status": "kept", "reason": "; ".join(reasons), "metrics": m}
