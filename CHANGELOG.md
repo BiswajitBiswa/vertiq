@@ -4,6 +4,15 @@ All notable changes are recorded here. Versions follow semantic versioning; befo
 
 ## Unreleased
 
+- Learners: gradient-boosted trees (`boosted`, `boosted_regression`) with path-based contributing factors, and `learner="auto"`,
+  which chooses on a validation split of the training entities so the held-out score stays unbiased.
+- Evaluation gate: entity-bootstrap confidence intervals in every report; `confidence` requires the gain to be clear; `evidence`
+  from a sequential test can block a promotion.
+- `tasks.predict_uplift`: effects of any action in `Dataset.actions`, with two-model or boosted estimators and cross-fitted evaluation.
+- New modules: `survival` (time-to-event), `causal` (matched-cohort ATT), `design` (experiment sizing), `sequential` (SPRT),
+  `drift` (PSI and accuracy), `sequences` (lagged patterns), `profiles` (serving). `learn.benjamini_yekutieli`.
+- `Task.rows_at` for drift checks; `survival=True` on `predict_event`.
+- Benchmarks: seven new planted-truth scenarios. `benchmarks/public/online_retail.py` for the first public-data benchmark.
 - `min_gain` on `predict_event`, `predict_value` and `harness.evaluate`: the margin a candidate must exceed over the
   baseline and the production model. Rejections report the reason.
 

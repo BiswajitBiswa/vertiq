@@ -189,7 +189,7 @@ print(flags[&quot;summary&quot;])</code></pre>
 <section class="grid">
   <div class="card"><h3>Recommended plugin</h3><p><code>chronic_codes</code>: Clinician-defined lists of chronic diagnosis codes add information that encounter data does not state.</p></div>
   <div class="card"><h3>Validation rules</h3><ul><li><code>rules.repeat(30, type=&quot;admission&quot;)</code>: readmission within 30 days</li><li><code>rules.overdue(&quot;Follow-up Due&quot;, &quot;Follow-up Done&quot;, tolerance_days=3)</code>: follow-up completed more than 3 days late</li></ul></div>
-  
+  <div class="card"><h3>Related modules</h3><ul><li><code>tasks.predict_uplift</code>: the effect of a follow-up programme on readmissions, against patients not called</li><li><code>causal.matched_att</code>: an effect estimate when a protocol was introduced without a control group</li></ul></div>
   <div class="card"><h3>Implementation notes</h3><ul><li>Outputs support prioritisation and do not replace clinical judgement.</li><li>Use pseudonymised identifiers and exclude direct identifiers from mapped data.</li><li>Comply with applicable health-data regulation, such as DPDP in India or HIPAA in the United States.</li></ul></div>
   <div class="card"><h3>Validation</h3><ul><li>Length of stay: mean absolute error 1.61 days against 2.18 for the previous-value baseline, 5 runs</li><li>Healthcare tables in the Vertiq LM mapping evaluation</li><li>Every deployment: the evaluation gate measures each model on the organisation&#x27;s own held-out records before promotion.</li></ul></div>
 </section>

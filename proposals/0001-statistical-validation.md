@@ -2,10 +2,23 @@
 
 | | |
 |---|---|
-| **Status** | Proposed. Not implemented. |
+| **Status** | Parts A and B implemented in 0.2 (see below). Part C: the Online Retail II script is written; no public benchmark has been run yet. |
 | **Target** | 0.2 |
 | **Scope** | Part A: multiple-testing control, matched-cohort effect estimation and sequential evaluation. Part B: survival-based repeat prediction, lagged category sequences and precomputed serving profiles. Part C: validation on public datasets. Pure Python. |
 | **Dependencies** | None (Python 3.10+ standard library) |
+
+## Implementation status
+
+| Item | Module | Status |
+|---|---|---|
+| Benjamini–Yekutieli FDR control | `vertiq.learn.benjamini_yekutieli` | Implemented |
+| Matched-cohort ATT | `vertiq.causal.matched_att` | Implemented, with caliper, balance and bootstrap interval |
+| Sequential test feeding the gate | `vertiq.sequential`, `harness.evaluate(evidence=...)` | Implemented (one-sample SPRT) |
+| Survival-based repeat prediction | `vertiq.survival`, `predict_event(survival=True)` | Implemented |
+| Lagged category sequences | `vertiq.sequences.find` | Implemented, with Benjamini–Hochberg filtering |
+| Precomputed serving profiles | `vertiq.profiles` | Implemented |
+| Public-data validation | `benchmarks/public/online_retail.py` | Script written; not yet run |
+| Two-sample sequential test, doubly robust estimation | — | Not started |
 
 # Part A: Statistical validation
 
