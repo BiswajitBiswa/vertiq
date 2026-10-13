@@ -179,3 +179,19 @@ def test_value_tasks_take_a_relative_margin():
             t += timedelta(days=rnd.choice([20, 35, 60, 120]))
     task = predict_value(Dataset(ents, evs), target="admission", window_days=120, min_gain=0.9)
     assert task.status == "kept" and "below the baseline" in task.report()["reason"]
+
+
+def test_reports_carry_entity_bootstrap_intervals():
+    task = predict_event(_plant_data(seed=3), target="breakdown", window_days=30)
+    iv = task.report()["metrics"]["intervals"]
+    lo, hi = iv["score_ci"]
+    assert iv["level"] == 0.9 and lo <= task.report()["metrics"]["auc"] <= hi
+    assert iv["gain_ci"][0] <= iv["gain_ci"][1]
+
+
+def test_confidence_requires_a_clear_gain():
+    ds = _plant_data(seed=3)
+    loose = predict_event(ds, target="breakdown", window_days=30)
+    strict = predict_event(ds, target="breakdown", window_days=30, confidence=0.9, min_gain=0.2)
+    assert strict.status == "kept" and "not clear at 90% confidence" in strict.report()["reason"]
+    assert loose.status in ("trained", "kept")
