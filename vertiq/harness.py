@@ -21,6 +21,24 @@ def held_out(key: str, pct: int = TEST_PCT) -> bool:
     return int(hashlib.md5(key.encode(), usedforsecurity=False).hexdigest(), 16) % 100 < pct
 
 
+def _select(rows, y, keys, tr, candidates, kind, fit_kw) -> tuple[type, dict]:
+    """Choose among candidate learners on a validation split carved from the training entities only,
+    so the held-out entities still give an unbiased score for the learner that is chosen."""
+    val = [i for i in tr if held_out(keys[i] + "#select", 25)]
+    fit = [i for i in tr if i not in set(val)]
+    scores = {}
+    for cls in candidates:
+        m = cls().fit([rows[i] for i in fit], [y[i] for i in fit], **fit_kw)
+        pred = [m.predict(rows[i]) for i in val]
+        truth = [y[i] for i in val]
+        if kind == "classify":
+            scores[cls.__name__] = auc(pred, truth) or 0.0
+        else:
+            scores[cls.__name__] = -sum(abs(math.expm1(p) - math.expm1(t)) for p, t in zip(pred, truth)) / max(1, len(truth))
+    best = max(candidates, key=lambda c: scores[c.__name__])
+    return best, {k: round(v, 4) for k, v in scores.items()}
+
+
 def _r(x):
     return round(x, 4) if x is not None else None
 
@@ -45,10 +63,15 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
     tr = [i for i in range(n) if not test[i]]
     te = [i for i in range(n) if test[i]]
     pick = lambda xs, idx: [xs[i] for i in idx]      # noqa: E731
+    selection = None
+    if isinstance(learner_cls, (list, tuple)):
+        learner_cls, selection = _select(rows, y, keys, tr, list(learner_cls), kind, fit_kw)
     model = learner_cls().fit(pick(rows, tr), pick(y, tr), **fit_kw)
     held_rows, held_y, held_base = pick(rows, te), pick(y, te), pick(baseline, te)
     pred = [model.predict(r) for r in held_rows]
-    m = {"rows": n, "held_out": len(te), "entities_held_out": len({keys[i] for i in te})}
+    m = {"rows": n, "held_out": len(te), "entities_held_out": len({keys[i] for i in te}), "learner": learner_cls.__name__}
+    if selection:
+        m["selection"] = selection
     if kind == "classify":
         m.update(auc=_r(auc(pred, held_y)), brier=_r(brier(pred, held_y)), calibration=calibration(pred, held_y),
                  baseline_auc=_r(auc(held_base, held_y)), rate=round(sum(y) / n, 4))
