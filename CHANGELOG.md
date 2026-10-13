@@ -4,6 +4,12 @@ All notable changes are recorded here. Versions follow semantic versioning; befo
 
 ## Unreleased
 
+- `autotune.search`: a gated search over task settings and candidate features. Each change is scored by 5-fold cross-validation
+  on training entities and kept only if the mean improves and most folds agree; the final configuration must beat the baseline
+  rule and the untuned configuration on held-out entities. Tasks accept `holdout=` for custom splits.
+- `sequential.TwoSampleTest`: a mixture SPRT with an always-valid p-value for comparing two live arms.
+- `causal.doubly_robust`: cross-fitted augmented inverse-probability weighting (AIPW) for the average treatment effect.
+- Benchmarks for all three; the suite runs in parallel.
 - The evaluation gate now requires the gain over the baseline to be clear at 90% confidence by default (`confidence=0.9` on
   `predict_event`, `predict_value` and `harness.evaluate`; `confidence=None` restores the previous behaviour). On 25 random
   datasets this cut promotions from 11 to 2.

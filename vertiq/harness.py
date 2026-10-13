@@ -97,7 +97,8 @@ def _r(x):
 
 def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], baseline: list[float], learner_cls,
              *, kind: str = "classify", previous=None, min_rows: int = MIN_ROWS, fit_kw: dict | None = None,
-             min_gain: float = 0.0, confidence: float | None = CONFIDENCE, evidence: dict | None = None) -> dict:
+             min_gain: float = 0.0, confidence: float | None = CONFIDENCE, evidence: dict | None = None,
+             holdout=None) -> dict:
     """{"status": learning | kept | trained, "metrics", "model" (when trained), "reason" (when kept)}.
     `keys` decide the held-out split (use the entity id, so no entity is in both halves).
     `min_gain`: the margin a candidate must win by. For classification, an absolute AUC margin over the
@@ -108,7 +109,9 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
     exceeds `min_gain`: the improvement must be clear, not just observed. On random data this cuts
     promotions from about half of all candidates to under one in ten. `confidence=None` turns it off.
     `evidence`: a sequential test's state (vertiq.sequential.SequentialTest.state()); it is recorded, and
-    a decision for H0 (no improvement) blocks promotion. It never forces one."""
+    a decision for H0 (no improvement) blocks promotion. It never forces one.
+    `holdout`: a function from key to True for held-out keys (default `held_out`, a fixed 20% by hash);
+    vertiq.autotune uses it for cross-validation folds inside the training entities."""
     n = len(y)
     fit_kw = fit_kw or {}
     if kind == "classify":
@@ -117,7 +120,7 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
             return {"status": "learning", "rows": n, "positives": pos, "need_rows": min_rows}
     elif n < min_rows:
         return {"status": "learning", "rows": n, "need_rows": min_rows}
-    test = [held_out(k) for k in keys]
+    test = [(holdout or held_out)(k) for k in keys]
     tr = [i for i in range(n) if not test[i]]
     te = [i for i in range(n) if test[i]]
     pick = lambda xs, idx: [xs[i] for i in idx]      # noqa: E731

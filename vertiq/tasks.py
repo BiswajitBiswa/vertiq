@@ -157,7 +157,8 @@ class Task:
 
 def predict_event(ds: Dataset, *, target: str, window_days: int, history: set | None = None, pack: str | None = None,
                   learner: str = "logistic", cutoffs: int = 4, previous=None, min_gain: float = 0.0,
-                  confidence: float | None = harness.CONFIDENCE, survival: bool = False, evidence: dict | None = None) -> Task:
+                  confidence: float | None = harness.CONFIDENCE, survival: bool = False, evidence: dict | None = None,
+                  holdout=None) -> Task:
     """Will an event of type `target` happen to each entity within `window_days`? `min_gain`: the AUC margin a
     candidate must win by over the baseline and `previous` (see harness.evaluate). `survival` adds the
     time-to-event feature "km_within" (vertiq.survival); the gate decides whether it helps."""
@@ -176,13 +177,13 @@ def predict_event(ds: Dataset, *, target: str, window_days: int, history: set | 
             groups.append(b.groups.get(eid, ""))
             base.append(_baseline_event(f, window_days))
     res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner, "classify"), kind="classify", previous=previous,
-                           min_gain=min_gain, confidence=confidence, evidence=evidence)
+                           min_gain=min_gain, confidence=confidence, evidence=evidence, holdout=holdout)
     return Task("event", b, window_days, learner, res)
 
 
 def predict_value(ds: Dataset, *, target: str, window_days: int, history: set | None = None, pack: str | None = None,
                   learner: str = "linear", cutoffs: int = 4, previous=None, min_gain: float = 0.0,
-                  confidence: float | None = harness.CONFIDENCE) -> Task:
+                  confidence: float | None = harness.CONFIDENCE, holdout=None) -> Task:
     """How much will the next `target` event (within `window_days`) be worth? Entities with no such
     event in the window teach nothing here (predict_event answers whether it happens)."""
     b = _Builder(ds, target, history, pack)
@@ -205,7 +206,7 @@ def predict_value(ds: Dataset, *, target: str, window_days: int, history: set | 
             groups.append(b.groups.get(eid, ""))
             base.append(math.log1p(sum(past) / len(past)) if past else mean_all)   # the obvious rule: same as before
     res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner, "regress"), kind="regress", previous=previous, min_gain=min_gain, confidence=confidence,
-                           fit_kw={"epochs": 30})
+                           fit_kw={"epochs": 30}, holdout=holdout)
     return Task("value", b, window_days, learner, res)
 
 

@@ -11,6 +11,7 @@ Run:  python benchmarks/run.py [--seeds 5] [--jobs N] [--out benchmarks/results/
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -421,11 +422,103 @@ def lagged_sequences(seed: int) -> dict:
             "median_lag_days": top.get("median_lag_days"), "false_patterns_in_random": len(null)}
 
 
+# ---- 15. automatic tuning: keep real improvements, reject noise ------------------------------------
+def _skipped_pm_60(entity, before, cut):
+    return {"skipped_pm_60": sum(1 for e in before if e.type == "pm" and not e.attrs.get("done")
+                                 and e.at >= cut - timedelta(days=60))}
+
+
+def _noise_feature(name):
+    def fn(entity, before, cut):
+        h = int(hashlib.md5(f"{name}{entity.id}{cut}".encode(), usedforsecurity=False).hexdigest(), 16)
+        return {name: (h % 1000) / 1000}
+    return fn
+
+
+def autotune_search(seed: int) -> dict:
+    """The 240-machine plant from scenario 2. The search may switch to boosted trees, add the survival
+    feature, and add any of four candidate features: the real one (skipped maintenance) and three that
+    are random numbers. Scored by 5-fold validation on training machines; the gate decides on held-out
+    machines whether the tuned model replaces the untuned one."""
+    from vertiq import autotune
+    ds = _plant(seed)
+    feats = {"skipped_pm_60": _skipped_pm_60, **{n: _noise_feature(n) for n in ("noise_a", "noise_b", "noise_c")}}
+    r = autotune.search(ds, target="breakdown", window_days=30,
+                        options={"learner": ["boosted"], "survival": [True]}, features=feats)
+    tm, um = r["tuned"].report().get("metrics") or {}, r["untuned"].report().get("metrics") or {}
+    return {"real_feature_chosen": "skipped_pm_60" in r["features"],
+            "noise_features_chosen": sum(n.startswith("noise") for n in r["features"]),
+            "learner": r["config"].get("learner"), "tuned_promoted": r["tuned_promoted"],
+            "tuned_auc": tm.get("auc"), "untuned_auc": um.get("auc"), "baseline_auc": um.get("baseline_auc"),
+            "trials": len(r["trials"]) - 1}
+
+
+# ---- 16. two-sample sequential test: two live arms, checked after every observation -------------
+def two_sample_sequential(seed: int) -> dict:
+    """Arm A converts at 10%. 200 runs where B also converts at 10%, and 200 where B converts at 13%.
+    Each run is checked after every pair of observations, up to 10,000 per arm. Compared with a fixed
+    z-test checked at the same moments (every 100 pairs), which is the common way to peek."""
+    from statistics import NormalDist
+    from vertiq.sequential import TwoSampleTest
+    rnd = random.Random(seed)
+    z = NormalDist().inv_cdf(0.975)
+
+    def runs(pb):
+        dec, n, peek = [], [], 0
+        for _ in range(200):
+            t = TwoSampleTest(tau=0.03, alpha=0.05, max_n=10000)
+            sa = sb = 0
+            flagged = False
+            for i in range(1, 10001):
+                a, b = (1 if rnd.random() < 0.10 else 0), (1 if rnd.random() < pb else 0)
+                sa, sb = sa + a, sb + b
+                if t.decision == "continue":
+                    t.update("a", a)
+                    t.update("b", b)
+                if not flagged and i % 100 == 0:
+                    p = (sa + sb) / (2 * i)
+                    se = math.sqrt(max(p * (1 - p) * 2 / i, 1e-12))
+                    flagged = abs(sb / i - sa / i) / se > z
+                if t.decision != "continue" and flagged:
+                    break
+            dec.append(t.decision)
+            n.append(t.state()["n_a"])
+            peek += flagged
+        return dec, n, peek
+    d0, _n0, peek0 = runs(0.10)
+    d1, n1, _peek1 = runs(0.13)
+    hits = [n for d, n in zip(d1, n1) if d == "accept_h1"]
+    return {"false_alarm_rate": round(sum(d == "accept_h1" for d in d0) / 200, 4),
+            "false_alarm_rate_peeking_z_test": round(peek0 / 200, 4),
+            "detection_rate": round(len(hits) / 200, 4),
+            "median_per_arm_when_detected": sorted(hits)[len(hits) // 2] if hits else None}
+
+
+# ---- 17. doubly robust estimation: confounding with a wrong outcome model -----------------------
+def doubly_robust_effect(seed: int) -> dict:
+    """3,000 entities; treatment is more likely when x is high, and the outcome rises with exp(x), which
+    a linear outcome model cannot express. True effect +1.0."""
+    from vertiq.causal import doubly_robust
+    rnd = random.Random(seed)
+    recs = []
+    for _ in range(3000):
+        x = rnd.gauss(0, 1)
+        t = 1 if rnd.random() < 1 / (1 + math.exp(-1.2 * x)) else 0
+        recs.append({"t": t, "x": x, "y": math.exp(x) + 1.0 * t + rnd.gauss(0, 0.5)})
+    r = doubly_robust(recs, treatment="t", outcome="y", features=["x"])
+    naive = (sum(z["y"] for z in recs if z["t"]) / sum(z["t"] for z in recs)
+             - sum(z["y"] for z in recs if not z["t"]) / sum(1 - z["t"] for z in recs))
+    return {"true_effect": 1.0, "doubly_robust": r["ate"], "outcome_model_only": r["outcome_model_only"],
+            "naive_difference": round(naive, 4), "interval_covers_truth": r["interval"][0] <= 1.0 <= r["interval"][1]}
+
+
 SCENARIOS = [("churn_customers", churn_customers), ("machines", machines), ("patients", patients),
              ("noise", noise), ("uplift_targeting", uplift_targeting), ("insight_discovery", insight_discovery),
              ("mapping_repair", mapping_repair), ("interactions", interactions), ("renewal_survival", renewal_survival),
              ("action_uplift", action_uplift), ("matched_cohort", matched_cohort), ("sequential", sequential),
-             ("drift_detection", drift_detection), ("lagged_sequences", lagged_sequences)]
+             ("drift_detection", drift_detection), ("lagged_sequences", lagged_sequences),
+             ("autotune_search", autotune_search), ("two_sample_sequential", two_sample_sequential),
+             ("doubly_robust_effect", doubly_robust_effect)]
 
 
 def _summary(runs: list[dict]) -> dict:

@@ -1,5 +1,5 @@
 .venv/
-models/
+models
 adapters/
 data/
 runs/
