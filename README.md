@@ -39,7 +39,7 @@ For Vertiq LM, the teacher is a larger open-weight model or an OpenAI-compatible
 retained only if it loads with its own mapping and the teacher reproduces the mapping without seeing it. Incorrect student outputs are
 used as negative examples in preference training (ORPO). Providers whose terms prohibit training on generated output (OpenAI, Anthropic,
 Google) are excluded. Applied to table mapping, this process raised exact-match accuracy of a 4-billion-parameter model from
-3.5% to 35.1% on the same held-out set.
+3.5% to 52.6% on the same held-out set.
 
 ## Role alongside large language models
 
@@ -260,6 +260,7 @@ Original test set:
 | + LoRA fine-tune (round 1) | 66.7% | 20.2% | 30.7% | 12.5% |
 | + ORPO on its own mistakes | 78.1% | 28.1% | 38.6% | 22.9% |
 | Round 3 fine-tune | 93.9% | 35.1% | 39.5% | 29.2% |
+| Round 3 + ORPO on its own mistakes | 85.1% | 52.6% | 63.2% | 43.8% |
 
 Production-like test set (audit columns and locale-specific number formats):
 
@@ -267,6 +268,7 @@ Production-like test set (audit columns and locale-specific number formats):
 |---|---|---|---|---|
 | + ORPO on its own mistakes (round 1 model) | 80.7% | 29.8% | 34.2% | 14.6% |
 | Round 3 fine-tune | 91.2% | 41.2% | 43.9% | 31.2% |
+| Round 3 + ORPO on its own mistakes | 93.0% | 46.5% | 53.5% | 37.5% |
 
 ## Verify the results
 
@@ -303,7 +305,8 @@ The methods are established and deliberately transparent: regularised logistic a
   if every number in it appears in the template and it is no longer. On 17 descriptions, Qwen 3.5 4B given the full result
   attached real numbers to the wrong quantity in 4; given only the template, its accepted rewrites were close paraphrases, and
   Qwen 3.5 9B returned the template unchanged. Fluent rewrites would need fine-tuning on reviewed examples.
-- After validation, Vertiq LM maps 44% of unseen tables exactly and loads 99%
+- After validation, Vertiq LM maps 54% of held-out tables exactly (42% from domains it was
+  not trained on) and loads 100%
   without errors. Proposed mappings should be reviewed before production use.
 - Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity
   depends on every confounder being observed; `design.next_step` reports the experiment size needed to settle the question.
@@ -323,7 +326,7 @@ The methods are established and deliberately transparent: regularised logistic a
 - Further public benchmarks: M5 (value prediction), NASA C-MAPSS (equipment failure),
   KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
-- Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.
+- Vertiq LM: evaluate a 9B student and publish the adapter.
 - `autotune` for value tasks and uplift, and candidate features proposed from the data rather than supplied by hand.
 
 Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md), and an external assessment of the competitive landscape in [proposals/landscape-review.md](proposals/landscape-review.md).

@@ -4,6 +4,9 @@ All notable changes are recorded here. Versions follow semantic versioning; befo
 
 ## Unreleased
 
+- Vertiq LM round 3 preference training (ORPO on the round 3 model's own mistakes): on the production-like test set, exact
+  matches after validation rose from 43.9% to 53.5% (unseen domains 31.2% to 41.7%) and every table loads; on the original test
+  set, 63.2%. The README previously described the overall figure as the unseen-domain figure; both are now stated.
 - `autotune.search`: a gated search over task settings and candidate features. Each change is scored by 5-fold cross-validation
   on training entities and kept only if the mean improves and most folds agree; the final configuration must beat the baseline
   rule and the untuned configuration on held-out entities. Tasks accept `holdout=` for custom splits.
