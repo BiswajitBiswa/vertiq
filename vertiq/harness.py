@@ -16,6 +16,7 @@ from .learn import auc, brier, calibration, r2
 TEST_PCT = 20
 MIN_ROWS = 200
 MIN_CLASS = 20
+CONFIDENCE = 0.9          # default: promote only when the gain over the baseline is clear at 90%
 
 
 def held_out(key: str, pct: int = TEST_PCT) -> bool:
@@ -96,15 +97,16 @@ def _r(x):
 
 def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], baseline: list[float], learner_cls,
              *, kind: str = "classify", previous=None, min_rows: int = MIN_ROWS, fit_kw: dict | None = None,
-             min_gain: float = 0.0, confidence: float | None = None, evidence: dict | None = None) -> dict:
+             min_gain: float = 0.0, confidence: float | None = CONFIDENCE, evidence: dict | None = None) -> dict:
     """{"status": learning | kept | trained, "metrics", "model" (when trained), "reason" (when kept)}.
     `keys` decide the held-out split (use the entity id, so no entity is in both halves).
     `min_gain`: the margin a candidate must win by. For classification, an absolute AUC margin over the
     baseline and the previous model (0.02 = two points); for regression, a relative reduction in mean
     absolute error (0.05 = 5% lower). 0 means it must simply not be worse.
-    Every report carries bootstrap confidence intervals (`intervals`). With `confidence` set (for
-    example 0.9), a candidate is promoted only if the lower end of its gain interval over the baseline
-    also exceeds `min_gain`: the improvement must be clear, not just observed.
+    Every report carries bootstrap confidence intervals (`intervals`). With `confidence` set (0.9 by
+    default), a candidate is promoted only if the lower end of its gain interval over the baseline also
+    exceeds `min_gain`: the improvement must be clear, not just observed. On random data this cuts
+    promotions from about half of all candidates to under one in ten. `confidence=None` turns it off.
     `evidence`: a sequential test's state (vertiq.sequential.SequentialTest.state()); it is recorded, and
     a decision for H0 (no improvement) blocks promotion. It never forces one."""
     n = len(y)

@@ -6,17 +6,19 @@ These are synthetic benchmarks. They prove the machinery finds a real signal, ig
 refuses to ship a model that doesn't beat the baseline. They do not prove accuracy on your data;
 the evaluation gate (vertiq.harness) measures that on your own held-out entities every time.
 
-Run:  python benchmarks/run.py [--seeds 5] [--out benchmarks/results/core.json]
+Run:  python benchmarks/run.py [--seeds 5] [--jobs N] [--out benchmarks/results/core.json]
 """
 from __future__ import annotations
 
 import argparse
 import json
 import math
+import os
 import platform
 import random
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
 from statistics import mean, pstdev
@@ -127,9 +129,9 @@ def patients(seed: int) -> dict:
 def noise(seed: int) -> dict:
     """A memoryless process: every entity has the same 4% chance of an event each week, independent of
     its past. Nothing in the history predicts the future, so the honest AUC is 0.5. Five random datasets
-    per seed, each scored with the default gate (the model must not be worse than the baseline) and with
-    the 90% confidence check (the lower end of the gain interval must be above zero)."""
-    out = {"datasets": 0, "promoted_default": 0, "promoted_confidence_90": 0, "shipped_worse_than_baseline": 0}
+    per seed, each scored with the default gate (the gain over the baseline must be clear at 90% confidence)
+    and with that check turned off (the model must only not be worse than the baseline)."""
+    out = {"datasets": 0, "promoted": 0, "promoted_without_check": 0, "shipped_worse_than_baseline": 0}
     aucs = []
     for k in range(5):
         rnd = random.Random(seed * 10 + k)
@@ -144,9 +146,9 @@ def noise(seed: int) -> dict:
         t = predict_event(ds, target="ping", window_days=60)
         m = t.report().get("metrics") or {}
         out["datasets"] += 1
-        out["promoted_default"] += t.status == "trained"
+        out["promoted"] += t.status == "trained"
         out["shipped_worse_than_baseline"] += t.status == "trained" and m["auc"] < m["baseline_auc"]
-        out["promoted_confidence_90"] += predict_event(ds, target="ping", window_days=60, confidence=0.9).status == "trained"
+        out["promoted_without_check"] += predict_event(ds, target="ping", window_days=60, confidence=None).status == "trained"
         aucs.append(m.get("auc") or 0.5)
     out["model_auc"] = round(sum(aucs) / len(aucs), 4)
     return out
@@ -439,26 +441,44 @@ def _summary(runs: list[dict]) -> dict:
     return out
 
 
+def _one(name: str, seed: int) -> tuple[str, int, dict, float]:
+    t0 = time.time()
+    return name, seed, dict(SCENARIOS)[name](seed), time.time() - t0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, default=5)
     ap.add_argument("--out", default=str(ROOT / "benchmarks" / "results" / "core.json"))
     ap.add_argument("--only", default="")
+    ap.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="parallel processes (default: all cores)")
     a = ap.parse_args()
     started = time.time()
+    names = [n for n, _fn in SCENARIOS if not a.only or n == a.only]
+    work = [(n, s) for n in names for s in range(1, a.seeds + 1)]
+    done: dict[tuple[str, int], tuple[dict, float]] = {}
+    if a.jobs > 1:
+        # every (scenario, seed) run is independent and seeded, so results match a sequential run exactly
+        with ProcessPoolExecutor(max_workers=a.jobs) as pool:
+            for name, seed, res, sec in pool.map(_one, *zip(*work)):
+                done[(name, seed)] = (res, sec)
+    else:
+        for name, seed in work:
+            _n, _s, res, sec = _one(name, seed)
+            done[(name, seed)] = (res, sec)
     results = {}
-    for name, fn in SCENARIOS:
-        if a.only and name != a.only:
-            continue
-        t0 = time.time()
-        runs = [fn(s) for s in range(1, a.seeds + 1)]
-        results[name] = {"seeds": a.seeds, "summary": _summary(runs), "runs": runs, "seconds": round(time.time() - t0, 1)}
+    for name in names:
+        runs = [done[(name, s)][0] for s in range(1, a.seeds + 1)]
+        secs = sum(done[(name, s)][1] for s in range(1, a.seeds + 1))
+        results[name] = {"seeds": a.seeds, "summary": _summary(runs), "runs": runs, "seconds": round(secs, 1)}
         print(f"{name:20} {json.dumps(results[name]['summary'])}")
+    # "seconds" is the single-process compute time, comparable across machines with different core counts
     doc = {"generated": datetime.utcnow().strftime("%Y-%m-%d"), "python": platform.python_version(),
-           "machine": platform.machine(), "seconds": round(time.time() - started, 1), "scenarios": results}
+           "machine": platform.machine(), "seconds": round(sum(r["seconds"] for r in results.values()), 1),
+           "wall_seconds": round(time.time() - started, 1), "jobs": a.jobs, "scenarios": results}
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(doc, indent=2))
-    print("wrote", a.out)
+    print("wrote", a.out, f"({doc['wall_seconds']} s on {a.jobs} processes; {doc['seconds']} s of compute)")
 
 
 if __name__ == "__main__":
