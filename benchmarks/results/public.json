@@ -1,0 +1,100 @@
+{
+  "dataset": "Online Retail II (UCI)",
+  "generated": "2026-10-13",
+  "window_days": 60,
+  "counts": {
+    "lines": 1067371,
+    "orders": 36975,
+    "customers": 5881,
+    "dropped": {
+      "cancelled": 19494,
+      "no_customer": 242257,
+      "bad_date": 0
+    }
+  },
+  "prep_seconds": 38.9,
+  "python": "3.10.10",
+  "machine": "arm64",
+  "runs": {
+    "linear": {
+      "status": "trained",
+      "auc": 0.8066,
+      "baseline_auc": 0.7615,
+      "brier": 0.1498,
+      "intervals": {
+        "level": 0.9,
+        "score_ci": [
+          0.7896,
+          0.8239
+        ],
+        "gain_ci": [
+          0.0365,
+          0.0533
+        ]
+      },
+      "learner": "Logistic",
+      "seconds": 6.0
+    },
+    "external": {
+      "sklearn_logistic_auc": 0.8074,
+      "lightgbm_auc": "not installed"
+    },
+    "boosted": {
+      "status": "trained",
+      "auc": 0.8117,
+      "baseline_auc": 0.7615,
+      "brier": 0.1481,
+      "intervals": {
+        "level": 0.9,
+        "score_ci": [
+          0.7953,
+          0.8274
+        ],
+        "gain_ci": [
+          0.0433,
+          0.0586
+        ]
+      },
+      "learner": "BoostedClassifier",
+      "seconds": 32.8
+    },
+    "auto": {
+      "status": "trained",
+      "auc": 0.8117,
+      "baseline_auc": 0.7615,
+      "brier": 0.1481,
+      "intervals": {
+        "level": 0.9,
+        "score_ci": [
+          0.7953,
+          0.8274
+        ],
+        "gain_ci": [
+          0.0433,
+          0.0586
+        ]
+      },
+      "learner": "BoostedClassifier",
+      "seconds": 61.1
+    },
+    "linear_survival": {
+      "status": "trained",
+      "auc": 0.8073,
+      "baseline_auc": 0.7615,
+      "brier": 0.1492,
+      "intervals": {
+        "level": 0.9,
+        "score_ci": [
+          0.7902,
+          0.8244
+        ],
+        "gain_ci": [
+          0.0372,
+          0.0542
+        ]
+      },
+      "learner": "Logistic",
+      "seconds": 6.4
+    }
+  }
+}

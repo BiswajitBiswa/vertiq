@@ -126,20 +126,30 @@ def patients(seed: int) -> dict:
 # ---- 4. pure noise: nothing to learn -----------------------------------------------------------
 def noise(seed: int) -> dict:
     """A memoryless process: every entity has the same 4% chance of an event each week, independent of
-    its past. Nothing in the history predicts the future, so the honest AUC is 0.5, and any model
-    that ships must not be worse than the baseline."""
-    rnd = random.Random(seed)
-    ents, evs = [Entity(f"E{i}") for i in range(300)], []
-    for i in range(300):
-        d = NOW - timedelta(days=700)
-        while d < NOW:
-            if rnd.random() < 0.04:
-                evs.append(Event(f"E{i}", d, "ping"))
-            d += timedelta(days=7)
-    t = predict_event(Dataset(ents, evs), target="ping", window_days=60)
-    m = t.report().get("metrics") or {}
-    return {"status": t.status, "model_auc": m.get("auc"), "baseline_auc": m.get("baseline_auc"),
-            "shipped_worse_than_baseline": t.status == "trained" and m["auc"] < m["baseline_auc"]}
+    its past. Nothing in the history predicts the future, so the honest AUC is 0.5. Five random datasets
+    per seed, each scored with the default gate (the model must not be worse than the baseline) and with
+    the 90% confidence check (the lower end of the gain interval must be above zero)."""
+    out = {"datasets": 0, "promoted_default": 0, "promoted_confidence_90": 0, "shipped_worse_than_baseline": 0}
+    aucs = []
+    for k in range(5):
+        rnd = random.Random(seed * 10 + k)
+        ents, evs = [Entity(f"E{i}") for i in range(300)], []
+        for i in range(300):
+            d = NOW - timedelta(days=700)
+            while d < NOW:
+                if rnd.random() < 0.04:
+                    evs.append(Event(f"E{i}", d, "ping"))
+                d += timedelta(days=7)
+        ds = Dataset(ents, evs)
+        t = predict_event(ds, target="ping", window_days=60)
+        m = t.report().get("metrics") or {}
+        out["datasets"] += 1
+        out["promoted_default"] += t.status == "trained"
+        out["shipped_worse_than_baseline"] += t.status == "trained" and m["auc"] < m["baseline_auc"]
+        out["promoted_confidence_90"] += predict_event(ds, target="ping", window_days=60, confidence=0.9).status == "trained"
+        aucs.append(m.get("auc") or 0.5)
+    out["model_auc"] = round(sum(aucs) / len(aucs), 4)
+    return out
 
 
 # ---- 5. uplift: who a message actually brings back ---------------------------------------------
