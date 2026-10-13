@@ -190,7 +190,7 @@ print(flags[&quot;summary&quot;])</code></pre>
 <section class="grid">
   <div class="card"><h3>Recommended plugin</h3><p><code>usage_drop</code>: Declining product usage is an early indicator of cancellation.</p></div>
   <div class="card"><h3>Validation rules</h3><ul><li><code>rules.repeat(7, type=&quot;payment_failed&quot;)</code>: a second failed payment within seven days</li></ul></div>
-  <div class="card"><h3>Related modules</h3><ul><li><code>insights</code>: statistically tested patterns, such as onboarding actions associated with retention</li></ul></div>
+  <div class="card"><h3>Related modules</h3><ul><li><code>insights</code>: statistically tested patterns, such as onboarding actions associated with retention</li><li><code>survival</code>: probability of renewal or cancellation given time since the last activity</li><li><code>design</code>: the size of control group needed to measure an onboarding change</li></ul></div>
   <div class="card"><h3>Implementation notes</h3><ul><li>Aggregate high-frequency usage events to daily counts before mapping.</li></ul></div>
   <div class="card"><h3>Validation</h3><ul><li>Every deployment: the evaluation gate measures each model on the organisation&#x27;s own held-out records before promotion.</li></ul></div>
 </section>

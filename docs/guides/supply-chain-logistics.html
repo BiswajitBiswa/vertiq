@@ -188,7 +188,7 @@ print(flags[&quot;summary&quot;])</code></pre>
 <section class="grid">
   <div class="card"><h3>Recommended plugin</h3><p><code>receipts_90</code>: Recent goods receipts indicate planned demand.</p></div>
   <div class="card"><h3>Validation rules</h3><ul><li><code>rules.repeat(2, type=&quot;return&quot;)</code>: two returns of the same item within two days</li></ul></div>
-  <div class="card"><h3>Related modules</h3><ul><li><code>inventory</code>: reorder points, slow-moving stock, new items, margins and working capital held in stock</li></ul></div>
+  <div class="card"><h3>Related modules</h3><ul><li><code>inventory</code>: reorder points, slow-moving stock, new items, margins and working capital held in stock</li><li><code>sequences</code>: items typically ordered a set number of days after others</li><li><code>tasks.predict_uplift</code>: the effect of a carrier or routing change, against shipments left on the old route</li></ul></div>
   <div class="card"><h3>Implementation notes</h3><ul><li>In this mapping the item is the entity and each stock movement is an event.</li><li>For shipment-level analysis, map the shipper or route as the entity and scan records as events.</li></ul></div>
   <div class="card"><h3>Validation</h3><ul><li>Reorder and slow-moving stock logic in the unit tests</li><li>Inventory and logistics tables in the Vertiq LM mapping evaluation</li><li>Every deployment: the evaluation gate measures each model on the organisation&#x27;s own held-out records before promotion.</li></ul></div>
 </section>

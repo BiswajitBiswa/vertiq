@@ -67,10 +67,13 @@ CHALLENGES = [
 CAPABILITIES = [
     ("Event prediction", "Probability that an event occurs for an entity within a time window, such as customer return, equipment failure, readmission or late payment.", "tasks.predict_event"),
     ("Value prediction", "Expected value of the next event, such as order value, repair cost, length of stay or renewal amount.", "tasks.predict_value"),
-    ("Uplift modelling", "Expected change in outcome caused by an intervention, estimated from randomised control groups.", "uplift"),
-    ("Affinity and next best product", "Co-purchase associations, the next likely product per customer and replenishment intervals.", "affinity"),
+    ("Intervention effects", "Effect of any recorded action, such as a maintenance programme, outreach call or carrier change, estimated against a control group, with the entities it helps most.", "tasks.predict_uplift"),
+    ("Effects without a control group", "Matched-cohort estimates when an intervention was not randomised, with balance diagnostics and an interval.", "causal.matched_att"),
+    ("Time to next event", "Probability of the next event within a window given the time elapsed, personalised to each entity's rhythm.", "survival"),
+    ("Affinity and sequences", "Co-purchase associations, the next likely product, replenishment intervals and tested A-then-B patterns with their typical lag.", "affinity · sequences"),
     ("Tested insights", "Segment-level patterns reported only after false-discovery-rate control.", "insights"),
-    ("Rule-based monitoring", "Repeat events, overdue tasks, consumption above specification and incomplete records.", "rules"),
+    ("Monitoring", "Input and score drift, accuracy on new outcomes, and sequential tests that can be checked continuously.", "drift · sequential"),
+    ("Rule-based checks", "Repeat events, overdue tasks, consumption above specification and incomplete records.", "rules"),
 ]
 
 PLUGIN_EXAMPLE = '''from datetime import timedelta
@@ -578,6 +581,14 @@ def build_architecture():
             ("inventory", "Reorder points, slow-moving stock, new items and margins"),
             ("learn", "Regularised logistic and linear models, AUC, Brier score, calibration and Benjamini–Hochberg"),
             ("verticals", "Industry profiles: time windows, terminology and currency"),
+            ("boost", "Gradient-boosted trees for non-linear effects, with path-based contributing factors"),
+            ("survival", "Kaplan–Meier time-to-event estimates with censoring and per-entity rhythm"),
+            ("causal", "Matched-cohort average treatment effect on the treated, with balance and an interval"),
+            ("design", "Experiment sizing, minimum detectable effects and next-step recommendations"),
+            ("sequential", "Wald's sequential probability ratio test; its result can block a promotion"),
+            ("drift", "Population Stability Index for inputs and scores, and accuracy on new outcomes"),
+            ("sequences", "Lagged A-then-B patterns between consecutive events, filtered for false discoveries"),
+            ("profiles", "Precomputed scores and factors for serving, with staleness checks"),
             ("dataset · research · trends", "Training data export for language models, cited external tactics and trend matching")]
     rows = "".join(f"<tr><td><code>{E(a)}</code></td><td>{E(b)}</td></tr>" for a, b in mods)
     body = f"""
@@ -691,6 +702,29 @@ def build_benchmarks():
         ("Insight detection", "600 new customers; one first-order product doubles the repeat rate; a matched dataset with no effect",
          f"Planted pattern detected {S('insight_discovery')['found_planted']}; false patterns on random data: {S('insight_discovery')['false_item_findings_in_noise']['mean']:.0f}",
          "False-discovery control holds"),
+        ("Non-linear effects", "400 assets; failure risk is high outside a 40–60 degree operating band on either side",
+         f"AUC linear {pm('interactions', 'logistic_auc')}, boosted {pm('interactions', 'boosted_auc')}, auto {pm('interactions', 'auto_auc')}",
+         f"Boosted trees capture the U-shaped effect; auto chose them in {S('interactions')['auto_chose_boosted']} runs"),
+        ("Time to next event", "400 customers with purchase rhythms of 5 to 40 days; half eventually stop",
+         f"AUC {pm('renewal_survival', 'plain_auc')} without, {pm('renewal_survival', 'survival_auc')} with the survival feature",
+         f"Better in {S('renewal_survival')['survival_better']} runs on rhythm-driven data"),
+        ("Effect of any action", "1,500 machines; a programme lowers 30-day failure from 50% to 25% for old machines only; 30% held out",
+         f"Estimated effect: old {pm('action_uplift', 'estimated_effect_old')}, new {pm('action_uplift', 'estimated_effect_new')} (true −0.25 and 0)",
+         "The uplift model identifies which entities the action helps"),
+        ("Effect without a control group", "1,000 entities; treatment is more likely where the outcome is already higher; true effect +1.0",
+         f"Matched estimate {pm('matched_cohort', 'matched_att')}; naive difference {pm('matched_cohort', 'naive_difference')}",
+         f"Matching removes the confounding; the 90% interval covered the truth in {S('matched_cohort')['interval_covers_truth']} runs"),
+        ("Sequential test", "Baseline 10%, smallest worthwhile rate 15%, alpha 0.05, power 0.8; 600 streams per run",
+         f"False alarms {pm('sequential', 'false_alarm_rate')}; detection {pm('sequential', 'detection_rate')}; "
+         f"{S('sequential')['mean_observations']['mean']:.0f} observations on average against {S('sequential')['fixed_sample_equivalent']['mean']:.0f} for a fixed-sample test",
+         "Error rates on target with fewer observations"),
+        ("Drift", "Feature rows from the same distribution, and with one input shifted by one standard deviation",
+         f"Largest PSI {pm('drift_detection', 'stable_max_psi')} when stable, {pm('drift_detection', 'shifted_psi')} when shifted",
+         "Verdicts: stable, and retrain with the shifted input named"),
+        ("Lagged sequences", "500 customers; 60% of Apparel orders are followed by Cosmetics 18 to 22 days later",
+         f"Found {S('lagged_sequences')['found_planted']}; median lag {S('lagged_sequences')['median_lag_days']['mean']:.0f} days; "
+         f"false patterns on random data {pm('lagged_sequences', 'false_patterns_in_random', 1)} per run",
+         "Patterns and their timing are recovered"),
         ("Mapping validation", "2,100 correct mappings across 15 domains",
          f"Correct mappings altered: {S('mapping_repair')['changed_by_repair']['mean']:.0f}", "Validation never alters a correct mapping"),
     ]
@@ -774,6 +808,14 @@ def build_readme():
         ("Intervention uplift", f"Top half {mm('uplift_targeting', 'lift_top_half', 1, 100)} pts; bottom half {mm('uplift_targeting', 'lift_bottom_half', 1, 100)} pts", "True effect: +30 pts for overdue customers only"),
         ("Offer effect on order value", f"{mm('uplift_targeting', 'offer_effect_pct', 1)}%", "True effect: −20%"),
         ("Insight detection", f"Planted pattern detected {S('insight_discovery')['found_planted']}; false patterns {S('insight_discovery')['false_item_findings_in_noise']['mean']:.0f}", "Benjamini–Hochberg at 10%"),
+        ("Non-linear effects (U-shaped)", f"boosted AUC {mm('interactions', 'boosted_auc')}", f"linear AUC {mm('interactions', 'logistic_auc')}"),
+        ("Time to next event", f"AUC {mm('renewal_survival', 'survival_auc')} with the survival feature", f"without: {mm('renewal_survival', 'plain_auc')}"),
+        ("Effect of any action", f"old {mm('action_uplift', 'estimated_effect_old')}, new {mm('action_uplift', 'estimated_effect_new')}", "true: −0.25 and 0"),
+        ("Effect without a control group", f"matched {mm('matched_cohort', 'matched_att')}", f"true 1.0; naive {mm('matched_cohort', 'naive_difference')}"),
+        ("Sequential test", f"false alarms {mm('sequential', 'false_alarm_rate')}, detection {mm('sequential', 'detection_rate')}, "
+                            f"{S('sequential')['mean_observations']['mean']:.0f} observations", f"targets 0.05 and 0.80; fixed sample {S('sequential')['fixed_sample_equivalent']['mean']:.0f}"),
+        ("Drift", f"PSI {mm('drift_detection', 'shifted_psi')} when shifted", f"{mm('drift_detection', 'stable_max_psi')} when stable"),
+        ("Lagged sequences", f"planted found {S('lagged_sequences')['found_planted']}, lag {S('lagged_sequences')['median_lag_days']['mean']:.0f} days", "true lag 18 to 22 days"),
         ("Mapping validation", f"Correct mappings altered: {S('mapping_repair')['changed_by_repair']['mean']:.0f} of {S('mapping_repair')['correct_mappings']['mean']:.0f} per run", "Must be 0"),
     ]
     core_rows = "\n".join(f"| {a} | {b} | {c} |" for a, b, c in core)
@@ -918,7 +960,7 @@ print(task.score("EQ-602"))               # {{"chance": ..., "raises": [...], "l
 |---|---|
 | `@plugins.feature(pack)` | `fn(entity, events_before, cutoff) -> {{name: number}}`; receives only events recorded before the cutoff |
 | `@plugins.rule(pack)`, `vertiq.rules` | `repeat`, `overdue`, `exceeds` and `too_short`, configured with parameters |
-| `plugins.register_learner(name, cls)` | Required: `fit(rows, y, **kw) -> self`, `predict(row, group=None)`, `to_dict()`, `from_dict(d)`. Optional: `fit_offsets`, `contributions` |
+| `plugins.register_learner(name, cls)` | Required: `fit(rows, y, **kw) -> self`, `predict(row, group=None)`, `to_dict()`, `from_dict(d)`. Optional: `fit_offsets`, `contributions`. Built in: `logistic`, `linear`, `boosted`, `boosted_regression`, and `auto`, which chooses on training entities only |
 | `verticals.register(Vertical(...))` | Time windows, terminology and currency for an industry |
 | Vertiq LM teachers | `TEACHER_API_KEY`, `TEACHER_BASE_URL` and `TEACHER_MODEL` for any OpenAI-compatible server |
 
@@ -990,9 +1032,10 @@ python docs/build.py && git diff --stat                 # regenerates the site a
   appropriate; they do not measure accuracy on a specific organisation's data. Public-dataset benchmarks are planned.
 - After validation, Vertiq LM maps {best['overall']['exact_repaired'] * 100:.0f}% of unseen tables exactly and loads {best['overall']['loads_repaired'] * 100:.0f}%
   without errors. Proposed mappings should be reviewed before production use.
-- Uplift estimation requires a randomised control group for each intervention. Without one, targeting falls back to rules and reports this.
-- The built-in learners are regularised logistic and linear models, selected for speed and interpretability. Register a stronger
-  learner where the data supports it.
+- Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity
+  depends on every confounder being observed; `design.next_step` reports the experiment size needed to settle the question.
+- On the synthetic benchmarks, boosted trees improve on linear models where effects are non-linear and do not where effects are
+  additive; `learner="auto"` chooses per dataset, but its choice is noisy on small datasets.
 - Version 0.1. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
@@ -1001,12 +1044,9 @@ python docs/build.py && git diff --stat                 # regenerates the site a
   KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
 - Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.
-- Uplift estimation for any `Action` in the data contract, beyond customer messaging.
-- A gradient-boosting learner plugin with factor attribution.
-- Drift detection: compare live prediction error and input distributions with the evaluation period, and trigger retraining through the gate.
-- Statistical validation and temporal patterns: Benjamini–Yekutieli FDR control, matched-cohort effect estimation, sequential
-  testing, survival-based repeat prediction, lagged category sequences and precomputed serving profiles
-  ([proposal 0001](proposals/0001-statistical-validation.md)).
+- A two-sample sequential test (mixture SPRT) for comparing two live arms, and doubly robust effect estimation.
+- An evaluation loop that proposes plugin features and learner settings automatically and keeps only those that pass the gate on
+  training entities, with the held-out entities reserved for the final score.
 
 Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md), and an external assessment of the competitive landscape in [proposals/landscape-review.md](proposals/landscape-review.md).
 

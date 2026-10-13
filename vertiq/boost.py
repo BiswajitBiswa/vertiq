@@ -25,8 +25,10 @@ class BoostedClassifier:
 
     loss = "logistic"
 
-    def __init__(self, names: list[str] | None = None, *, trees: int = 80, depth: int = 3, rate: float = 0.1,
-                 min_leaf: int = 20, l2: float = 1.0, subsample: float = 0.8, seed: int = 7):
+    # defaults chosen on the benchmark scenarios: shallow trees with large leaves generalise better on the
+    # few-thousand-row datasets typical of one organisation's history than deeper ones
+    def __init__(self, names: list[str] | None = None, *, trees: int = 60, depth: int = 2, rate: float = 0.1,
+                 min_leaf: int = 40, l2: float = 1.0, subsample: float = 0.8, seed: int = 7):
         self.names: list[str] = list(names or [])
         self.trees_n, self.depth, self.rate, self.min_leaf, self.l2 = trees, depth, rate, min_leaf, l2
         self.subsample, self.seed = subsample, seed

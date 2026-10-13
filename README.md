@@ -69,10 +69,13 @@ Vertiq is a specialised model system, not a general-purpose assistant. Where fou
 |---|---|---|
 | Event prediction | `tasks.predict_event` | Probability that an event occurs for an entity within a time window, such as customer return, equipment failure, readmission or late payment. |
 | Value prediction | `tasks.predict_value` | Expected value of the next event, such as order value, repair cost, length of stay or renewal amount. |
-| Uplift modelling | `uplift` | Expected change in outcome caused by an intervention, estimated from randomised control groups. |
-| Affinity and next best product | `affinity` | Co-purchase associations, the next likely product per customer and replenishment intervals. |
+| Intervention effects | `tasks.predict_uplift` | Effect of any recorded action, such as a maintenance programme, outreach call or carrier change, estimated against a control group, with the entities it helps most. |
+| Effects without a control group | `causal.matched_att` | Matched-cohort estimates when an intervention was not randomised, with balance diagnostics and an interval. |
+| Time to next event | `survival` | Probability of the next event within a window given the time elapsed, personalised to each entity's rhythm. |
+| Affinity and sequences | `affinity · sequences` | Co-purchase associations, the next likely product, replenishment intervals and tested A-then-B patterns with their typical lag. |
 | Tested insights | `insights` | Segment-level patterns reported only after false-discovery-rate control. |
-| Rule-based monitoring | `rules` | Repeat events, overdue tasks, consumption above specification and incomplete records. |
+| Monitoring | `drift · sequential` | Input and score drift, accuracy on new outcomes, and sequential tests that can be checked continuously. |
+| Rule-based checks | `rules` | Repeat events, overdue tasks, consumption above specification and incomplete records. |
 
 All analyses operate on one data contract of entities, events and actions. Vertiq contains no industry-specific code; the
 [industry guides](https://biswajitbiswa.github.io/vertiq/guides/) document the mapping and analyses for each industry.
@@ -93,7 +96,7 @@ Intervention effects are estimated against control groups rather than inferred f
 
 - **Control-group uplift.** vertiq.uplift compares treated entities with a randomly held-out group over the same window and ranks entities by estimated incremental effect. In the benchmark it estimated a planted −20% offer effect at -20.2%.
 - **Configurable horizons.** window_days sets the prediction horizon, cutoffs the number of historical training points and history the event types used as inputs, so each task matches the operating cycle of the industry.
-- **Small footprint.** The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 28 seconds on a laptop.
+- **Small footprint.** The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 150 seconds on a laptop.
 
 ### Defensive deployment
 
@@ -182,7 +185,7 @@ task = predict_event(ds, target="breakdown", window_days=30, pack="plants")
 |---|---|
 | `@plugins.feature(pack)` | `fn(entity, events_before, cutoff) -> {name: number}`; receives only events recorded before the cutoff |
 | `@plugins.rule(pack)`, `vertiq.rules` | `repeat`, `overdue`, `exceeds` and `too_short`, configured with parameters |
-| `plugins.register_learner(name, cls)` | Required: `fit(rows, y, **kw) -> self`, `predict(row, group=None)`, `to_dict()`, `from_dict(d)`. Optional: `fit_offsets`, `contributions` |
+| `plugins.register_learner(name, cls)` | Required: `fit(rows, y, **kw) -> self`, `predict(row, group=None)`, `to_dict()`, `from_dict(d)`. Optional: `fit_offsets`, `contributions`. Built in: `logistic`, `linear`, `boosted`, `boosted_regression`, and `auto`, which chooses on training entities only |
 | `verticals.register(Vertical(...))` | Time windows, terminology and currency for an industry |
 | Vertiq LM teachers | `TEACHER_API_KEY`, `TEACHER_BASE_URL` and `TEACHER_MODEL` for any OpenAI-compatible server |
 
@@ -200,7 +203,7 @@ Plugins add features; the evaluation gate determines whether they improve perfor
 ## Benchmarks
 
 Synthetic scenarios with known ground truth, 5 runs each, mean ± standard deviation (`python benchmarks/run.py`,
-28 seconds on arm64, Python 3.10.10).
+150 seconds on arm64, Python 3.10.10).
 
 | Scenario | Vertiq | Reference |
 |---|---|---|
@@ -211,6 +214,13 @@ Synthetic scenarios with known ground truth, 5 runs each, mean ± standard devia
 | Intervention uplift | Top half 23.6 ± 5.9 pts; bottom half -1.8 ± 5.2 pts | True effect: +30 pts for overdue customers only |
 | Offer effect on order value | -20.2 ± 0.9% | True effect: −20% |
 | Insight detection | Planted pattern detected 5/5; false patterns 0 | Benjamini–Hochberg at 10% |
+| Non-linear effects (U-shaped) | boosted AUC 0.690 ± 0.022 | linear AUC 0.670 ± 0.024 |
+| Time to next event | AUC 0.954 ± 0.013 with the survival feature | without: 0.947 ± 0.014 |
+| Effect of any action | old -0.266 ± 0.035, new -0.018 ± 0.021 | true: −0.25 and 0 |
+| Effect without a control group | matched 1.017 ± 0.019 | true 1.0; naive 3.076 ± 0.131 |
+| Sequential test | false alarms 0.041 ± 0.014, detection 0.799 ± 0.017, 147 observations | targets 0.05 and 0.80; fixed sample 253 |
+| Drift | PSI 0.931 ± 0.037 when shifted | 0.011 ± 0.004 when stable |
+| Lagged sequences | planted found 5/5, lag 20 days | true lag 18 to 22 days |
 | Mapping validation | Correct mappings altered: 0 of 2100 per run | Must be 0 |
 
 ### Vertiq LM table mapping
@@ -237,7 +247,7 @@ Production-like test set (audit columns and locale-specific number formats):
 
 ## Verify the results
 
-Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 28 seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
+Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 150 seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
 
 ```bash
 git clone https://github.com/BiswajitBiswa/vertiq && cd vertiq
@@ -265,9 +275,10 @@ The methods are established and deliberately transparent: regularised logistic a
   appropriate; they do not measure accuracy on a specific organisation's data. Public-dataset benchmarks are planned.
 - After validation, Vertiq LM maps 44% of unseen tables exactly and loads 99%
   without errors. Proposed mappings should be reviewed before production use.
-- Uplift estimation requires a randomised control group for each intervention. Without one, targeting falls back to rules and reports this.
-- The built-in learners are regularised logistic and linear models, selected for speed and interpretability. Register a stronger
-  learner where the data supports it.
+- Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity
+  depends on every confounder being observed; `design.next_step` reports the experiment size needed to settle the question.
+- On the synthetic benchmarks, boosted trees improve on linear models where effects are non-linear and do not where effects are
+  additive; `learner="auto"` chooses per dataset, but its choice is noisy on small datasets.
 - Version 0.1. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
@@ -276,12 +287,9 @@ The methods are established and deliberately transparent: regularised logistic a
   KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
 - Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.
-- Uplift estimation for any `Action` in the data contract, beyond customer messaging.
-- A gradient-boosting learner plugin with factor attribution.
-- Drift detection: compare live prediction error and input distributions with the evaluation period, and trigger retraining through the gate.
-- Statistical validation and temporal patterns: Benjamini–Yekutieli FDR control, matched-cohort effect estimation, sequential
-  testing, survival-based repeat prediction, lagged category sequences and precomputed serving profiles
-  ([proposal 0001](proposals/0001-statistical-validation.md)).
+- A two-sample sequential test (mixture SPRT) for comparing two live arms, and doubly robust effect estimation.
+- An evaluation loop that proposes plugin features and learner settings automatically and keeps only those that pass the gate on
+  training entities, with the held-out entities reserved for the final score.
 
 Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md), and an external assessment of the competitive landscape in [proposals/landscape-review.md](proposals/landscape-review.md).
 
