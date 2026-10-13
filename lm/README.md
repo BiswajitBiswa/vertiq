@@ -31,6 +31,14 @@ Models, adapters, data and runs are git-ignored (`lm/.gitignore`). Run every com
 | 6. Teacher generation | `lm/.venv/bin/python lm/teacher.py --n 120` | a larger open-weight model generates new tables; each is retained only if it loads and the teacher reproduces the mapping without seeing it |
 | Full round | `lm/round3.sh` | steps 1–5 including teacher tables, followed by evaluation; `lm/finish3.sh` resumes ORPO after an out-of-memory error |
 
+### Memory on a 16 GB Mac
+
+Preference training's peak memory grows with sequence length, because the output layer covers a 248k-word vocabulary: a
+459-token example peaked at 12.3 GB against the GPU's 12.7 GB limit. `lm/finish3.sh` therefore drops the 8% of preference
+examples longer than 460 tokens (`lm/fit_length.py`; cutting them short would remove the end of the answer), updates after
+every example rather than accumulating four, and runs through `lm/mlx_limits.py`, which caps MLX's buffer cache. Close
+memory-heavy applications before training.
+
 `lm/report.py --watch` writes a live page (`lm/runs/report.html`) while training runs.
 `python benchmarks/collect_lm.py` turns scored runs into `benchmarks/results/lm.json`.
 
