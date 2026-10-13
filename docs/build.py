@@ -20,6 +20,7 @@ from guides import GUIDES, snippet  # noqa: E402
 
 CORE = json.loads((ROOT / "benchmarks" / "results" / "core.json").read_text())
 LM = json.loads((ROOT / "benchmarks" / "results" / "lm.json").read_text())
+PUBLIC = json.loads((ROOT / "benchmarks" / "results" / "public.json").read_text())
 REPO = "https://github.com/BiswajitBiswa/vertiq"
 SITE = "https://biswajitbiswa.github.io/vertiq/"
 FONTS = ("https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600"
@@ -36,6 +37,28 @@ def S(name):
 
 def mean(name, key, nd=3):
     return f"{S(name)[key]['mean']:.{nd}f}"
+
+
+def total(name, key):
+    """A count summed over every run of a scenario (e.g. models promoted across all random datasets)."""
+    return sum(r[key] for r in CORE["scenarios"][name]["runs"])
+
+
+def NOISE(key):
+    return f"{total('noise', key)} of {total('noise', 'datasets')}"
+
+
+def public_rows():
+    """(learner, AUC, 90% interval, gain interval over the recency baseline, seconds) for Online Retail II."""
+    r = PUBLIC["runs"]
+    names = [("linear", "Linear (logistic)"), ("linear_survival", "Linear with the survival feature"),
+             ("boosted", "Boosted trees"), ("auto", f"Auto (chose {r['auto']['learner'].replace('Classifier', '').lower()})")]
+    out = [(label, f"{r[k]['auc']:.3f}", f"{r[k]['intervals']['score_ci'][0]:.3f}–{r[k]['intervals']['score_ci'][1]:.3f}",
+            f"+{r[k]['intervals']['gain_ci'][0]:.3f} to +{r[k]['intervals']['gain_ci'][1]:.3f}", f"{r[k]['seconds']:.0f} s") for k, label in names]
+    ext = r.get("external", {})
+    if isinstance(ext.get("sklearn_logistic_auc"), float):
+        out.append(("scikit-learn logistic regression (reference)", f"{ext['sklearn_logistic_auc']:.3f}", "", "", ""))
+    return out
 
 
 def lm_run(name):
@@ -499,10 +522,10 @@ def build_index():
   <div class="stats">
     <div class="stat"><b>{mean('machines', 'plugin_auc')}</b><span>AUC for equipment failure prediction with one domain plugin; rule baseline {mean('machines', 'baseline_auc')}</span></div>
     <div class="stat"><b>{S('uplift_targeting')['offer_effect_pct']['mean']:+.1f}%</b><span>estimated offer effect on transaction value; true effect −20%</span></div>
-    <div class="stat"><b>0 of {CORE['scenarios']['noise']['seeds']}</b><span>models promoted on random data; baseline retained in every run</span></div>
+    <div class="stat"><b>{PUBLIC['runs']['linear']['auc']:.3f}</b><span>AUC predicting repeat orders for {PUBLIC['counts']['customers']:,} real customers (Online Retail II); recency baseline {PUBLIC['runs']['linear']['baseline_auc']:.3f}</span></div>
     <div class="stat"><b>{best['overall']['loads_repaired'] * 100:.1f}%</b><span>of held-out tables mapped by Vertiq LM without load errors after validation</span></div>
   </div>
-  <p class="note-s">Synthetic benchmarks with known ground truth, {RUNS} runs each. See <a href="benchmarks.html">benchmark methodology</a>.</p>
+  <p class="note-s">Synthetic benchmarks with known ground truth, {RUNS} runs each, and one public dataset. See <a href="benchmarks.html">benchmark methodology</a>.</p>
 </section>
 <section id="rsi">
   <div class="section-head"><div class="kicker">Recursive self-improvement</div><h2>Each generation trains the next. Only better generations ship.</h2>
@@ -693,7 +716,10 @@ def build_benchmarks():
          f"MAE {pm('patients', 'model_mae_days', 2)} days vs {pm('patients', 'baseline_mae_days', 2)} for the previous value",
          "Value prediction outperforms the previous-value baseline"),
         ("Random data", "300 entities with a memoryless 4% weekly event rate",
-         f"Models promoted: 0 of {CORE['scenarios']['noise']['seeds']}", "The evaluation gate retains the baseline when no signal exists"),
+         f"Models promoted: {NOISE('promoted_default')} with the default gate; {NOISE('promoted_confidence_90')} with the 90% confidence check; "
+         f"promoted models worse than the baseline: {total('noise', 'shipped_worse_than_baseline')}",
+         "The default gate only requires a model not to be worse, so on random data it passes ties about half the time. "
+         "The confidence check rejects most of them"),
         ("Intervention uplift", "800 customers; the intervention raises response by 30 points for overdue customers only; 25% held out",
          f"Top-ranked half {pm('uplift_targeting', 'lift_top_half', 1, 100, ' pts')}; bottom half {pm('uplift_targeting', 'lift_bottom_half', 1, 100, ' pts')}",
          "Uplift ranking separates responsive from non-responsive customers"),
@@ -740,9 +766,22 @@ are means ± standard deviation over {RUNS} runs. The full suite runs in {CORE['
 <section><div class="tbl"><table><thead><tr><th>Scenario</th><th>Result</th><th>Interpretation</th></tr></thead><tbody>{tr}</tbody></table></div></section>
 <section><h2>Effect of a domain plugin</h2><figure><div class="scroll">{chart}</div><figcaption>Equipment failure prediction on held-out
 assets (AUC × 100). A single feature counting skipped maintenance adds information that is not present in the event log.</figcaption></figure></section>
-<section class="note"><b>Scope.</b> These benchmarks verify that the methods detect real signal, reject noise and do not promote weaker
-models. They do not measure accuracy on a specific organisation's data; the evaluation gate measures that on held-out records at every
-training run. Benchmarks on public datasets (Online Retail II, the Hillstrom email uplift dataset and NASA C-MAPSS) are planned.</section>
+<section class="read"><h2>Real data: Online Retail II</h2>
+<p>Repeat purchase on the UCI Online Retail II dataset (CC BY 4.0): {PUBLIC['counts']['lines']:,} invoice lines from a UK online
+retailer, 2009 to 2011. Cancellations and lines without a customer are removed, and lines are combined into
+{PUBLIC['counts']['orders']:,} orders from {PUBLIC['counts']['customers']:,} customers. The task predicts whether a customer orders again
+within {PUBLIC['window_days']} days, with point-in-time features and 20% of customers held out. The baseline is the recency rule.
+Recency baseline AUC: {PUBLIC['runs']['linear']['baseline_auc']:.3f}.</p></section>
+<section><div class="tbl"><table><thead><tr><th>Learner</th><th>AUC</th><th>90% interval</th><th>Gain over baseline (90%)</th><th>Time</th></tr></thead>
+<tbody>{"".join(f"<tr><td>{E(a)}</td><td>{b}</td><td>{c}</td><td>{d}</td><td>{e}</td></tr>" for a, b, c, d, e in public_rows())}</tbody></table></div>
+<p class="note-s">One dataset and one task. The scikit-learn row uses the same features and split and confirms the linear learner's
+implementation. Boosted trees score slightly higher; the automatic choice, made by 3-fold cross-validation on the training customers,
+picked {E(PUBLIC['runs']['auto']['learner'])}.
+Reproduce with <code>python benchmarks/public/online_retail.py --data online_retail_II.xlsx</code>.</p></section>
+<section class="note"><b>Scope.</b> The synthetic benchmarks verify that the methods detect real signal, reject noise and do not promote
+weaker models; the Online Retail II result shows the same pipeline on real transactions. Neither measures accuracy on a specific
+organisation's data; the evaluation gate measures that on held-out records at every training run. Further public benchmarks
+(the Hillstrom email uplift dataset and NASA C-MAPSS) are planned.</section>
 <section class="read"><h2>Reproduction</h2><pre><code>python benchmarks/run.py --seeds 5        # writes benchmarks/results/core.json
 python benchmarks/collect_lm.py --lm lm   # summarises scored Vertiq LM runs into results/lm.json
 python docs/build.py                      # rebuilds this site and the README</code></pre></section>"""
@@ -804,7 +843,7 @@ def build_readme():
          f"Recency rule: AUC {mm('churn_customers', 'baseline_auc')}, Brier {mm('churn_customers', 'baseline_brier')}"),
         ("Equipment failure", f"AUC {mm('machines', 'generic_auc')}; with one plugin {mm('machines', 'plugin_auc')}", f"Recency rule: AUC {mm('machines', 'baseline_auc')}"),
         ("Length of stay", f"MAE {mm('patients', 'model_mae_days', 2)} days", f"Previous value: {mm('patients', 'baseline_mae_days', 2)} days"),
-        ("Random data", f"Models promoted: 0 of {CORE['scenarios']['noise']['seeds']}", "Baseline must be retained"),
+        ("Random data", f"Models promoted: {NOISE('promoted_default')} (default gate), {NOISE('promoted_confidence_90')} (90% confidence check)", "Worse than the baseline: must be 0"),
         ("Intervention uplift", f"Top half {mm('uplift_targeting', 'lift_top_half', 1, 100)} pts; bottom half {mm('uplift_targeting', 'lift_bottom_half', 1, 100)} pts", "True effect: +30 pts for overdue customers only"),
         ("Offer effect on order value", f"{mm('uplift_targeting', 'offer_effect_pct', 1)}%", "True effect: −20%"),
         ("Insight detection", f"Planted pattern detected {S('insight_discovery')['found_planted']}; false patterns {S('insight_discovery')['false_item_findings_in_noise']['mean']:.0f}", "Benjamini–Hochberg at 10%"),
@@ -819,6 +858,7 @@ def build_readme():
         ("Mapping validation", f"Correct mappings altered: {S('mapping_repair')['changed_by_repair']['mean']:.0f} of {S('mapping_repair')['correct_mappings']['mean']:.0f} per run", "Must be 0"),
     ]
     core_rows = "\n".join(f"| {a} | {b} | {c} |" for a, b, c in core)
+    public_md = "\n".join(f"| {a} | {b} | {c} | {d} |" for a, b, c, d, _e in public_rows())
 
     def lm_rows(test):
         return "\n".join(f"| {r['model']} | {r['overall']['loads'] * 100:.1f}% | {r['overall']['exact'] * 100:.1f}% | "
@@ -984,6 +1024,16 @@ Synthetic scenarios with known ground truth, {RUNS} runs each, mean ± standard 
 |---|---|---|
 {core_rows}
 
+### Real data: Online Retail II
+
+Repeat purchase within {PUBLIC['window_days']} days for {PUBLIC['counts']['customers']:,} customers ({PUBLIC['counts']['orders']:,} orders, UCI Online Retail II,
+CC BY 4.0), 20% of customers held out (`python benchmarks/public/online_retail.py --data online_retail_II.xlsx`).
+Recency baseline AUC {PUBLIC['runs']['linear']['baseline_auc']:.3f}.
+
+| Learner | AUC | 90% interval | Gain over baseline (90%) |
+|---|---|---|---|
+{public_md}
+
 ### Vertiq LM table mapping
 
 Qwen 3.5 4B (Apache 2.0, 4-bit MLX), fine-tuned with LoRA on an Apple M1 Pro with 16 GB of memory. 114 held-out tables across 15
@@ -1028,19 +1078,24 @@ python docs/build.py && git diff --stat                 # regenerates the site a
 
 ## Limitations
 
-- Benchmarks use synthetic data. They verify that the methods detect planted signal, reject noise and retain the baseline when
-  appropriate; they do not measure accuracy on a specific organisation's data. Public-dataset benchmarks are planned.
+- Most benchmarks use synthetic data. They verify that the methods detect planted signal, reject noise and retain the baseline
+  when appropriate; one public dataset (Online Retail II) has been run. None measures accuracy on a specific organisation's data.
+- The default gate requires a candidate not to be worse than the baseline. On random data it promotes about half of candidates that
+  tie the baseline (none were worse). Set `confidence=0.9` to require a clear gain; this also keeps more real but small improvements
+  out on small datasets.
 - After validation, Vertiq LM maps {best['overall']['exact_repaired'] * 100:.0f}% of unseen tables exactly and loads {best['overall']['loads_repaired'] * 100:.0f}%
   without errors. Proposed mappings should be reviewed before production use.
 - Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity
   depends on every confounder being observed; `design.next_step` reports the experiment size needed to settle the question.
 - On the synthetic benchmarks, boosted trees improve on linear models where effects are non-linear and do not where effects are
-  additive; `learner="auto"` chooses per dataset, but its choice is noisy on small datasets.
+  additive. Across 100 to 6,400 entities the default tree settings were within 0.01 AUC of the best of five alternatives.
+  `learner="auto"` chooses by 3-fold cross-validation on the training entities; with a few hundred entities or fewer its
+  choice is close to random when the two learners are within a point or two of each other.
 - Version 0.1. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 
-- Benchmarks on public datasets: Online Retail II (repeat purchase), M5 (value prediction), NASA C-MAPSS (equipment failure),
+- Further public benchmarks: M5 (value prediction), NASA C-MAPSS (equipment failure),
   KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
 - Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.

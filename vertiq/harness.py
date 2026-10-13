@@ -60,22 +60,34 @@ def bootstrap(keys: list[str], pred: list[float], base: list[float], y: list, ki
             "gain_ci": [round(_quantile(gain, lo), 4), round(_quantile(gain, hi), 4)]}
 
 
+SELECT_FOLDS = 3
+
+
+def _fold(key: str, folds: int = SELECT_FOLDS) -> int:
+    return int(hashlib.md5((key + "#select").encode(), usedforsecurity=False).hexdigest(), 16) % folds
+
+
 def _select(rows, y, keys, tr, candidates, kind, fit_kw) -> tuple[type, dict]:
-    """Choose among candidate learners on a validation split carved from the training entities only,
-    so the held-out entities still give an unbiased score for the learner that is chosen."""
-    val = [i for i in tr if held_out(keys[i] + "#select", 25)]
-    fit = [i for i in tr if i not in set(val)]
-    scores = {}
-    for cls in candidates:
-        m = cls().fit([rows[i] for i in fit], [y[i] for i in fit], **fit_kw)
-        pred = [m.predict(rows[i]) for i in val]
+    """Choose among candidate learners by cross-validation over the training entities only (3 folds, split
+    by entity), so the held-out entities still give an unbiased score for the learner that is chosen. One
+    validation split was too noisy: it sometimes chose a learner several AUC points worse."""
+    scores = {c.__name__: [] for c in candidates}
+    for f in range(SELECT_FOLDS):
+        val = [i for i in tr if _fold(keys[i]) == f]
+        fit = [i for i in tr if _fold(keys[i]) != f]
         truth = [y[i] for i in val]
-        if kind == "classify":
-            scores[cls.__name__] = auc(pred, truth) or 0.0
-        else:
-            scores[cls.__name__] = -sum(abs(math.expm1(p) - math.expm1(t)) for p, t in zip(pred, truth)) / max(1, len(truth))
-    best = max(candidates, key=lambda c: scores[c.__name__])
-    return best, {k: round(v, 4) for k, v in scores.items()}
+        if not val or not fit or (kind == "classify" and len(set(truth)) < 2):
+            continue
+        for cls in candidates:
+            m = cls().fit([rows[i] for i in fit], [y[i] for i in fit], **fit_kw)
+            pred = [m.predict(rows[i]) for i in val]
+            if kind == "classify":
+                scores[cls.__name__].append(auc(pred, truth) or 0.0)
+            else:
+                scores[cls.__name__].append(-sum(abs(math.expm1(p) - math.expm1(t)) for p, t in zip(pred, truth)) / len(truth))
+    avg = {k: (sum(v) / len(v) if v else float("-inf")) for k, v in scores.items()}
+    best = max(candidates, key=lambda c: avg[c.__name__])
+    return best, {k: round(v, 4) for k, v in avg.items()}
 
 
 def _r(x):

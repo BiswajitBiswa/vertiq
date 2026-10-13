@@ -96,7 +96,7 @@ Intervention effects are estimated against control groups rather than inferred f
 
 - **Control-group uplift.** vertiq.uplift compares treated entities with a randomly held-out group over the same window and ranks entities by estimated incremental effect. In the benchmark it estimated a planted −20% offer effect at -20.2%.
 - **Configurable horizons.** window_days sets the prediction horizon, cutoffs the number of historical training points and history the event types used as inputs, so each task matches the operating cycle of the industry.
-- **Small footprint.** The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 150 seconds on a laptop.
+- **Small footprint.** The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 155 seconds on a laptop.
 
 ### Defensive deployment
 
@@ -203,14 +203,14 @@ Plugins add features; the evaluation gate determines whether they improve perfor
 ## Benchmarks
 
 Synthetic scenarios with known ground truth, 5 runs each, mean ± standard deviation (`python benchmarks/run.py`,
-150 seconds on arm64, Python 3.10.10).
+155 seconds on arm64, Python 3.10.10).
 
 | Scenario | Vertiq | Reference |
 |---|---|---|
 | Customer retention | AUC 0.976 ± 0.005, Brier 0.043 ± 0.004 | Recency rule: AUC 0.969 ± 0.005, Brier 0.061 ± 0.006 |
 | Equipment failure | AUC 0.735 ± 0.059; with one plugin 0.767 ± 0.043 | Recency rule: AUC 0.674 ± 0.050 |
 | Length of stay | MAE 1.61 ± 0.06 days | Previous value: 2.18 ± 0.14 days |
-| Random data | Models promoted: 0 of 5 | Baseline must be retained |
+| Random data | Models promoted: 11 of 25 (default gate), 2 of 25 (90% confidence check) | Worse than the baseline: must be 0 |
 | Intervention uplift | Top half 23.6 ± 5.9 pts; bottom half -1.8 ± 5.2 pts | True effect: +30 pts for overdue customers only |
 | Offer effect on order value | -20.2 ± 0.9% | True effect: −20% |
 | Insight detection | Planted pattern detected 5/5; false patterns 0 | Benjamini–Hochberg at 10% |
@@ -222,6 +222,20 @@ Synthetic scenarios with known ground truth, 5 runs each, mean ± standard devia
 | Drift | PSI 0.931 ± 0.037 when shifted | 0.011 ± 0.004 when stable |
 | Lagged sequences | planted found 5/5, lag 20 days | true lag 18 to 22 days |
 | Mapping validation | Correct mappings altered: 0 of 2100 per run | Must be 0 |
+
+### Real data: Online Retail II
+
+Repeat purchase within 60 days for 5,881 customers (36,975 orders, UCI Online Retail II,
+CC BY 4.0), 20% of customers held out (`python benchmarks/public/online_retail.py --data online_retail_II.xlsx`).
+Recency baseline AUC 0.761.
+
+| Learner | AUC | 90% interval | Gain over baseline (90%) |
+|---|---|---|---|
+| Linear (logistic) | 0.807 | 0.790–0.824 | +0.036 to +0.053 |
+| Linear with the survival feature | 0.807 | 0.790–0.824 | +0.037 to +0.054 |
+| Boosted trees | 0.812 | 0.795–0.827 | +0.043 to +0.059 |
+| Auto (chose boosted) | 0.812 | 0.795–0.827 | +0.043 to +0.059 |
+| scikit-learn logistic regression (reference) | 0.807 |  |  |
 
 ### Vertiq LM table mapping
 
@@ -247,7 +261,7 @@ Production-like test set (audit columns and locale-specific number formats):
 
 ## Verify the results
 
-Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 150 seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
+Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 155 seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
 
 ```bash
 git clone https://github.com/BiswajitBiswa/vertiq && cd vertiq
@@ -271,19 +285,24 @@ The methods are established and deliberately transparent: regularised logistic a
 
 ## Limitations
 
-- Benchmarks use synthetic data. They verify that the methods detect planted signal, reject noise and retain the baseline when
-  appropriate; they do not measure accuracy on a specific organisation's data. Public-dataset benchmarks are planned.
+- Most benchmarks use synthetic data. They verify that the methods detect planted signal, reject noise and retain the baseline
+  when appropriate; one public dataset (Online Retail II) has been run. None measures accuracy on a specific organisation's data.
+- The default gate requires a candidate not to be worse than the baseline. On random data it promotes about half of candidates that
+  tie the baseline (none were worse). Set `confidence=0.9` to require a clear gain; this also keeps more real but small improvements
+  out on small datasets.
 - After validation, Vertiq LM maps 44% of unseen tables exactly and loads 99%
   without errors. Proposed mappings should be reviewed before production use.
 - Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity
   depends on every confounder being observed; `design.next_step` reports the experiment size needed to settle the question.
 - On the synthetic benchmarks, boosted trees improve on linear models where effects are non-linear and do not where effects are
-  additive; `learner="auto"` chooses per dataset, but its choice is noisy on small datasets.
+  additive. Across 100 to 6,400 entities the default tree settings were within 0.01 AUC of the best of five alternatives.
+  `learner="auto"` chooses by 3-fold cross-validation on the training entities; with a few hundred entities or fewer its
+  choice is close to random when the two learners are within a point or two of each other.
 - Version 0.1. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 
-- Benchmarks on public datasets: Online Retail II (repeat purchase), M5 (value prediction), NASA C-MAPSS (equipment failure),
+- Further public benchmarks: M5 (value prediction), NASA C-MAPSS (equipment failure),
   KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
 - Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.

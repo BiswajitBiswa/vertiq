@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Parts A and B implemented in 0.2 (see below). Part C: the Online Retail II script is written; no public benchmark has been run yet. |
+| **Status** | Parts A and B implemented in 0.2 (see below). Part C: Online Retail II repeat purchase has been run (`benchmarks/results/public.json`); the other datasets are pending. |
 | **Target** | 0.2 |
 | **Scope** | Part A: multiple-testing control, matched-cohort effect estimation and sequential evaluation. Part B: survival-based repeat prediction, lagged category sequences and precomputed serving profiles. Part C: validation on public datasets. Pure Python. |
 | **Dependencies** | None (Python 3.10+ standard library) |
@@ -17,7 +17,7 @@
 | Survival-based repeat prediction | `vertiq.survival`, `predict_event(survival=True)` | Implemented |
 | Lagged category sequences | `vertiq.sequences.find` | Implemented, with Benjamini–Hochberg filtering |
 | Precomputed serving profiles | `vertiq.profiles` | Implemented |
-| Public-data validation | `benchmarks/public/online_retail.py` | Script written; not yet run |
+| Public-data validation | `benchmarks/public/online_retail.py` | Online Retail II, protocol 15.1 steps 1, 2, 4 (`predict_event`) and 5 (scikit-learn reference; LightGBM not installed) run. Steps 3 (Vertiq LM mapping), 4 (`predict_value`) and 6 (affinity, sequences) pending |
 | Two-sample sequential test, doubly robust estimation | — | Not started |
 
 # Part A: Statistical validation
