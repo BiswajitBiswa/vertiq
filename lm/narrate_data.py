@@ -57,11 +57,14 @@ def synth(rnd: random.Random) -> str:
         trained = lo > 0 and rnd.random() < 0.9
         m = {"auc": auc, "baseline_auc": base, "entities_held_out": held, "min_gain": 0.0,
              "intervals": {"level": 0.9, "gain_ci": [lo, hi]}}
-        if rnd.random() < 0.3:                                # value task
-            mae = round(rnd.uniform(20, 900), 2)
-            m = {"mae": mae, "baseline_mae": round(mae * rnd.uniform(0.9, 1.4), 2), "entities_held_out": held,
-                 "min_gain": 0.0, "intervals": {"level": 0.9, "gain_ci": [round(rnd.uniform(-0.05, 0.1), 4), round(rnd.uniform(0.1, 0.3), 4)]}}
-            trained = m["intervals"]["gain_ci"][0] > 0
+        if rnd.random() < 0.3:                                # value task: gain = relative reduction in error
+            base_mae = round(rnd.uniform(20, 900), 2)
+            gain = rnd.uniform(-0.08, 0.3)
+            mae = round(base_mae * (1 - gain), 2)
+            lo, hi = round(gain - rnd.uniform(0.03, 0.12), 4), round(gain + rnd.uniform(0.03, 0.12), 4)
+            m = {"mae": mae, "baseline_mae": base_mae, "entities_held_out": held, "min_gain": 0.0,
+                 "intervals": {"level": 0.9, "gain_ci": [lo, hi]}}
+            trained = lo > 0
         report = {"status": "trained" if trained else "kept", "task": "event" if "auc" in m else "value",
                   "target": target, "window_days": window, "metrics": m, "reason": "not clear"}
         if rnd.random() < 0.08:
@@ -99,7 +102,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--teacher", default="lm/models/qwen3.5-9b-4bit")
     ap.add_argument("--n", type=int, default=600, help="descriptions to synthesise")
-    ap.add_argument("--samples", type=int, default=3, help="teacher rewrites tried per description")
+    ap.add_argument("--samples", type=int, default=4, help="teacher rewrites tried per description")
     ap.add_argument("--temp", type=float, default=0.8)
     ap.add_argument("--out", default="lm/data/narrate")
     a = ap.parse_args()
@@ -119,7 +122,8 @@ def main():
 
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    files = {s: open(out / f"{s}.jsonl", "w") for s in ("train", "valid", "test")}
+    files = {s: open(out / f"{s}.jsonl", "w") for s in ("train", "valid")}
+    files["test"] = open(out / "heldout.jsonl", "w")      # not test.jsonl: mlx_lm would try to load it as training data
     stats = {"descriptions": 0, "tried": 0, "kept": 0, "rejected": {}}
     for i in range(a.n):
         text = synth(random.Random(i))
@@ -140,9 +144,10 @@ def main():
             stats["kept"] += 1
             files[split].write(json.dumps({"messages": [{"role": "user", "content": narrate.PROMPT.format(text=text)},
                                                         {"role": "assistant", "content": r}]}, ensure_ascii=False) + "\n")
+            files[split].flush()
             break                                             # one accepted rewrite per description
-        if i % 50 == 0:
-            print(i, stats, flush=True)
+        if i % 25 == 2:
+            print(i, json.dumps(stats), flush=True)
     for f in files.values():
         f.close()
     (out / "stats.json").write_text(json.dumps(stats, indent=2))

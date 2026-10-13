@@ -75,7 +75,12 @@ Vertiq is a specialised model system, not a general-purpose assistant. Where fou
 | Affinity and sequences | `affinity · sequences` | Co-purchase associations, the next likely product, replenishment intervals and tested A-then-B patterns with their typical lag. |
 | Tested insights | `insights` | Segment-level patterns reported only after false-discovery-rate control. |
 | Monitoring | `drift · sequential` | Input and score drift, accuracy on new outcomes, and sequential tests of one rate or two live arms that can be checked after every observation. |
-| Automatic tuning | `autotune` | Tries learner settings and candidate features one change at a time, keeps those that improve validation folds of training entities consistently, and lets the gate decide on held-out entities. |
+| Several possible outcomes | `category.predict_category` | Which of several events comes next (a repair, a replacement or nothing; an upgrade or a cancellation), with a probability for each. |
+| Planning under a budget | `plan` | Who should receive which action, given each action's measured effect, its cost and the value of the outcome, within a budget. |
+| Checks on proposed actions | `guard` | Allow, hold or block an action proposed by an agent or a person, from the measured effect of that action and rule flags; unmeasured actions are held for a person. |
+| Why a number changed | `diagnose` | Splits a change between two periods into groups whose own rate moved and groups whose share moved, with false-discovery control. |
+| What happened | `summary · narrate` | The last period against the one before: counts, values, active, new and quiet entities and the groups that moved, as figures and sentences. |
+| Automatic tuning | `autotune · menu` | Proposes candidate features from a fixed menu (counts, recency and shares by event type and attribute value), tries them and learner settings one change at a time, keeps those that improve validation folds of training entities consistently, and lets the gate decide on held-out entities. |
 | Rule-based checks | `rules` | Repeat events, overdue tasks, consumption above specification and incomplete records. |
 | Plain-language descriptions | `narrate` | Predictions, gate decisions and effect estimates written as sentences from the result's own fields; an optional local model can rewrite them, and a rewrite with any number not in the description is rejected. |
 
@@ -230,6 +235,11 @@ Synthetic scenarios with known ground truth, 5 runs each, mean ± standard devia
 | Automatic tuning | real feature kept 5/5, random features 0.0 per run, AUC 0.761 ± 0.047 | untuned 0.735 ± 0.059; promoted 2/5 |
 | Two live arms (mixture SPRT) | false alarms 0.042 ± 0.007, detection 1.000 ± 0.000 | z-test checked every 100 pairs: false alarms 0.363 ± 0.024 |
 | Doubly robust effect | AIPW 0.906 ± 0.171 | true 1.0; outcome model alone 0.849 ± 0.010; naive 2.450 ± 0.121 |
+| Planning under a budget | 93% of the best possible benefit | random choice: 6800 ± 1354 vs planned 22332 ± 955 |
+| Checks on proposed actions | harmful allowed 0 of 495, unmeasured held 505 of 505 | helpful allowed 265 of 500 |
+| Features from the menu | skipped-maintenance count kept 5/5, AUC 0.778 ± 0.034 | untuned 0.735 ± 0.059 |
+| Several possible outcomes | macro AUC 0.803 ± 0.011 | past mix 0.686 ± 0.022 |
+| Why a rate changed | only the true driver named: 5/5 | rate and mix effects add up to the change |
 | Mapping validation | Correct mappings altered: 0 of 2100 per run | Must be 0 |
 
 ### Real data: Online Retail II
@@ -317,6 +327,11 @@ The methods are established and deliberately transparent: regularised logistic a
 - Doubly robust estimates are consistent if either the propensity or the outcome model is right, but they vary more than the
   outcome model alone (standard deviation 0.17 across benchmark runs); large weights from extreme
   propensities are clipped and counted in the result.
+- `plan` and `guard` rely on uplift tasks, so they are only as good as the recorded actions and control groups; an action
+  that was never measured is excluded from plans and held by the check. `guard` does not decide on its own: it allows only
+  measured, clearly helpful actions.
+- `menu` proposes features from a fixed set of operations; anything outside it (external data, formulas specific to a
+  sector) is added as a plugin by a person and judged by the same gate.
 - `autotune` scores every trial on the same training entities, so many trials can still favour a lucky change; it keeps a change
   only when most validation folds agree, and the held-out gate makes the final decision.
 - Version 0.1. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
@@ -327,7 +342,9 @@ The methods are established and deliberately transparent: regularised logistic a
   KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
 - Vertiq LM: evaluate a 9B student and publish the adapter.
-- `autotune` for value tasks and uplift, and candidate features proposed from the data rather than supplied by hand.
+- `autotune` for value tasks and uplift; menu operations for group-level signals and external series (weather, prices) joined by
+  date and location; menu items suggested by a language model for a sector, checked by `menu.parse`.
+- Turning free-text fields (support tickets, maintenance notes) into validated events.
 
 Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md), and an external assessment of the competitive landscape in [proposals/landscape-review.md](proposals/landscape-review.md).
 

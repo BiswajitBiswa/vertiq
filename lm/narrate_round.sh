@@ -15,6 +15,6 @@ $PY lm/mlx_limits.py mlx_lm.lora --model lm/models/qwen3.5-4b-4bit --train --dat
   --learning-rate 1e-4 --max-seq-length 512 --mask-prompt --grad-checkpoint \
   --steps-per-report 25 --steps-per-eval 100 --val-batches 10 --save-every 100 \
   --adapter-path lm/adapters/narrate > lm/runs/narrate-train.log 2>&1
-$PY lm/narrate.py --model lm/models/qwen3.5-4b-4bit --tests $D/test.jsonl --name base --quiet > lm/runs/narrate-base-eval.log 2>&1
-$PY lm/narrate.py --model lm/models/qwen3.5-4b-4bit --adapter lm/adapters/narrate --tests $D/test.jsonl --name tuned --quiet > lm/runs/narrate-tuned-eval.log 2>&1
+$PY lm/narrate.py --model lm/models/qwen3.5-4b-4bit --tests $D/heldout.jsonl --name base --quiet > lm/runs/narrate-base-eval.log 2>&1
+$PY lm/narrate.py --model lm/models/qwen3.5-4b-4bit --adapter lm/adapters/narrate --tests $D/heldout.jsonl --name tuned --quiet > lm/runs/narrate-tuned-eval.log 2>&1
 echo "narrate round done"

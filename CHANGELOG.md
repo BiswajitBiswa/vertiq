@@ -4,6 +4,13 @@ All notable changes are recorded here. Versions follow semantic versioning; befo
 
 ## Unreleased
 
+- `menu`: candidate features as reviewable specs (count, since, share, sum, group rate, attribute), proposed from the data and
+  judged by `autotune`; `menu.parse` rejects anything outside the menu, so a language model can suggest items without code.
+- `category.predict_category`: which of several outcomes comes next, gated on macro AUC against each entity's past mix.
+- `plan`: action per entity under a budget from measured effects, costs and outcome values.
+- `guard`: allow, hold or block for proposed actions, from measured effects, intervals, rule flags and limits.
+- `diagnose.change`: rate and mix effects of a change between two periods, with false-discovery control.
+- `summary.summarise` and `narrate.summary`: the last period against the previous one, in figures and sentences.
 - Vertiq LM round 3 preference training (ORPO on the round 3 model's own mistakes): on the production-like test set, exact
   matches after validation rose from 43.9% to 53.5% (unseen domains 31.2% to 41.7%) and every table loads; on the original test
   set, 63.2%. The README previously described the overall figure as the unseen-domain figure; both are now stated.

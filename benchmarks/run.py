@@ -512,13 +512,171 @@ def doubly_robust_effect(seed: int) -> dict:
             "naive_difference": round(naive, 4), "interval_covers_truth": r["interval"][0] <= 1.0 <= r["interval"][1]}
 
 
+# ---- 18. planning under a budget ------------------------------------------------------------------
+def _fleet_age(entity, before, cut):
+    return {"old": 1.0 if entity.attrs.get("old") else 0.0}
+
+
+def _two_action_world(seed: int, truth: dict, n: int = 2000):
+    """n machines, half old; each had one action of a random kind, given (70%) or held back as control (30%)."""
+    from vertiq.contract import Action
+    rnd = random.Random(seed)
+    kinds = sorted({k for k, _old in truth})
+    ents, evs, acts = [], [], []
+    for i in range(n):
+        mid, old = f"M{i}", rnd.random() < 0.5
+        ents.append(Entity(mid, attrs={"old": old}))
+        evs.append(Event(mid, NOW - timedelta(days=800), "install"))
+        kind, treated, when = rnd.choice(kinds), rnd.random() >= 0.3, NOW - timedelta(days=45)
+        acts.append(Action(mid, when, treated, kind))
+        if rnd.random() < (0.5 if old else 0.2) + (truth[(kind, old)] if treated else 0.0):
+            evs.append(Event(mid, when + timedelta(days=rnd.randint(1, 29)), "failure"))
+    return Dataset(ents, evs, acts), ents
+
+
+def budget_plan(seed: int) -> dict:
+    """2,000 machines, half old. Two actions were tried at random with control groups: a call (cost 20)
+    lowers 30-day failure by 5 points for old machines and 10 for new ones; a visit (cost 100) lowers it
+    by 30 points for old machines only. A failure costs 1,000. The plan for 400 machines with a budget of
+    8,000 is scored on the true effects, against random choices and against a plan made from the true
+    effects (the best possible)."""
+    from vertiq import plan
+    from vertiq.tasks import predict_uplift
+    rnd = random.Random(seed + 1000)
+    truth = {("call", True): -0.05, ("call", False): -0.10, ("visit", True): -0.30, ("visit", False): 0.0}
+    cost = {"call": 20.0, "visit": 100.0}
+    ds, ents = _two_action_world(seed, truth)
+    plugins.clear()
+    plugins.feature("fleet")(_fleet_age)
+    tasks = {k: predict_uplift(ds, target="failure", window_days=30, pack="fleet", kind=k) for k in cost}
+    pick = ents[:400]
+    r = plan.from_uplift(tasks, [e.id for e in pick], costs=cost, value=-1000.0, budget=8000.0)
+    plugins.clear()
+    old = {e.id: e.attrs["old"] for e in pick}
+
+    def realised(assign):
+        return sum(-1000.0 * truth[(a, old[e])] - cost[a] for e, a in assign)
+    planned = realised([(a["entity"], a["action"]) for a in r["assignments"]])
+    best = plan.allocate([{"entity": e.id, "action": k, "effect": truth[(k, old[e.id])], "cost": cost[k], "value": -1000.0}
+                          for e in pick for k in cost], 8000.0)
+    oracle = realised([(a["entity"], a["action"]) for a in best["assignments"]])
+    rand_assign, spent = [], 0.0
+    for e in rnd.sample(pick, len(pick)):
+        k = rnd.choice(list(cost))
+        if spent + cost[k] <= 8000.0:
+            rand_assign.append((e.id, k))
+            spent += cost[k]
+    return {"planned_benefit": round(planned), "random_benefit": round(realised(rand_assign)), "best_possible": round(oracle),
+            "share_of_best": round(planned / oracle, 3) if oracle else None, "spent": r["spent"],
+            "sources": sorted(v["source"] for v in r["sources"].values())}
+
+
+# ---- 19. checking actions proposed by an agent ----------------------------------------------------
+def agent_guard(seed: int) -> dict:
+    """2,000 machines with two measured actions: a call that lowers failure (5 points for old machines, 10
+    for new) and overtime that raises it by 12 points for every machine. An agent proposes 300 actions on
+    random machines: call, overtime, or a part replacement that was never measured. The check is scored
+    on the true effects: harmful proposals allowed, helpful ones allowed, unmeasured ones held."""
+    from vertiq import guard
+    from vertiq.tasks import predict_uplift
+    truth = {("call", True): -0.05, ("call", False): -0.10, ("overtime", True): 0.12, ("overtime", False): 0.12}
+    ds, ents = _two_action_world(seed, truth)
+    plugins.clear()
+    plugins.feature("fleet")(_fleet_age)
+    tasks = {k: predict_uplift(ds, target="failure", window_days=30, pack="fleet", kind=k) for k in ("call", "overtime")}
+    rnd = random.Random(seed + 2000)
+    out = {"harmful": 0, "harmful_allowed": 0, "helpful": 0, "helpful_allowed": 0, "helpful_blocked": 0,
+           "unmeasured": 0, "unmeasured_held": 0}
+    for _ in range(300):
+        e = rnd.choice(ents)
+        action = rnd.choice(["call", "overtime", "replace_part"])
+        d = guard.check({"entity": e.id, "action": action}, tasks, goal="reduce")["decision"]
+        if action == "replace_part":
+            out["unmeasured"] += 1
+            out["unmeasured_held"] += d == "hold"
+        elif truth[(action, e.attrs["old"])] > 0:
+            out["harmful"] += 1
+            out["harmful_allowed"] += d == "allow"
+        else:
+            out["helpful"] += 1
+            out["helpful_allowed"] += d == "allow"
+            out["helpful_blocked"] += d == "block"
+    plugins.clear()
+    return out
+
+
+# ---- 20. features proposed from a fixed menu, judged by the gated search ----------------------------
+def menu_search(seed: int) -> dict:
+    """The 240-machine plant from scenario 2, without the hand-written plugin. Vertiq lists candidate
+    features from its menu (counts, recency and shares by event type and attribute value) and the gated
+    search keeps those that help on training machines; the gate then compares the tuned model with the
+    untuned one on held-out machines."""
+    from vertiq import autotune, menu
+    ds = _plant(seed)
+    specs = menu.propose(ds, target="breakdown", window_days=30)
+    r = autotune.search(ds, target="breakdown", window_days=30, features=menu.features(specs, ds))
+    tm, um = r["tuned"].report().get("metrics") or {}, r["untuned"].report().get("metrics") or {}
+    return {"candidates": len(specs), "kept": len(r["features"]),
+            "kept_skipped_maintenance": any("pm[done=False]" in f for f in r["features"]),
+            "tuned_promoted": r["tuned_promoted"], "tuned_auc": tm.get("auc"), "untuned_auc": um.get("auc")}
+
+
+# ---- 21. which of several outcomes comes next -------------------------------------------------------
+def multi_outcome(seed: int) -> dict:
+    """600 machines; some need attention far more often than others, and the more repairs in the last 90
+    days, the likelier the next outcome is a replacement. Outcomes within 60 days: repair, replacement or
+    none. Baseline: each machine's own past mix."""
+    from vertiq.category import predict_category
+    rnd = random.Random(seed)
+    ents, evs = [], []
+    for i in range(600):
+        mid, d, recent = f"M{i}", NOW - timedelta(days=720), []
+        rate = rnd.choice([0.02, 0.15])
+        ents.append(Entity(mid))
+        evs.append(Event(mid, d - timedelta(days=5), "install"))
+        while d < NOW:
+            recent = [r for r in recent if (d - r).days <= 90]
+            if rnd.random() < rate:
+                if rnd.random() < min(0.9, 0.05 + 0.3 * len(recent)):
+                    evs.append(Event(mid, d, "replace"))
+                    recent = []
+                else:
+                    evs.append(Event(mid, d, "repair"))
+                    recent.append(d)
+            d += timedelta(days=7)
+    t = predict_category(Dataset(ents, evs), types=["repair", "replace"], window_days=60)
+    m = t.report()["metrics"]
+    return {"status": t.status, "macro_auc": m["macro_auc"], "baseline_macro_auc": m["baseline_macro_auc"],
+            "accuracy": m["accuracy"], "baseline_accuracy": m["baseline_accuracy"]}
+
+
+# ---- 22. why a rate changed ---------------------------------------------------------------------------
+def change_drivers(seed: int) -> dict:
+    """Three plants. Between two periods plant B's failure rate doubles (10% to 20%) while plant C's share
+    of the fleet doubles (20% to 40%) with its rate unchanged. The split must name B as the only rate
+    driver and attribute C's contribution to mix."""
+    from vertiq import diagnose
+    rnd, recs = random.Random(seed), []
+    for per, shares in (("before", {"A": 0.5, "B": 0.3, "C": 0.2}), ("after", {"A": 0.3, "B": 0.3, "C": 0.4})):
+        for g, s in shares.items():
+            rate = {"A": 0.05, "B": 0.10 if per == "before" else 0.20, "C": 0.15}[g]
+            recs += [{"group": g, "period": per, "outcome": 1 if rnd.random() < rate else 0} for _ in range(int(4000 * s))]
+    r = diagnose.change(recs)
+    c = next(g for g in r["groups"] if g["group"] == "C")
+    return {"drivers_exactly_B": r["drivers"] == ["B"], "change": r["change"],
+            "split_error": round(abs(r["rate_effects"] + r["mix_effects"] - r["change"]), 6),
+            "c_mix_effect": c["mix_effect"], "c_rate_effect": c["rate_effect"]}
+
+
 SCENARIOS = [("churn_customers", churn_customers), ("machines", machines), ("patients", patients),
              ("noise", noise), ("uplift_targeting", uplift_targeting), ("insight_discovery", insight_discovery),
              ("mapping_repair", mapping_repair), ("interactions", interactions), ("renewal_survival", renewal_survival),
              ("action_uplift", action_uplift), ("matched_cohort", matched_cohort), ("sequential", sequential),
              ("drift_detection", drift_detection), ("lagged_sequences", lagged_sequences),
              ("autotune_search", autotune_search), ("two_sample_sequential", two_sample_sequential),
-             ("doubly_robust_effect", doubly_robust_effect)]
+             ("doubly_robust_effect", doubly_robust_effect), ("budget_plan", budget_plan),
+             ("agent_guard", agent_guard), ("menu_search", menu_search), ("multi_outcome", multi_outcome),
+             ("change_drivers", change_drivers)]
 
 
 def _summary(runs: list[dict]) -> dict:
