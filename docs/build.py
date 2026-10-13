@@ -29,6 +29,7 @@ NAV = [("index.html", "Overview"), ("architecture.html", "Architecture"), ("lear
        ("lm.html", "Vertiq LM"), ("benchmarks.html", "Benchmarks"), ("guides/index.html", "Industries")]
 E = html.escape
 RUNS = CORE["scenarios"]["machines"]["seeds"]
+SUITE = f"{CORE['wall_seconds']:.0f} seconds on a laptop using {CORE['jobs']} cores"   # wall-clock time of the parallel run
 
 
 def S(name):
@@ -97,6 +98,7 @@ CAPABILITIES = [
     ("Tested insights", "Segment-level patterns reported only after false-discovery-rate control.", "insights"),
     ("Monitoring", "Input and score drift, accuracy on new outcomes, and sequential tests that can be checked continuously.", "drift · sequential"),
     ("Rule-based checks", "Repeat events, overdue tasks, consumption above specification and incomplete records.", "rules"),
+    ("Plain-language descriptions", "Predictions, gate decisions and effect estimates written as sentences; an optional local model rewrites them, and a rewrite with any number not in the result is rejected.", "narrate"),
 ]
 
 PLUGIN_EXAMPLE = '''from datetime import timedelta
@@ -169,12 +171,13 @@ def principles():
             ("Configurable horizons", "window_days sets the prediction horizon, cutoffs the number of historical training points and "
              "history the event types used as inputs, so each task matches the operating cycle of the industry."),
             ("Small footprint", "The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; "
-             f"the full benchmark suite completes in {CORE['seconds']:.0f} seconds on a laptop.")]),
+             f"the full benchmark suite completes in {SUITE}.")]),
         ("Defensive deployment", "A candidate model is treated as unproven until it has been evaluated.", [
             ("Held-out evaluation", "Candidates are scored on entities excluded from training, using features built only from events "
              "recorded before each cutoff."),
-            ("Champion–challenger gate", "A candidate must outperform the rule-based baseline and the production model. min_gain sets "
-             "the required margin: an AUC margin for event tasks and a relative error reduction for value tasks."),
+            ("Champion–challenger gate", "A candidate must outperform the rule-based baseline and the production model, and its gain over "
+             "the baseline must be clear at 90% confidence by default. min_gain sets a required margin: an AUC margin for event tasks "
+             "and a relative error reduction for value tasks."),
             ("Explicit rejection", "A rejected candidate returns status \"kept\" with the reason, such as the AUC it reached against the "
              "required threshold. The production model remains in service.")]),
     ]
@@ -612,6 +615,7 @@ def build_architecture():
             ("drift", "Population Stability Index for inputs and scores, and accuracy on new outcomes"),
             ("sequences", "Lagged A-then-B patterns between consecutive events, filtered for false discoveries"),
             ("profiles", "Precomputed scores and factors for serving, with staleness checks"),
+            ("narrate", "Plain-language descriptions of results, and a check that rejects rewrites with numbers not in the result"),
             ("dataset · research · trends", "Training data export for language models, cited external tactics and trend matching")]
     rows = "".join(f"<tr><td><code>{E(a)}</code></td><td>{E(b)}</td></tr>" for a, b in mods)
     body = f"""
@@ -628,7 +632,7 @@ clients; <code>tests/test_boundary.py</code> enforces this.</p></section>
   <div class="card"><h3>Extensibility</h3><p>Features and rules are registered under a pack name and selected with <code>pack=</code>. Custom learners
   require <code>fit</code>, <code>predict</code>, <code>to_dict</code> and <code>from_dict</code>; per-group offsets and contributing factors are optional.</p></div>
   <div class="card"><h3>Deployment footprint</h3><p>Python 3.10 or later with no third-party dependencies. The complete benchmark suite runs in
-  {CORE['seconds']:.0f} seconds on a laptop.</p></div>
+  {SUITE}.</p></div>
   <div class="card"><h3>Integration</h3><p>The host application owns data access, storage and serving. The decision engine has no knowledge of the product that embeds it.</p></div>
 </section>"""
     page("architecture.html", "Vertiq architecture", body, "Vertiq architecture: data contract, analysis tasks, plugins and the evaluation gate.")
@@ -646,7 +650,8 @@ excluded from training, and a candidate model replaces the baseline only when it
   <div class="card"><h3>Rule-based baseline</h3><p>Event tasks are compared with a recency baseline and value tasks with the entity's previous
   value. Both scores are reported with every training run.</p></div>
   <div class="card"><h3>Champion–challenger comparison</h3><p>A retrained model must perform at least as well as the production model on the
-  same held-out entities before it replaces it.</p></div>
+  same held-out entities before it replaces it, and its gain over the baseline must be clear at 90% confidence, from a bootstrap over
+  the held-out entities.</p></div>
 </section>
 <section><h2>Causal effect estimation</h2>{fig_uplift()}</section>
 <section class="read"><h2>Statistically tested insights</h2>
@@ -716,10 +721,10 @@ def build_benchmarks():
          f"MAE {pm('patients', 'model_mae_days', 2)} days vs {pm('patients', 'baseline_mae_days', 2)} for the previous value",
          "Value prediction outperforms the previous-value baseline"),
         ("Random data", "300 entities with a memoryless 4% weekly event rate",
-         f"Models promoted: {NOISE('promoted_default')} with the default gate; {NOISE('promoted_confidence_90')} with the 90% confidence check; "
+         f"Models promoted: {NOISE('promoted')} with the default gate; {NOISE('promoted_without_check')} with the confidence check off; "
          f"promoted models worse than the baseline: {total('noise', 'shipped_worse_than_baseline')}",
-         "The default gate only requires a model not to be worse, so on random data it passes ties about half the time. "
-         "The confidence check rejects most of them"),
+         "The default gate requires the gain to be clear at 90% confidence and keeps the baseline on most random datasets. "
+         "Without that check, a model that only ties the baseline passes about half the time"),
         ("Intervention uplift", "800 customers; the intervention raises response by 30 points for overdue customers only; 25% held out",
          f"Top-ranked half {pm('uplift_targeting', 'lift_top_half', 1, 100, ' pts')}; bottom half {pm('uplift_targeting', 'lift_bottom_half', 1, 100, ' pts')}",
          "Uplift ranking separates responsive from non-responsive customers"),
@@ -762,7 +767,7 @@ def build_benchmarks():
     body = f"""
 <section class="read"><div class="kicker">Benchmarks</div><h1>Benchmark results</h1>
 <p class="lede">Each scenario uses synthetic data with a known ground truth, so results can be checked against the correct answer. Values
-are means ± standard deviation over {RUNS} runs. The full suite runs in {CORE['seconds']:.0f} seconds on {E(CORE['machine'])} with Python {E(CORE['python'])}.</p></section>
+are means ± standard deviation over {RUNS} runs. The full suite runs in {SUITE} ({E(CORE['machine'])}, Python {E(CORE['python'])}).</p></section>
 <section><div class="tbl"><table><thead><tr><th>Scenario</th><th>Result</th><th>Interpretation</th></tr></thead><tbody>{tr}</tbody></table></div></section>
 <section><h2>Effect of a domain plugin</h2><figure><div class="scroll">{chart}</div><figcaption>Equipment failure prediction on held-out
 assets (AUC × 100). A single feature counting skipped maintenance adds information that is not present in the event log.</figcaption></figure></section>
@@ -843,7 +848,7 @@ def build_readme():
          f"Recency rule: AUC {mm('churn_customers', 'baseline_auc')}, Brier {mm('churn_customers', 'baseline_brier')}"),
         ("Equipment failure", f"AUC {mm('machines', 'generic_auc')}; with one plugin {mm('machines', 'plugin_auc')}", f"Recency rule: AUC {mm('machines', 'baseline_auc')}"),
         ("Length of stay", f"MAE {mm('patients', 'model_mae_days', 2)} days", f"Previous value: {mm('patients', 'baseline_mae_days', 2)} days"),
-        ("Random data", f"Models promoted: {NOISE('promoted_default')} (default gate), {NOISE('promoted_confidence_90')} (90% confidence check)", "Worse than the baseline: must be 0"),
+        ("Random data", f"Models promoted: {NOISE('promoted')} (default gate), {NOISE('promoted_without_check')} (confidence check off)", "Worse than the baseline: must be 0"),
         ("Intervention uplift", f"Top half {mm('uplift_targeting', 'lift_top_half', 1, 100)} pts; bottom half {mm('uplift_targeting', 'lift_bottom_half', 1, 100)} pts", "True effect: +30 pts for overdue customers only"),
         ("Offer effect on order value", f"{mm('uplift_targeting', 'offer_effect_pct', 1)}%", "True effect: −20%"),
         ("Insight detection", f"Planted pattern detected {S('insight_discovery')['found_planted']}; false patterns {S('insight_discovery')['false_item_findings_in_noise']['mean']:.0f}", "Benjamini–Hochberg at 10%"),
@@ -988,6 +993,10 @@ task = predict_event(ds, target="breakdown", window_days=30)
 print(task.status)                        # trained, kept (baseline retained) or learning (insufficient data)
 print(task.report()["metrics"])           # AUC, Brier score, calibration, baseline AUC, held-out entities
 print(task.score("EQ-602"))               # {{"chance": ..., "raises": [...], "lowers": [...]}}
+
+from vertiq import narrate
+print(narrate.gate(task.report()))        # "A model to predict whether breakdown happens within 30 days was promoted. ..."
+print(narrate.prediction(task.score("EQ-602"), target="breakdown", window_days=30))
 ```
 
 ## Extending Vertiq
@@ -1018,7 +1027,7 @@ Plugins add features; the evaluation gate determines whether they improve perfor
 ## Benchmarks
 
 Synthetic scenarios with known ground truth, {RUNS} runs each, mean ± standard deviation (`python benchmarks/run.py`,
-{CORE['seconds']:.0f} seconds on {CORE['machine']}, Python {CORE['python']}).
+{SUITE}, {CORE['machine']}, Python {CORE['python']}).
 
 | Scenario | Vertiq | Reference |
 |---|---|---|
@@ -1054,7 +1063,7 @@ Production-like test set (audit columns and locale-specific number formats):
 
 ## Verify the results
 
-Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about {CORE['seconds']:.0f} seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
+Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about {SUITE}. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
 
 ```bash
 git clone https://github.com/BiswajitBiswa/vertiq && cd vertiq
@@ -1080,9 +1089,11 @@ python docs/build.py && git diff --stat                 # regenerates the site a
 
 - Most benchmarks use synthetic data. They verify that the methods detect planted signal, reject noise and retain the baseline
   when appropriate; one public dataset (Online Retail II) has been run. None measures accuracy on a specific organisation's data.
-- The default gate requires a candidate not to be worse than the baseline. On random data it promotes about half of candidates that
-  tie the baseline (none were worse). Set `confidence=0.9` to require a clear gain; this also keeps more real but small improvements
-  out on small datasets.
+- The gate requires the gain over the baseline to be clear at 90% confidence (`confidence=0.9`, the default). On small datasets this
+  also holds back some real improvements until more data arrives: with 240 assets and a real signal, 7 of 15 candidates were
+  promoted, against 13 of 15 with the check off. `confidence=None` turns the check off; the candidate then only has to not be worse.
+- Plain-language descriptions (`narrate`) are written from templates. A local model can rewrite them; a rewrite is kept only if
+  every number in it appears in the result, which catches invented figures but not every misleading sentence.
 - After validation, Vertiq LM maps {best['overall']['exact_repaired'] * 100:.0f}% of unseen tables exactly and loads {best['overall']['loads_repaired'] * 100:.0f}%
   without errors. Proposed mappings should be reviewed before production use.
 - Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity

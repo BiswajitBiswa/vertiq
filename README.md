@@ -76,6 +76,7 @@ Vertiq is a specialised model system, not a general-purpose assistant. Where fou
 | Tested insights | `insights` | Segment-level patterns reported only after false-discovery-rate control. |
 | Monitoring | `drift · sequential` | Input and score drift, accuracy on new outcomes, and sequential tests that can be checked continuously. |
 | Rule-based checks | `rules` | Repeat events, overdue tasks, consumption above specification and incomplete records. |
+| Plain-language descriptions | `narrate` | Predictions, gate decisions and effect estimates written as sentences; an optional local model rewrites them, and a rewrite with any number not in the result is rejected. |
 
 All analyses operate on one data contract of entities, events and actions. Vertiq contains no industry-specific code; the
 [industry guides](https://biswajitbiswa.github.io/vertiq/guides/) document the mapping and analyses for each industry.
@@ -96,14 +97,14 @@ Intervention effects are estimated against control groups rather than inferred f
 
 - **Control-group uplift.** vertiq.uplift compares treated entities with a randomly held-out group over the same window and ranks entities by estimated incremental effect. In the benchmark it estimated a planted −20% offer effect at -20.2%.
 - **Configurable horizons.** window_days sets the prediction horizon, cutoffs the number of historical training points and history the event types used as inputs, so each task matches the operating cycle of the industry.
-- **Small footprint.** The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 155 seconds on a laptop.
+- **Small footprint.** The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 48 seconds on a laptop using 8 cores.
 
 ### Defensive deployment
 
 A candidate model is treated as unproven until it has been evaluated.
 
 - **Held-out evaluation.** Candidates are scored on entities excluded from training, using features built only from events recorded before each cutoff.
-- **Champion–challenger gate.** A candidate must outperform the rule-based baseline and the production model. min_gain sets the required margin: an AUC margin for event tasks and a relative error reduction for value tasks.
+- **Champion–challenger gate.** A candidate must outperform the rule-based baseline and the production model, and its gain over the baseline must be clear at 90% confidence by default. min_gain sets a required margin: an AUC margin for event tasks and a relative error reduction for value tasks.
 - **Explicit rejection.** A rejected candidate returns status "kept" with the reason, such as the AUC it reached against the required threshold. The production model remains in service.
 
 | Principle | Mechanism | Configuration | Operational value |
@@ -162,6 +163,10 @@ task = predict_event(ds, target="breakdown", window_days=30)
 print(task.status)                        # trained, kept (baseline retained) or learning (insufficient data)
 print(task.report()["metrics"])           # AUC, Brier score, calibration, baseline AUC, held-out entities
 print(task.score("EQ-602"))               # {"chance": ..., "raises": [...], "lowers": [...]}
+
+from vertiq import narrate
+print(narrate.gate(task.report()))        # "A model to predict whether breakdown happens within 30 days was promoted. ..."
+print(narrate.prediction(task.score("EQ-602"), target="breakdown", window_days=30))
 ```
 
 ## Extending Vertiq
@@ -203,14 +208,14 @@ Plugins add features; the evaluation gate determines whether they improve perfor
 ## Benchmarks
 
 Synthetic scenarios with known ground truth, 5 runs each, mean ± standard deviation (`python benchmarks/run.py`,
-155 seconds on arm64, Python 3.10.10).
+48 seconds on a laptop using 8 cores, arm64, Python 3.10.10).
 
 | Scenario | Vertiq | Reference |
 |---|---|---|
 | Customer retention | AUC 0.976 ± 0.005, Brier 0.043 ± 0.004 | Recency rule: AUC 0.969 ± 0.005, Brier 0.061 ± 0.006 |
 | Equipment failure | AUC 0.735 ± 0.059; with one plugin 0.767 ± 0.043 | Recency rule: AUC 0.674 ± 0.050 |
 | Length of stay | MAE 1.61 ± 0.06 days | Previous value: 2.18 ± 0.14 days |
-| Random data | Models promoted: 11 of 25 (default gate), 2 of 25 (90% confidence check) | Worse than the baseline: must be 0 |
+| Random data | Models promoted: 2 of 25 (default gate), 11 of 25 (confidence check off) | Worse than the baseline: must be 0 |
 | Intervention uplift | Top half 23.6 ± 5.9 pts; bottom half -1.8 ± 5.2 pts | True effect: +30 pts for overdue customers only |
 | Offer effect on order value | -20.2 ± 0.9% | True effect: −20% |
 | Insight detection | Planted pattern detected 5/5; false patterns 0 | Benjamini–Hochberg at 10% |
@@ -261,7 +266,7 @@ Production-like test set (audit columns and locale-specific number formats):
 
 ## Verify the results
 
-Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 155 seconds. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
+Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 48 seconds on a laptop using 8 cores. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
 
 ```bash
 git clone https://github.com/BiswajitBiswa/vertiq && cd vertiq
@@ -287,9 +292,11 @@ The methods are established and deliberately transparent: regularised logistic a
 
 - Most benchmarks use synthetic data. They verify that the methods detect planted signal, reject noise and retain the baseline
   when appropriate; one public dataset (Online Retail II) has been run. None measures accuracy on a specific organisation's data.
-- The default gate requires a candidate not to be worse than the baseline. On random data it promotes about half of candidates that
-  tie the baseline (none were worse). Set `confidence=0.9` to require a clear gain; this also keeps more real but small improvements
-  out on small datasets.
+- The gate requires the gain over the baseline to be clear at 90% confidence (`confidence=0.9`, the default). On small datasets this
+  also holds back some real improvements until more data arrives: with 240 assets and a real signal, 7 of 15 candidates were
+  promoted, against 13 of 15 with the check off. `confidence=None` turns the check off; the candidate then only has to not be worse.
+- Plain-language descriptions (`narrate`) are written from templates. A local model can rewrite them; a rewrite is kept only if
+  every number in it appears in the result, which catches invented figures but not every misleading sentence.
 - After validation, Vertiq LM maps 44% of unseen tables exactly and loads 99%
   without errors. Proposed mappings should be reviewed before production use.
 - Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity

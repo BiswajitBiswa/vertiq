@@ -12,7 +12,7 @@
       "bad_date": 0
     }
   },
-  "prep_seconds": 38.9,
+  "prep_seconds": 46.7,
   "python": "3.10.10",
   "machine": "arm64",
   "runs": {
@@ -33,7 +33,7 @@
         ]
       },
       "learner": "Logistic",
-      "seconds": 6.0
+      "seconds": 6.6
     },
     "external": {
       "sklearn_logistic_auc": 0.8074,
@@ -56,7 +56,7 @@
         ]
       },
       "learner": "BoostedClassifier",
-      "seconds": 32.8
+      "seconds": 38.2
     },
     "auto": {
       "status": "trained",
@@ -75,7 +75,7 @@
         ]
       },
       "learner": "BoostedClassifier",
-      "seconds": 61.1
+      "seconds": 93.4
     },
     "linear_survival": {
       "status": "trained",
@@ -94,7 +94,7 @@
         ]
       },
       "learner": "Logistic",
-      "seconds": 6.4
+      "seconds": 7.4
     }
   }
 }

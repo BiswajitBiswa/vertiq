@@ -111,6 +111,8 @@ def _label(name: str, target: str) -> str:
         return f"number of past {target} events"
     if name.startswith("n90:"):
         return f"{name[4:] or 'untyped'} events in the last 90 days"
+    if name.startswith("sector:"):
+        return f"being in group {name[7:]}"
     return _WORDS.get(name, name.replace("_", " "))
 
 
@@ -155,7 +157,7 @@ class Task:
 
 def predict_event(ds: Dataset, *, target: str, window_days: int, history: set | None = None, pack: str | None = None,
                   learner: str = "logistic", cutoffs: int = 4, previous=None, min_gain: float = 0.0,
-                  confidence: float | None = None, survival: bool = False, evidence: dict | None = None) -> Task:
+                  confidence: float | None = harness.CONFIDENCE, survival: bool = False, evidence: dict | None = None) -> Task:
     """Will an event of type `target` happen to each entity within `window_days`? `min_gain`: the AUC margin a
     candidate must win by over the baseline and `previous` (see harness.evaluate). `survival` adds the
     time-to-event feature "km_within" (vertiq.survival); the gate decides whether it helps."""
@@ -180,7 +182,7 @@ def predict_event(ds: Dataset, *, target: str, window_days: int, history: set | 
 
 def predict_value(ds: Dataset, *, target: str, window_days: int, history: set | None = None, pack: str | None = None,
                   learner: str = "linear", cutoffs: int = 4, previous=None, min_gain: float = 0.0,
-                  confidence: float | None = None) -> Task:
+                  confidence: float | None = harness.CONFIDENCE) -> Task:
     """How much will the next `target` event (within `window_days`) be worth? Entities with no such
     event in the window teach nothing here (predict_event answers whether it happens)."""
     b = _Builder(ds, target, history, pack)
