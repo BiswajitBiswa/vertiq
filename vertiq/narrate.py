@@ -3,9 +3,10 @@ written as sentences a manager can read.
 
 Templates write every description from the result's own fields, so they are always correct. A language
 model can optionally rewrite a description (`describe(text, generate=...)`). It sees only the template,
-and its rewrite is accepted only if every number in it appears in the template and it is no longer than
-the template (`check`); otherwise the template is returned with the reasons. A number can still be put
-in the wrong place by a rewrite, so templates remain the default. Measured with local Qwen 3.5 models
+and its rewrite is accepted only if every number in it appears in the template (`check`), each number
+stays next to a word it was next to in the template (`bound`), and it is no longer than the template;
+otherwise the template is returned with the reasons. These checks catch invented and moved numbers,
+not every misleading sentence, so templates remain the default. Measured with local Qwen 3.5 models
 (lm/narrate.py, 17 descriptions): given the full result, the 4B model attached numbers to the wrong
 quantity in 4 rewrites; given only the template, its accepted rewrites (13) were close paraphrases, and
 the 9B model returned the template unchanged. The model is any callable from prompt to text supplied by the host, for
@@ -183,6 +184,43 @@ def check(text: str, allowed: set[float]) -> list[str]:
     return problems
 
 
+_STOP = {"the", "a", "an", "of", "for", "and", "or", "with", "on", "in", "at", "to", "is", "was", "are", "by", "its", "it",
+         "this", "that", "as", "be", "between", "against", "compared", "than", "about", "which", "while", "from", "has",
+         "had", "have", "were", "there", "their", "so", "but", "not", "no", "per", "into", "over", "within", "under"}
+_WORD = re.compile(r"[a-z][a-z-]+")
+
+
+def _contexts(text: str, window: int = 4) -> dict[float, list[set[str]]]:
+    """For each number, the content words within `window` words of each place it appears."""
+    tokens = re.findall(r"[-+−]?\d[\d,]*(?:\.\d+)?%?|[A-Za-z][A-Za-z-]*", text)
+    out: dict[float, list[set[str]]] = {}
+    for i, t in enumerate(tokens):
+        if not t[-1].isdigit() and not t.endswith("%"):
+            continue
+        try:
+            v = float(t.rstrip("%").replace(",", "").replace("−", "-"))
+        except ValueError:
+            continue
+        near = {w.lower() for w in tokens[max(0, i - window):i + window + 1] if _WORD.fullmatch(w.lower())}
+        out.setdefault(round(v, 6), []).append(near - _STOP)
+    return out
+
+
+def bound(rewrite: str, template: str) -> list[str]:
+    """Problems where a rewrite moves a number away from what it described: each number in the rewrite
+    must share at least one nearby content word with the same number in the template ("AUC 0.71" is fine
+    for "AUC 0.710"; "0.62 for the model" is not when the template says "0.62 for the baseline rule")."""
+    src = _contexts(template)
+    problems = []
+    for v, places in _contexts(rewrite).items():
+        cands = [ctx for k, ctxs in src.items() if abs(k - v) <= max(0.0005, abs(k) * 1e-6) or round(k, 2) == round(v, 2)
+                 for ctx in ctxs]
+        for ctx in places:
+            if cands and not any(ctx & c for c in cands):
+                problems.append(f"the number {v:g} is no longer next to what it described")
+    return problems
+
+
 def describe(text: str, generate=None) -> dict:
     """{"text", "source": "template" | "model", "problems"}. Without `generate`, the template. With it,
     the model's rewrite of the template if it passes `check` and is no longer than MAX_RATIO times the
@@ -193,7 +231,7 @@ def describe(text: str, generate=None) -> dict:
         out = (generate(PROMPT.format(text=text)) or "").strip()
     except Exception as e:                                       # the model is optional; never fail the caller
         return {"text": text, "source": "template", "problems": [f"model error: {type(e).__name__}"]}
-    problems = check(out, facts(text))
+    problems = check(out, facts(text)) + bound(out, text)
     if len(out) > MAX_RATIO * len(text):
         problems.append(f"longer than the template ({len(out)} against {len(text)} characters)")
     if problems:                                                 # the rejected rewrite is kept for review or training

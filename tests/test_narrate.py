@@ -70,3 +70,11 @@ def test_rejection_reasons_are_plain():
     assert text.endswith("It does not beat the baseline rule and shows no clear gain, since that range includes zero, "
                          "so the current model or rule stays in use.")
     assert "0.0;" not in text and "Reason" not in text
+
+
+def test_bound_rejects_a_number_moved_to_another_quantity():
+    template = ("On 77 held-out entities the model ranks outcomes with AUC 0.452, against 0.550 for the baseline rule.")
+    ok = "Across 77 held-out entities the model reached an AUC of 0.452; the baseline rule reached 0.550."
+    swapped = "Across 77 held-out entities the baseline rule reached 0.452, while the model's AUC was 0.550."
+    assert narrate.bound(ok, template) == []
+    assert narrate.bound(swapped, template)
