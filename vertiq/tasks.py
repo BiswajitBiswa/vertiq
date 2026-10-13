@@ -3,6 +3,8 @@
   predict_event   will an event of a given type happen to an entity within N days?
                   (a customer returns, a machine breaks down, a patient is readmitted, an invoice is paid late)
   predict_value   how much will the next event of a given type be worth?
+  predict_uplift  how much does an action (from Dataset.actions, with a held-out control group) change
+                  the chance of the event, and for which entities?
                   (next bill, repair cost, length of stay, order value)
 
 Both build examples at several past cutoffs from only what was known at each one, add the pack's
@@ -198,3 +200,133 @@ def predict_value(ds: Dataset, *, target: str, window_days: int, history: set | 
     res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner, "regress"), kind="regress", previous=previous, min_gain=min_gain, confidence=confidence,
                            fit_kw={"epochs": 30})
     return Task("value", b, window_days, learner, res)
+
+
+# ---- interventions -------------------------------------------------------------------------------
+MIN_TREATED, MIN_CONTROL, MIN_EVENTS = 100, 40, 20
+FOLDS = 5
+
+
+class _UpliftModel:
+    """Estimated effect of an action on one entity's features.
+    "two_model" (default): one model on treated actions and one on the control group (a T-learner);
+    the effect is the difference of their predictions. Robust with a few hundred actions.
+    "boosted": one boosted-tree model with the treatment as a feature (an S-learner); it captures
+    effects that depend on combinations of features and needs more data."""
+
+    def __init__(self, method: str):
+        self.method, self.treated, self.control, self.single = method, None, None, None
+
+    def fit(self, feats: list[dict], y: list[int], treated: list[bool]) -> "_UpliftModel":
+        from .boost import BoostedClassifier
+        from .learn import Logistic
+        if self.method == "boosted":
+            self.single = BoostedClassifier(min_leaf=15).fit([{**f, "treated": float(t)} for f, t in zip(feats, treated)], y)
+        else:
+            self.treated = Logistic().fit([f for f, t in zip(feats, treated) if t], [v for v, t in zip(y, treated) if t], l2=1e-2)
+            self.control = Logistic().fit([f for f, t in zip(feats, treated) if not t], [v for v, t in zip(y, treated) if not t], l2=1e-2)
+        return self
+
+    def both(self, f: dict) -> tuple[float, float]:
+        if self.single is not None:
+            return self.single.predict({**f, "treated": 1.0}), self.single.predict({**f, "treated": 0.0})
+        return self.treated.predict(f), self.control.predict(f)
+
+
+class UpliftTask:
+    """The estimated effect of an action on each entity: how much more (or less) likely the target event
+    becomes within the window if the action is taken, compared with not taking it."""
+
+    def __init__(self, builder: _Builder, window: int, result: dict):
+        self.b, self.window, self.result = builder, window, result
+        self.model = result.get("model")
+
+    @property
+    def status(self) -> str:
+        return self.result["status"]
+
+    def report(self) -> dict:
+        return {k: v for k, v in self.result.items() if k != "model"} | {"task": "uplift", "target": self.b.target,
+                                                                         "window_days": self.window}
+
+    def score(self, entity_id: str, at: datetime | None = None) -> dict | None:
+        """{"uplift", "with_action", "without_action"} for one entity now (or at `at`)."""
+        if self.model is None:
+            return None
+        cut = at or (self.b.ds.reference_now() + timedelta(seconds=1))
+        f = self.b.row(entity_id, cut, self.b.cadence(cut, self.window))
+        if f is None:
+            return None
+        p1, p0 = self.model.both(f)
+        return {"entity": entity_id, "uplift": round(p1 - p0, 4), "with_action": round(p1, 4), "without_action": round(p0, 4)}
+
+    def rank(self, entity_ids: list[str], at: datetime | None = None, *, reduce: bool = False) -> list[dict]:
+        """Entities ordered by estimated effect: largest increase first, or with `reduce=True` largest
+        decrease first (for actions meant to prevent the event, such as maintenance or outreach)."""
+        scored = [s for s in (self.score(e, at) for e in entity_ids) if s]
+        return sorted(scored, key=lambda s: s["uplift"] if reduce else -s["uplift"])
+
+
+def predict_uplift(ds: Dataset, *, target: str, window_days: int, history: set | None = None, pack: str | None = None,
+                   kind: str | None = None, method: str = "two_model") -> UpliftTask:
+    """Learn the effect of an action from `ds.actions`, which records each time the action was taken
+    (treated=True) or deliberately withheld (treated=False, the control group). Outcome: whether a
+    `target` event followed within `window_days`. `kind` limits to one kind of action; `method` is
+    "two_model" or "boosted" (see _UpliftModel).
+
+    The gate for an uplift model differs from a prediction model. Effects are estimated by cross-fitting
+    (five folds by entity, each scored by a model that never saw it); actions are ranked by estimated
+    effect, and the observed treated-minus-control gap must be larger in the top half than in the bottom
+    half. Otherwise the report gives the average effect only."""
+    from .learn import two_proportion_p
+    b = _Builder(ds, target, history, pack)
+    b.window = window_days
+    acts = [a for a in ds.actions if kind is None or a.kind == kind]
+    feats, y, treated, keys = [], [], [], []
+    for a in acts:
+        f = b.row(a.entity, a.at, b.cadence(a.at, window_days))
+        if f is None:
+            continue
+        evs = b.by.get(a.entity, [])
+        y.append(1 if any(e.type == target and a.at <= e.at < a.at + timedelta(days=window_days) for e in evs) else 0)
+        feats.append(f)
+        treated.append(a.treated)
+        keys.append(a.entity)
+    nt, nc = sum(treated), len(treated) - sum(treated)
+    xt = sum(v for v, t in zip(y, treated) if t)
+    xc = sum(v for v, t in zip(y, treated) if not t)
+    counts = {"treated": nt, "control": nc, "events": sum(y), "method": method}
+    if nt < MIN_TREATED or nc < MIN_CONTROL or sum(y) < MIN_EVENTS:
+        return UpliftTask(b, window_days, {"status": "learning", **counts,
+                                           "need": {"treated": MIN_TREATED, "control": MIN_CONTROL, "events": MIN_EVENTS}})
+    ate = {"effect": round(xt / nt - xc / nc, 4), "p_value": round(two_proportion_p(xt, nt, xc, nc), 5),
+           "treated_rate": round(xt / nt, 4), "control_rate": round(xc / nc, 4)}
+    # cross-fitting: every action is scored by a model trained without its entity, so the check uses all
+    # actions (and all of the control group) instead of a small held-out slice
+    fold = [int(harness.hashlib.md5(k.encode(), usedforsecurity=False).hexdigest(), 16) % FOLDS for k in keys]
+    est = {}
+    for f in range(FOLDS):
+        tr = [i for i in range(len(y)) if fold[i] != f]
+        te = [i for i in range(len(y)) if fold[i] == f]
+        if not te or sum(treated[i] for i in tr) < 2 or sum(not treated[i] for i in tr) < 2:
+            continue
+        model = _UpliftModel(method).fit([feats[i] for i in tr], [y[i] for i in tr], [treated[i] for i in tr])
+        for i in te:
+            p1, p0 = model.both(feats[i])
+            est[i] = p1 - p0
+    scored = sorted(est, key=lambda i: -est[i])
+    half = len(scored) // 2
+
+    def gap(part):
+        t = [y[i] for i in part if treated[i]]
+        c = [y[i] for i in part if not treated[i]]
+        return round(sum(t) / len(t) - sum(c) / len(c), 4) if t and c else None
+    top, bottom = gap(scored[:half]), gap(scored[half:])
+    metrics = {**counts, "average_effect": ate, "out_of_fold": len(scored), "folds": FOLDS,
+               "lift_top_half": top, "lift_bottom_half": bottom}
+    if top is None or bottom is None or top <= bottom:
+        return UpliftTask(b, window_days, {"status": "kept", "metrics": metrics,
+                                           "reason": "ranking by estimated effect does not separate the observed effect "
+                                                     "out of fold; use the average effect"})
+    final = _UpliftModel(method).fit(feats, y, treated)
+    return UpliftTask(b, window_days, {"status": "trained", "metrics": metrics, "model": final})
