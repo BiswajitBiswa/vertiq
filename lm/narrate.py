@@ -4,12 +4,14 @@ The base model is used without the mapping adapter: the adapter adds the table-m
 model's general writing is what a description needs. The model sees only the template; a rewrite with a
 number that is not in it, or longer than it, is rejected and the template is kept (vertiq.narrate.describe).
 
-Run:  lm/.venv/bin/python lm/narrate.py [--model mlx-community/Qwen3.5-4B-MLX-4bit] [--n 12]
-Prints each template and rewrite, then the acceptance rate. No training; nothing is written.
+Run:  lm/.venv/bin/python lm/narrate.py [--model ...] [--adapter lm/adapters/narrate] [--tests lm/data/narrate/test.jsonl]
+Prints each template and rewrite, then how many rewrites were accepted and how many of those were near-copies of the
+template (an accepted copy adds nothing). --name writes the scored run to lm/runs/.
 """
 from __future__ import annotations
 
 import argparse
+import json
 import random
 import re
 import sys
@@ -51,10 +53,14 @@ def examples(n: int) -> list[tuple[str, dict]]:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="mlx-community/Qwen3.5-4B-MLX-4bit")
+    ap.add_argument("--adapter", default="", help="a narration adapter (lm/adapters/narrate) to score")
+    ap.add_argument("--tests", default="", help="held-out descriptions ({\"template\": ...} per line) instead of --n examples")
     ap.add_argument("--n", type=int, default=12)
+    ap.add_argument("--name", default="", help="write the scored run to lm/runs/narrate-<name>.json")
+    ap.add_argument("--quiet", action="store_true")
     a = ap.parse_args()
     from mlx_lm import generate, load
-    model, tok = load(a.model)
+    model, tok = load(a.model, adapter_path=a.adapter) if a.adapter else load(a.model)
 
     def write(prompt: str) -> str:
         msgs = [{"role": "user", "content": prompt}]
@@ -65,15 +71,28 @@ def main():
         out = generate(model, tok, prompt=text, max_tokens=200, verbose=False)
         return re.sub(r"<think>.*?</think>", "", out, flags=re.S).strip()
 
-    accepted = 0
-    pairs = examples(a.n)
-    for template, result in pairs:
+    import difflib
+    templates = ([json.loads(line)["template"] for line in open(a.tests)] if a.tests else [t for t, _r in examples(a.n)])
+    accepted = copies = 0
+    rows = []
+    for template in templates:
         d = narrate.describe(template, generate=write)
-        accepted += d["source"] == "model"
-        print("TEMPLATE:", template)
-        print("MODEL:   ", d["text"] if d["source"] == "model" else f"{d.get('rejected', '')}  [rejected: {'; '.join(d['problems'])}]")
-        print()
-    print(f"accepted {accepted} of {len(pairs)} rewrites")
+        text = d["text"] if d["source"] == "model" else d.get("rejected", "")
+        copy = difflib.SequenceMatcher(None, text.lower(), template.lower()).ratio() > 0.85
+        ok = d["source"] == "model"
+        accepted += ok
+        copies += ok and copy
+        rows.append({"template": template, "output": text, "accepted": ok, "copy": copy, "problems": d["problems"]})
+        if not a.quiet:
+            print("TEMPLATE:", template)
+            print("MODEL:   ", text if ok else f"{text}  [rejected: {'; '.join(d['problems'])}]")
+            print()
+    n = len(templates)
+    summary = {"n": n, "accepted": accepted, "accepted_rewrites_not_copies": accepted - copies, "copies": copies,
+               "model": a.model, "adapter": a.adapter}
+    print(json.dumps(summary))
+    if a.name:
+        Path(ROOT / "lm" / "runs" / f"narrate-{a.name}.json").write_text(json.dumps({"summary": summary, "examples": rows}, indent=2))
 
 
 if __name__ == "__main__":
