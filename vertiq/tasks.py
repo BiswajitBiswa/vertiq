@@ -324,6 +324,8 @@ def predict_uplift(ds: Dataset, *, target: str, window_days: int, history: set |
     top, bottom = gap(scored[:half]), gap(scored[half:])
     metrics = {**counts, "average_effect": ate, "out_of_fold": len(scored), "folds": FOLDS,
                "lift_top_half": top, "lift_bottom_half": bottom}
+    from .design import next_step
+    metrics["next_step"] = next_step(ate, nt, nc)
     if top is None or bottom is None or top <= bottom:
         return UpliftTask(b, window_days, {"status": "kept", "metrics": metrics,
                                            "reason": "ranking by estimated effect does not separate the observed effect "
