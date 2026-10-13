@@ -195,3 +195,42 @@ def test_confidence_requires_a_clear_gain():
     strict = predict_event(ds, target="breakdown", window_days=30, confidence=0.9, min_gain=0.2)
     assert strict.status == "kept" and "not clear at 90% confidence" in strict.report()["reason"]
     assert loose.status in ("trained", "kept")
+
+
+def test_uplift_on_any_action_finds_who_it_helps():
+    """A maintenance programme halves breakdowns, but only for older machines; 30% are held out."""
+    from vertiq.contract import Action
+    from vertiq.tasks import predict_uplift
+    rnd = random.Random(12)
+    ents, evs, acts = [], [], []
+    for i in range(1500):
+        mid = f"M{i}"
+        old = rnd.random() < 0.5
+        ents.append(Entity(mid, attrs={"old": old}))
+        for k in range(1, 6):                                     # history: breakdowns in the past year
+            if rnd.random() < (0.5 if old else 0.3):
+                evs.append(Event(mid, NOW - timedelta(days=60 + 70 * k), "breakdown"))
+        evs.append(Event(mid, NOW - timedelta(days=400 + (12 if old else 0)), "install"))
+        when = NOW - timedelta(days=45)
+        treated = rnd.random() >= 0.3
+        acts.append(Action(mid, when, treated, "programme"))
+        p = 0.5 if old else 0.2
+        if treated and old:
+            p = 0.25
+        if rnd.random() < p:
+            evs.append(Event(mid, when + timedelta(days=rnd.randint(1, 29)), "breakdown"))
+
+    @plugins.feature("fleet")
+    def age(entity, before, cut):
+        return {"old": 1.0 if entity and entity.attrs.get("old") else 0.0}
+    task = predict_uplift(Dataset(ents, evs, acts), target="breakdown", window_days=30, pack="fleet")
+    m = task.report()["metrics"]
+    assert m["average_effect"]["effect"] < 0                        # the programme reduces breakdowns overall
+    assert task.status == "trained", task.report()
+    olds = [e.id for e in ents if e.attrs["old"]][:40]
+    news = [e.id for e in ents if not e.attrs["old"]][:40]
+    u_old = sum(task.score(e)["uplift"] for e in olds) / 40
+    u_new = sum(task.score(e)["uplift"] for e in news) / 40
+    assert u_old < u_new - 0.05                                     # older machines benefit more (larger reduction)
+    first = task.rank(olds[:5] + news[:5], reduce=True)[0]["entity"]
+    assert first in olds
