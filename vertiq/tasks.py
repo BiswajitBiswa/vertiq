@@ -145,7 +145,7 @@ def predict_event(ds: Dataset, *, target: str, window_days: int, history: set | 
             keys.append(eid)
             groups.append(b.groups.get(eid, ""))
             base.append(_baseline_event(f, window_days))
-    res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner), kind="classify", previous=previous,
+    res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner, "classify"), kind="classify", previous=previous,
                            min_gain=min_gain)
     return Task("event", b, window_days, learner, res)
 
@@ -173,6 +173,6 @@ def predict_value(ds: Dataset, *, target: str, window_days: int, history: set | 
             keys.append(eid)
             groups.append(b.groups.get(eid, ""))
             base.append(math.log1p(sum(past) / len(past)) if past else mean_all)   # the obvious rule: same as before
-    res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner), kind="regress", previous=previous, min_gain=min_gain,
+    res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner, "regress"), kind="regress", previous=previous, min_gain=min_gain,
                            fit_kw={"epochs": 30})
     return Task("value", b, window_days, learner, res)

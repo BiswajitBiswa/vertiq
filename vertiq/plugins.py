@@ -15,11 +15,13 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from .boost import BoostedClassifier, BoostedRegressor
 from .learn import Linear, Logistic
 
 _FEATURES: dict[str, list] = defaultdict(list)
 _RULES: dict[str, list] = defaultdict(list)
-_LEARNERS: dict[str, type] = {"logistic": Logistic, "linear": Linear}
+_LEARNERS: dict[str, type] = {"logistic": Logistic, "linear": Linear,
+                             "boosted": BoostedClassifier, "boosted_regression": BoostedRegressor}
 
 
 def feature(pack: str):
@@ -51,7 +53,11 @@ def rules_for(pack: str | None) -> list:
     return list(_RULES.get(pack or "", []))
 
 
-def learner(name: str) -> type:
+def learner(name: str, kind: str = "classify"):
+    """A registered learner class, or for "auto" the candidates the gate chooses between on a validation
+    split of the training entities (linear and boosted, for the task's kind)."""
+    if name == "auto":
+        return [Logistic, BoostedClassifier] if kind == "classify" else [Linear, BoostedRegressor]
     if name not in _LEARNERS:
         raise KeyError(f"no learner named {name!r}; registered: {', '.join(sorted(_LEARNERS))}")
     return _LEARNERS[name]
