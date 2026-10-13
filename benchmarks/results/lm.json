@@ -55,7 +55,7 @@
         "json": 1.0,
         "loads": 0.667,
         "exact": 0.202,
-        "loads_repaired": 0.93,
+        "loads_repaired": 0.939,
         "exact_repaired": 0.307
       },
       "seen": {
@@ -63,7 +63,7 @@
         "json": 1.0,
         "loads": 0.561,
         "exact": 0.258,
-        "loads_repaired": 0.939,
+        "loads_repaired": 0.955,
         "exact_repaired": 0.379
       },
       "unseen": {

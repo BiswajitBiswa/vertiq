@@ -4,6 +4,13 @@ All notable changes are recorded here. Versions follow semantic versioning; befo
 
 ## Unreleased
 
+- Mapping validation for real exports: summary and mostly-empty rows are named and skipped; placeholder ids ("-", "NA",
+  a default number on many rows) become one-off entities instead of merging into one; a role whose column is empty, a
+  placeholder or the wrong kind moves to the clearly best-fitting column or is flagged; a value column that is 0 where
+  another column records the same amount (or that amount times a quantity) gives way to the more complete one. Judgements
+  that need volume wait for 30 rows. No correct mapping in the 10,500-mapping check is changed, and Vertiq LM scores are
+  unchanged.
+- `narrate.summary`: "In the last day" and "seen for the first time in this data".
 - `menu`: candidate features as reviewable specs (count, since, share, sum, group rate, attribute), proposed from the data and
   judged by `autotune`; `menu.parse` rejects anything outside the menu, so a language model can suggest items without code.
 - `category.predict_category`: which of several outcomes comes next, gated on macro AUC against each entity's past mix.
