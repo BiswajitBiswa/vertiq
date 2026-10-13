@@ -15,7 +15,7 @@ import math
 from collections import Counter
 from datetime import datetime, timedelta
 
-from . import harness, plugins
+from . import harness, plugins, survival
 from .contract import Dataset, Event
 from .features import Visit, cohort_cadence, snapshot
 
@@ -29,8 +29,9 @@ def _visits(events: list[Event]) -> list[Visit]:
 class _Builder:
     """Turns a dataset into feature rows at a cutoff: generic features + per-type counts + plugins."""
 
-    def __init__(self, ds: Dataset, target: str, history: set | None, pack: str | None):
+    def __init__(self, ds: Dataset, target: str, history: set | None, pack: str | None, use_survival: bool = False):
         self.ds, self.target, self.history, self.pack = ds, target, history, pack
+        self.use_survival, self.window, self._km = use_survival, 30, {}
         self.by = ds.by_entity()
         self.groups = ds.groups()
         self.ents = {e.id: e for e in ds.entities}
@@ -51,10 +52,27 @@ class _Builder:
         f["since_target"] = math.log1p((cut - tgt[-1].at).days) if tgt else math.log1p(3650)
         for t in self.types:
             f[f"n90:{t}"] = sum(1 for e in before if e.type == t and e.at >= cut - timedelta(days=90))
+        if self.use_survival:
+            f["km_within"] = self.km_within(eid, before, cut)
         ent = self.ents.get(eid)
         for fn in self.feature_fns:
             f.update({str(k): float(v) for k, v in (fn(ent, before, cut) or {}).items()})
         return f
+
+    def km_within(self, eid: str, before: list[Event], cut: datetime) -> float:
+        """P(target within the window | time since the last target event), from the cohort's survival
+        curve at this cutoff, rescaled by the entity's own rhythm (vertiq.survival)."""
+        typ = self.target if self.target else None
+        if cut not in self._km:
+            d, o = survival.gaps(self.by, cut, typ)
+            obs = sorted(x for x, ok in zip(d, o) if ok and x > 0)
+            self._km[cut] = (survival.kaplan_meier(d, o), obs[len(obs) // 2] if obs else float(self.window))
+        curve, cohort = self._km[cut]
+        ts = [e.at for e in before if typ is None or e.type == typ]
+        if not ts:
+            return 0.0
+        scale = survival.rhythm(before, cut, typ, cohort) / max(cohort, 1.0)
+        return round(survival.within(curve, (cut - max(ts)).days, self.window, scale), 6)
 
     def cadence(self, cut: datetime, window: int) -> float:
         hist = {eid: _visits(self.hist(eid, cut)) for eid in self.by}
@@ -130,10 +148,12 @@ class Task:
 
 def predict_event(ds: Dataset, *, target: str, window_days: int, history: set | None = None, pack: str | None = None,
                   learner: str = "logistic", cutoffs: int = 4, previous=None, min_gain: float = 0.0,
-                  confidence: float | None = None) -> Task:
+                  confidence: float | None = None, survival: bool = False) -> Task:
     """Will an event of type `target` happen to each entity within `window_days`? `min_gain`: the AUC margin a
-    candidate must win by over the baseline and `previous` (see harness.evaluate)."""
-    b = _Builder(ds, target, history, pack)
+    candidate must win by over the baseline and `previous` (see harness.evaluate). `survival` adds the
+    time-to-event feature "km_within" (vertiq.survival); the gate decides whether it helps."""
+    b = _Builder(ds, target, history, pack, use_survival=survival)
+    b.window = window_days
     rows, y, keys, groups, base = [], [], [], [], []
     for cut in b.cutoffs(window_days, cutoffs):
         cad = b.cadence(cut, window_days)
