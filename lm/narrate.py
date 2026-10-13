@@ -1,8 +1,8 @@
 """Rewrite Vertiq's template descriptions with a local model and measure how often the rewrite is accepted.
 
 The base model is used without the mapping adapter: the adapter adds the table-mapping skill, and the base
-model's general writing is what a description needs. Every rewrite goes through vertiq.narrate.check; a
-rewrite with a number that is not in the result is rejected and the template is kept.
+model's general writing is what a description needs. The model sees only the template; a rewrite with a
+number that is not in it, or longer than it, is rejected and the template is kept (vertiq.narrate.describe).
 
 Run:  lm/.venv/bin/python lm/narrate.py [--model mlx-community/Qwen3.5-4B-MLX-4bit] [--n 12]
 Prints each template and rewrite, then the acceptance rate. No training; nothing is written.
@@ -68,7 +68,7 @@ def main():
     accepted = 0
     pairs = examples(a.n)
     for template, result in pairs:
-        d = narrate.describe(template, result, generate=write)
+        d = narrate.describe(template, generate=write)
         accepted += d["source"] == "model"
         print("TEMPLATE:", template)
         print("MODEL:   ", d["text"] if d["source"] == "model" else f"{d.get('rejected', '')}  [rejected: {'; '.join(d['problems'])}]")

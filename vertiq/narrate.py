@@ -2,27 +2,28 @@
 written as sentences a manager can read.
 
 Templates write every description from the result's own fields, so they are always correct. A language
-model can optionally rewrite a description into a short paragraph (`describe(..., generate=...)`); the
-rewrite is accepted only if every number in it appears in the result (`check`). Otherwise the template
-is returned with the reasons. The model is any callable from prompt to text supplied by the host, for
+model can optionally rewrite a description (`describe(text, generate=...)`). It sees only the template,
+and its rewrite is accepted only if every number in it appears in the template and it is no longer than
+the template (`check`); otherwise the template is returned with the reasons. A number can still be put
+in the wrong place by a rewrite, so templates remain the default. Measured with local Qwen 3.5 models
+(lm/narrate.py, 17 descriptions): given the full result, the 4B model attached numbers to the wrong
+quantity in 4 rewrites; given only the template, its accepted rewrites (13) were close paraphrases, and
+the 9B model returned the template unchanged. The model is any callable from prompt to text supplied by the host, for
 example a local Qwen model (lm/narrate.py); this module imports nothing outside the standard library.
 """
 from __future__ import annotations
 
-import json
 import re
 
-PROMPT = """Rewrite the description below as one short paragraph for a business reader.
-Rules: use only the numbers that appear in the facts or the description; do not calculate new numbers;
-do not add causes, advice or certainty that the facts do not state; plain words, no headings, no lists.
-
-Facts (JSON):
-{facts}
+PROMPT = """Rewrite the description below for a business reader, in plain words and no longer than it is.
+Rules: keep every number exactly as written and attached to the same thing; add no numbers; do not
+calculate anything; do not add causes, advice or certainty; one paragraph, no headings, no lists.
 
 Description:
 {text}
 
-Paragraph:"""
+Rewrite:"""
+MAX_RATIO = 1.15             # a rewrite may be at most this much longer than the template
 
 
 def _pct(x: float, nd: int = 0) -> str:
@@ -79,7 +80,30 @@ def gate(report: dict) -> str:
         ev += f" At {_pct(lvl)} confidence the gain is between {ci[0]:+.3f} and {ci[1]:+.3f} ({unit})."
     if status == "trained":
         return f"A model to predict {what} was promoted. {ev}"
-    return f"The model to predict {what} was not promoted; the current model or rule stays in use. {ev} Reason: {report.get('reason', 'not stated')}."
+    return f"The model to predict {what} was not promoted. {ev} It {_why(report)}, so the current model or rule stays in use."
+
+
+def _why(report: dict) -> str:
+    """The gate's reasons for keeping a model, in plain words (the raw reasons are in report["reason"])."""
+    m, why = report.get("metrics") or {}, []
+    gain = m.get("min_gain") or 0.0
+    margin = f" by the required margin of {gain}" if gain else ""
+    if "auc" in m:
+        if m["auc"] is None or (m.get("baseline_auc") is not None and m["auc"] < m["baseline_auc"] + gain):
+            why.append(f"does not beat the baseline rule{margin}")
+        if m.get("previous_auc") is not None and m["auc"] is not None and m["auc"] < m["previous_auc"] + max(gain, -0.005):
+            why.append(f"does not beat the model in production{margin}")
+    elif "mae" in m:
+        if m["mae"] > m["baseline_mae"] * (1 - gain):
+            why.append(f"does not lower the baseline rule's error{margin}")
+        if m.get("previous_mae") is not None and m["mae"] > m["previous_mae"] * ((1 - gain) if gain else 1.005):
+            why.append(f"does not lower the production model's error{margin}")
+    ci = (m.get("intervals") or {}).get("gain_ci")
+    if ci and ci[0] <= gain and (report.get("reason") or "").find("not clear") >= 0:
+        why.append("shows no clear gain, since that range includes " + (f"{gain}" if gain else "zero"))
+    if (m.get("evidence") or {}).get("decision") == "accept_h0":
+        why.append("showed no improvement in a sequential test")
+    return _join(why) if why else "did not pass the gate: " + report.get("reason", "no reason recorded")
 
 
 def effect(report: dict, *, action: str = "the action") -> str:
@@ -159,18 +183,19 @@ def check(text: str, allowed: set[float]) -> list[str]:
     return problems
 
 
-def describe(text: str, *sources, generate=None) -> dict:
-    """{"text", "source": "template" | "model", "problems"}. Without `generate`, the template text.
-    With it, the model's rewrite if it passes `check` against the template and the sources, else the
-    template with the problems found and the rejected rewrite under "rejected"."""
+def describe(text: str, generate=None) -> dict:
+    """{"text", "source": "template" | "model", "problems"}. Without `generate`, the template. With it,
+    the model's rewrite of the template if it passes `check` and is no longer than MAX_RATIO times the
+    template; otherwise the template, the problems found, and the rejected rewrite under "rejected"."""
     if generate is None:
         return {"text": text, "source": "template", "problems": []}
-    payload = json.dumps(sources[0] if len(sources) == 1 else list(sources), default=str)
     try:
-        out = (generate(PROMPT.format(facts=payload, text=text)) or "").strip()
+        out = (generate(PROMPT.format(text=text)) or "").strip()
     except Exception as e:                                       # the model is optional; never fail the caller
         return {"text": text, "source": "template", "problems": [f"model error: {type(e).__name__}"]}
-    problems = check(out, facts(text, *sources))
+    problems = check(out, facts(text))
+    if len(out) > MAX_RATIO * len(text):
+        problems.append(f"longer than the template ({len(out)} against {len(text)} characters)")
     if problems:                                                 # the rejected rewrite is kept for review or training
         return {"text": text, "source": "template", "problems": problems, "rejected": out}
     return {"text": out, "source": "model", "problems": []}
