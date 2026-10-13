@@ -127,6 +127,11 @@ class Task:
         return {k: v for k, v in self.result.items() if k != "model"} | {"task": self.kind, "target": self.b.target,
                                                                          "window_days": self.window}
 
+    def rows_at(self, at: datetime) -> dict[str, dict]:
+        """Every entity's feature row at a moment, for drift checks (vertiq.drift) between two moments."""
+        cad = self.b.cadence(at, self.window)
+        return {eid: r for eid in self.b.by if (r := self.b.row(eid, at, cad)) is not None}
+
     def score(self, entity_id: str, at: datetime | None = None, top: int = 3) -> dict | None:
         """The prediction for one entity now (or at `at`), with the strongest reasons either way."""
         if self.model is None:
