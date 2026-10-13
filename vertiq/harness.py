@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import random
 
 from .learn import auc, brier, calibration, r2
 
@@ -19,6 +20,44 @@ MIN_CLASS = 20
 
 def held_out(key: str, pct: int = TEST_PCT) -> bool:
     return int(hashlib.md5(key.encode(), usedforsecurity=False).hexdigest(), 16) % 100 < pct
+
+
+def _quantile(xs: list[float], q: float) -> float:
+    xs = sorted(xs)
+    return xs[min(len(xs) - 1, max(0, int(q * (len(xs) - 1) + 0.5)))]
+
+
+def bootstrap(keys: list[str], pred: list[float], base: list[float], y: list, kind: str,
+              draws: int = 200, level: float = 0.9, seed: int = 11) -> dict:
+    """Confidence intervals for the model's score and its gain over the baseline, from a bootstrap that
+    resamples whole entities (an entity appears at several cutoffs, so rows are not independent).
+    Gain is AUC minus the baseline's AUC for classification, and the relative reduction in mean absolute
+    error for regression."""
+    by: dict[str, list[int]] = {}
+    for i, k in enumerate(keys):
+        by.setdefault(k, []).append(i)
+    ents = list(by)
+    rnd = random.Random(seed)
+    score, gain = [], []
+    for _ in range(draws):
+        idx = [i for _e in ents for i in by[rnd.choice(ents)]]
+        yy = [y[i] for i in idx]
+        if kind == "classify":
+            a, b = auc([pred[i] for i in idx], yy), auc([base[i] for i in idx], yy)
+            if a is None or b is None:
+                continue
+            score.append(a)
+            gain.append(a - b)
+        else:
+            mae = lambda p: sum(abs(math.expm1(p[i]) - math.expm1(y[i])) for i in idx) / len(idx)  # noqa: E731
+            m, mb = mae(pred), mae(base)
+            score.append(m)
+            gain.append((mb - m) / mb if mb else 0.0)
+    if not score:
+        return {}
+    lo, hi = (1 - level) / 2, 1 - (1 - level) / 2
+    return {"level": level, "score_ci": [round(_quantile(score, lo), 4), round(_quantile(score, hi), 4)],
+            "gain_ci": [round(_quantile(gain, lo), 4), round(_quantile(gain, hi), 4)]}
 
 
 def _select(rows, y, keys, tr, candidates, kind, fit_kw) -> tuple[type, dict]:
@@ -45,12 +84,15 @@ def _r(x):
 
 def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], baseline: list[float], learner_cls,
              *, kind: str = "classify", previous=None, min_rows: int = MIN_ROWS, fit_kw: dict | None = None,
-             min_gain: float = 0.0) -> dict:
+             min_gain: float = 0.0, confidence: float | None = None) -> dict:
     """{"status": learning | kept | trained, "metrics", "model" (when trained), "reason" (when kept)}.
     `keys` decide the held-out split (use the entity id, so no entity is in both halves).
     `min_gain`: the margin a candidate must win by. For classification, an absolute AUC margin over the
     baseline and the previous model (0.02 = two points); for regression, a relative reduction in mean
-    absolute error (0.05 = 5% lower). 0 means it must simply not be worse."""
+    absolute error (0.05 = 5% lower). 0 means it must simply not be worse.
+    Every report carries bootstrap confidence intervals (`intervals`). With `confidence` set (for
+    example 0.9), a candidate is promoted only if the lower end of its gain interval over the baseline
+    also exceeds `min_gain`: the improvement must be clear, not just observed."""
     n = len(y)
     fit_kw = fit_kw or {}
     if kind == "classify":
@@ -83,7 +125,6 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
             m["previous_auc"] = _r(auc([previous.predict(r) for r in held_rows], held_y))
             if m["auc"] is not None and m["auc"] < (m["previous_auc"] or 0) + (min_gain if min_gain > 0 else -0.005):
                 reasons.append(f"AUC {m['auc']} does not exceed the production model's {m['previous_auc']} by {min_gain}")
-        better = not reasons
     else:
         mae = lambda p: sum(abs(math.expm1(a) - math.expm1(b)) for a, b in zip(p, held_y)) / len(held_y)  # noqa: E731
         m.update(mae=_r(mae(pred)), baseline_mae=_r(mae(held_base)), r2=_r(r2(pred, held_y)))
@@ -95,7 +136,14 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
             m["previous_mae"] = _r(mae([previous.predict(r) for r in held_rows]))
             if m["mae"] > m["previous_mae"] * ((1 - min_gain) if min_gain > 0 else 1.005):
                 reasons.append(f"MAE {m['mae']} is not {min_gain:.0%} below the production model's {m['previous_mae']}")
-        better = not reasons
+    held_keys = pick(keys, te)
+    m["intervals"] = bootstrap(held_keys, pred, held_base, held_y, kind, level=confidence or 0.9)
+    if confidence and m["intervals"]:
+        lo = m["intervals"]["gain_ci"][0]
+        if lo <= min_gain:
+            reasons.append(f"the gain over the baseline is not clear at {confidence:.0%} confidence "
+                           f"(interval lower bound {lo} is not above {min_gain})")
+    better = not reasons
     if not better:
         return {"status": "kept", "reason": "; ".join(reasons), "metrics": m}
     final = (learner_cls(model.names) if hasattr(model, "names") else learner_cls()).fit(rows, y, **fit_kw)
