@@ -7,9 +7,9 @@ All notable changes are recorded here. Versions follow semantic versioning; befo
 - The evaluation gate now requires the gain over the baseline to be clear at 90% confidence by default (`confidence=0.9` on
   `predict_event`, `predict_value` and `harness.evaluate`; `confidence=None` restores the previous behaviour). On 25 random
   datasets this cut promotions from 11 to 2.
-- `narrate`: plain-language descriptions of predictions, gate decisions and effect estimates, and `describe(..., generate=...)`,
-  which accepts a model's rewrite only if every number in it appears in the result. `lm/narrate.py` measures the acceptance rate
-  of a local model's rewrites.
+- `narrate`: plain-language descriptions of predictions, gate decisions and effect estimates, and `describe(text, generate=...)`,
+  which accepts a model's rewrite of the template only if every number in it appears in the template and it is no longer.
+  `lm/narrate.py` measures this with a local model: Qwen 3.5 4B and 9B added little to the templates, which remain the default.
 - Learners: gradient-boosted trees (`boosted`, `boosted_regression`) with path-based contributing factors, and `learner="auto"`,
   which chooses on a validation split of the training entities so the held-out score stays unbiased.
 - Evaluation gate: entity-bootstrap confidence intervals in every report; `confidence` requires the gain to be clear; `evidence`

@@ -76,7 +76,7 @@ Vertiq is a specialised model system, not a general-purpose assistant. Where fou
 | Tested insights | `insights` | Segment-level patterns reported only after false-discovery-rate control. |
 | Monitoring | `drift · sequential` | Input and score drift, accuracy on new outcomes, and sequential tests that can be checked continuously. |
 | Rule-based checks | `rules` | Repeat events, overdue tasks, consumption above specification and incomplete records. |
-| Plain-language descriptions | `narrate` | Predictions, gate decisions and effect estimates written as sentences; an optional local model rewrites them, and a rewrite with any number not in the result is rejected. |
+| Plain-language descriptions | `narrate` | Predictions, gate decisions and effect estimates written as sentences from the result's own fields; an optional local model can rewrite them, and a rewrite with any number not in the description is rejected. |
 
 All analyses operate on one data contract of entities, events and actions. Vertiq contains no industry-specific code; the
 [industry guides](https://biswajitbiswa.github.io/vertiq/guides/) document the mapping and analyses for each industry.
@@ -295,8 +295,10 @@ The methods are established and deliberately transparent: regularised logistic a
 - The gate requires the gain over the baseline to be clear at 90% confidence (`confidence=0.9`, the default). On small datasets this
   also holds back some real improvements until more data arrives: with 240 assets and a real signal, 7 of 15 candidates were
   promoted, against 13 of 15 with the check off. `confidence=None` turns the check off; the candidate then only has to not be worse.
-- Plain-language descriptions (`narrate`) are written from templates. A local model can rewrite them; a rewrite is kept only if
-  every number in it appears in the result, which catches invented figures but not every misleading sentence.
+- Plain-language descriptions (`narrate`) are written from templates. A local model can rewrite them, and a rewrite is kept only
+  if every number in it appears in the template and it is no longer. On 17 descriptions, Qwen 3.5 4B given the full result
+  attached real numbers to the wrong quantity in 4; given only the template, its accepted rewrites were close paraphrases, and
+  Qwen 3.5 9B returned the template unchanged. Fluent rewrites would need fine-tuning on reviewed examples.
 - After validation, Vertiq LM maps 44% of unseen tables exactly and loads 99%
   without errors. Proposed mappings should be reviewed before production use.
 - Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity
