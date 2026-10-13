@@ -17,6 +17,16 @@ from datetime import datetime
 from .contract import Dataset, Entity, Event
 
 ROLES = ("entity", "time", "type", "value", "group")
+# values that stand for "no value" in exported tables; an entity column filled with them has no identity
+PLACEHOLDERS = {"", "-", "--", "---", "—", "–", ".", "x", "na", "n/a", "n.a.", "none", "null", "nil", "nan", "#n/a", "unknown",
+                "not available", "not applicable", "0", "00", "000"}
+_TIME_OF_DAY = re.compile(r"^\d{1,2}:\d{2}(:\d{2})?\s*([AaPp]\.?[Mm]\.?)?$")
+# fewer rows than this settle only what is certain (empty, placeholder, wrong kind); judgements that
+# need volume (how many distinct labels a group has) wait for more rows
+MIN_EVIDENCE = 30
+# labels that mark a summary row rather than a record (several languages)
+TOTAL_LABELS = re.compile(r"^\s*(grand\s+total|sub\s*-?\s*total|totals?|sum|summe|gesamt|total\s+general|totale|somme|"
+                          r"subtotal|kul|कुल|合计|総計|итого)\b", re.I)
 DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d.%m.%Y", "%Y%m%d", "%d-%m-%Y", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S",
                 "%Y-%m-%d %H:%M", "%d/%m/%Y %H:%M", "%m/%d/%Y %H:%M", "%d.%m.%Y %H:%M", "%d-%m-%Y %H:%M")
 
@@ -113,6 +123,123 @@ def fix_dates(m: Mapping, rows: list[dict]) -> tuple[Mapping, str | None]:
     return m, None                      # no known format fits: apply() will name the bad rows
 
 
+def _blank(v) -> bool:
+    return str(v if v is not None else "").strip().lower() in PLACEHOLDERS - {"0", "00", "000"}
+
+
+def structural_rows(rows: list[dict]) -> dict[int, str]:
+    """Rows that are not records: {row number (1-based): why}. A row is structural when it is labelled as a
+    total or subtotal in its first filled cell, or when at least 70% of its cells are empty. These are
+    reported and skipped by apply(), never loaded as data."""
+    out = {}
+    cols = list(rows[0]) if rows else []
+    for i, r in enumerate(rows, start=1):
+        cells = [r.get(c) for c in cols]
+        filled = [str(v).strip() for v in cells if not _blank(v)]
+        first = next((v for v in filled if not _AMOUNT.match(v)), "")
+        if first and TOTAL_LABELS.match(first) and len(filled) <= max(2, 0.6 * len(cols)):
+            out[i] = f"a summary row ({first!r})"
+        elif cols and len(filled) < 0.3 * len(cols):
+            out[i] = "mostly empty"
+    return out
+
+
+def placeholder_ids(rows: list[dict], col: str) -> set[str]:
+    """Values in an entity column that stand for "no identity": known fillers ("-", "NA", "unknown", "0"),
+    and any single value covering at least 20% of rows when the other values are nearly all distinct
+    (a default number typed for walk-ins)."""
+    vals = [str(r.get(col, "") if r.get(col) is not None else "").strip() for r in rows]
+    out = {v for v in set(vals) if v.lower() in PLACEHOLDERS}
+    counts = {}
+    for v in vals:
+        counts[v] = counts.get(v, 0) + 1
+    rest = [v for v in vals if v not in out]
+    if rest:
+        top, n = max(((v, c) for v, c in counts.items() if v not in out), key=lambda vc: vc[1])
+        others = [v for v in rest if v != top]
+        if n >= 0.2 * len(vals) and n >= 5 and others and len(set(others)) >= 0.9 * len(others):
+            out.add(top)
+    return out
+
+
+def fitness(rows: list[dict], col: str, role: str, kind: dict | None = None) -> float:
+    """How well a column can play a role, from 0 (cannot) to 1, judged only from its values.
+      entity  filled with non-placeholder values; not dates, times of day, amounts or counts; names rank
+              below codes and numbers
+      time    dates, filled
+      value   numbers that are not identifiers or row counters, filled
+      group   repeated labels (2 to 50 distinct, or up to 5% of rows), filled; judged from MIN_EVIDENCE rows
+      type    repeated labels (as for group, from 1), filled; judged from MIN_EVIDENCE rows
+    With fewer rows only what is certain counts: emptiness, placeholders and the kind of value."""
+    kind = kind or profile(rows)
+    vals = [str(r.get(col, "") if r.get(col) is not None else "").strip() for r in rows]
+    if not vals:
+        return 0.0
+    k = kind.get(col)
+    if role == "entity":
+        ph = placeholder_ids(rows, col)
+        real = [v for v in vals if v not in ph]
+        fill = len(real) / len(vals)
+        if k == "date" or (k == "number" and any("." in v or "," in v for v in real[:50])):
+            return 0.0                       # dates and amounts are not identities
+        if real and all(_TIME_OF_DAY.match(v) for v in real):
+            return 0.0
+        if len(vals) >= MIN_EVIDENCE and col in _quantities(rows, kind):
+            return 0.0                       # small whole numbers that repeat are counts, not identities
+        if real and sum(1 for v in real if re.search(r"\d", v)) < 0.8 * len(real):
+            fill *= 0.85                     # names identify less reliably than codes and numbers
+        if len(vals) >= MIN_EVIDENCE and len(set(real)) < 2:
+            return 0.0                       # across many rows, one value everywhere carries no identity
+        return fill                          # in a few rows, one entity throughout is fine (one asset's history)
+    filled = [v for v in vals if not _blank(v)]
+    fill = len(filled) / len(vals)
+    if role == "time":
+        return fill if k == "date" else 0.0
+    if role == "value":
+        # zeros are legitimate amounts; a value column is only replaced by a more complete one (_complete)
+        looks_like_ids = len(vals) >= MIN_EVIDENCE and _int_ids(rows, col)      # in a few rows, quantities differ too
+        return fill if k == "number" and not looks_like_ids else 0.0
+    if len(vals) < MIN_EVIDENCE:
+        return fill
+    distinct = len(set(filled))
+    lo = 2 if role == "group" else 1
+    return fill if lo <= distinct <= max(50, len(vals) // 20) and k in ("text", "number") else 0.0
+
+
+def _quantities(rows: list[dict], kind: dict) -> list[str]:
+    """Columns that look like quantities: whole numbers, mostly small (1 to 1,000), not all the same."""
+    out = []
+    for c, k in kind.items():
+        if k != "number":
+            continue
+        vals = [_num(r.get(c)) for r in rows if str(r.get(c) or "").strip()]
+        vals = [v for v in vals if v is not None]
+        if len(vals) >= 3 and all(v == int(v) for v in vals) and sum(1 for v in vals if 1 <= v <= 1000) >= 0.9 * len(vals) \
+                and len(set(vals)) > 1:
+            out.append(c)
+    return out
+
+
+def _complete(rows: list[dict], a: str, b: str, qty: list[str] | None = None) -> bool:
+    """Column b records the same amounts as column a where a is filled (or a times a quantity column, as a
+    line total does for a unit price), and holds amounts where a is 0: b is the more complete record."""
+    da, db = decimal_mark([r.get(a) for r in rows]), decimal_mark([r.get(b) for r in rows])
+    close = lambda x, y: abs(x - y) <= 0.01 * max(abs(x), abs(y), 1)          # noqa: E731
+    both = gap = same = n = 0
+    for r in rows:
+        x, y = _num(r.get(a), da), _num(r.get(b), db)
+        if x is None or y is None:
+            continue
+        n += 1
+        if x == 0:
+            gap += y != 0
+            continue
+        both += 1
+        qs = [_num(r.get(q)) for q in (qty or [])]
+        same += close(x, y) or any(q and close(x * q, y) for q in qs)
+    return both >= 3 and same >= 0.8 * both and gap >= 0.1 * n
+
+
 def profile(rows: list[dict]) -> dict[str, str]:
     """What each column holds, judged only from its values: "date", "number", "rownum" (1, 2, 3...),
     or "text". Empty cells are ignored."""
@@ -176,8 +303,47 @@ def check(m: Mapping, rows: list[dict]) -> tuple[Mapping, list[str]]:
     if dropped:
         changes.append(f"attrs: row counters dropped {dropped}")
         d["attrs"] = [a for a in d["attrs"] if a not in dropped]
+    # fitness: a role whose column cannot play it is moved to the clearly best free column, or flagged
+    for role in ("entity", "time", "value", "group"):
+        cur = d[role]
+        if cur is None or cur not in kind:
+            continue
+        f = fitness(rows, cur, role, kind)
+        if f >= 0.5:
+            continue
+        # a replacement group or type must be text labels; a numeric code is kept when proposed, never chosen
+        cands = sorted(((fitness(rows, c, role, kind), c) for c in kind if c not in taken()
+                        and (role not in ("group", "type") or kind[c] == "text")), reverse=True)
+        best = cands[0] if cands else (0.0, None)
+        second = cands[1][0] if len(cands) > 1 else 0.0
+        if best[1] and best[0] >= 0.8 and best[0] - second >= 0.15:
+            changes.append(f"{role}: {cur!r} is {_why(rows, cur, role, kind)} -> {best[1]!r}")
+            d[role] = best[1]
+        elif role in ("entity", "time"):
+            changes.append(f"confirm: {role} {cur!r} is {_why(rows, cur, role, kind)}; no clearly better column")
+        else:
+            changes.append(f"{role}: {cur!r} is {_why(rows, cur, role, kind)}, dropped")
+            d[role] = None
+    if d["value"]:
+        for c in kind:
+            if c not in taken() and kind[c] == "number" and _complete(rows, d["value"], c, _quantities(rows, kind)):
+                changes.append(f"value: {d['value']!r} is 0 on rows where {c!r} records the same amount -> {c!r}")
+                d["value"] = c
+                break
     d["attrs"] = [a for a in d["attrs"] if a not in taken()]
     return Mapping(**d), changes
+
+
+def _why(rows, col, role, kind) -> str:
+    vals = [str(r.get(col, "") if r.get(col) is not None else "").strip() for r in rows]
+    if role == "entity":
+        ph = placeholder_ids(rows, col)
+        share = sum(1 for v in vals if v in ph) / max(1, len(vals))
+        return f"a placeholder in {share:.0%} of rows" if share >= 0.5 else "not an identifier"
+    empty = sum(1 for v in vals if _blank(v)) / max(1, len(vals))
+    if empty >= 0.5:
+        return f"empty in {empty:.0%} of rows"
+    return {"time": "not dates", "value": "not an amount", "group": "not a set of repeated labels"}.get(role, "unfit")
 
 
 def repair(m: Mapping, rows: list[dict]) -> tuple[Mapping, list[str]]:
@@ -254,8 +420,14 @@ def apply(m: Mapping, rows: list[dict]) -> tuple[Dataset, list[str]]:
     if problems:
         return Dataset(), problems
     events, groups = [], {}
-    dec = decimal_mark([r[m.value] for r in rows]) if m.value else "."
+    skip = structural_rows(rows)
+    ph = placeholder_ids(rows, m.entity)
+    anonymous = 0
+    dec = decimal_mark([r[m.value] for i, r in enumerate(rows, start=1) if i not in skip]) if m.value else "."
     for i, r in enumerate(rows, start=1):
+        if i in skip:
+            problems.append(f"row {i}: {skip[i]}, skipped")
+            continue
         try:
             at = datetime.strptime(str(r[m.time]).strip(), m.date_format)
         except ValueError:
@@ -265,13 +437,16 @@ def apply(m: Mapping, rows: list[dict]) -> tuple[Dataset, list[str]]:
         if val is None:
             problems.append(f"row {i}: value {r[m.value]!r} isn't a number")
             continue
-        eid = str(r[m.entity]).strip()
-        if not eid:
-            problems.append(f"row {i}: empty entity")
-            continue
+        eid = str(r[m.entity] if r[m.entity] is not None else "").strip()
+        if eid in ph:                        # no identity: its own one-off entity, never merged with others
+            eid = f"anonymous:{i}"
+            anonymous += 1
         if m.group:
             groups[eid] = str(r[m.group])
         events.append(Event(eid, at, str(r[m.type]) if m.type else "", val, {a: r[a] for a in m.attrs}))
+    if anonymous:
+        problems.append(f"{anonymous} rows have a placeholder entity ({', '.join(sorted(repr(v) for v in ph))}); "
+                        "each is kept as its own one-off entity")
     ents = [Entity(e, groups.get(e, "")) for e in sorted({ev.entity for ev in events})]
     return Dataset(ents, events), problems
 

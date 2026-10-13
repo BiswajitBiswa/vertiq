@@ -135,14 +135,16 @@ def summary(s: dict, *, entities: str = "entities") -> str:
     """A summary.summarise() result as sentences: what happened in the last period against the one before."""
     def change(c):
         return "no earlier figure" if c is None else f"{c * 100:+.0f}%"
-    parts = [f"In the last {s['days']} days:"]
+    span = "day" if s["days"] == 1 else f"{s['days']} days"
+    parts = [f"In the last {span}:"]
     for t in s["types"][:3]:
         clear = "a clear change" if t["clear"] else "within normal variation"
-        line = f" {t['after']:,} {t['type']} events against {t['before']:,} in the {s['days']} days before ({change(t['change'])}, {clear})"
+        line = f" {t['after']:,} {t['type']} events against {t['before']:,} in the {span} before ({change(t['change'])}, {clear})"
         if t["value_after"] or t["value_before"]:
             line += f", total value {t['value_after']:,.0f} ({change(t['value_change'])})"
         parts.append(line + ".")
-    parts.append(f" {s['active']:,} {entities} were active ({s['new']:,} new); {s['gone_quiet']:,} active before were not.")
+    parts.append(f" {s['active']:,} {entities} were active ({s['new']:,} seen for the first time in this data); "
+                 f"{s['gone_quiet']:,} active before were not.")
     clear_groups = [g for g in s["groups"] if g.get("clear")]
     if clear_groups:
         g = clear_groups[0]
