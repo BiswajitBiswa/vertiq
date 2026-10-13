@@ -224,6 +224,15 @@ def two_proportion_p(x1: int, n1: int, x2: int, n2: int) -> float:
     return math.erfc(abs(z) / math.sqrt(2))
 
 
+def benjamini_yekutieli(pvalues: list[float], q: float = 0.1) -> list[bool]:
+    """False-discovery-rate control that holds under any dependence between the tests: Benjamini-
+    Hochberg at q / c(m), with c(m) = 1 + 1/2 + ... + 1/m. Use it when the tests share data, such as
+    overlapping segments."""
+    m = len(pvalues)
+    c = sum(1.0 / i for i in range(1, m + 1)) if m else 1.0
+    return benjamini_hochberg(pvalues, q / c)
+
+
 def benjamini_hochberg(pvalues: list[float], q: float = 0.1) -> list[bool]:
     """Which tests survive a false-discovery rate of `q` across the whole family: the more
     patterns are searched for, the stronger each one has to be before it is shown."""
