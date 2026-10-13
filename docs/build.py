@@ -92,11 +92,12 @@ CAPABILITIES = [
     ("Event prediction", "Probability that an event occurs for an entity within a time window, such as customer return, equipment failure, readmission or late payment.", "tasks.predict_event"),
     ("Value prediction", "Expected value of the next event, such as order value, repair cost, length of stay or renewal amount.", "tasks.predict_value"),
     ("Intervention effects", "Effect of any recorded action, such as a maintenance programme, outreach call or carrier change, estimated against a control group, with the entities it helps most.", "tasks.predict_uplift"),
-    ("Effects without a control group", "Matched-cohort estimates when an intervention was not randomised, with balance diagnostics and an interval.", "causal.matched_att"),
+    ("Effects without a control group", "Matched-cohort and doubly robust estimates when an intervention was not randomised, with balance and overlap diagnostics and an interval.", "causal"),
     ("Time to next event", "Probability of the next event within a window given the time elapsed, personalised to each entity's rhythm.", "survival"),
     ("Affinity and sequences", "Co-purchase associations, the next likely product, replenishment intervals and tested A-then-B patterns with their typical lag.", "affinity · sequences"),
     ("Tested insights", "Segment-level patterns reported only after false-discovery-rate control.", "insights"),
-    ("Monitoring", "Input and score drift, accuracy on new outcomes, and sequential tests that can be checked continuously.", "drift · sequential"),
+    ("Monitoring", "Input and score drift, accuracy on new outcomes, and sequential tests of one rate or two live arms that can be checked after every observation.", "drift · sequential"),
+    ("Automatic tuning", "Tries learner settings and candidate features one change at a time, keeps those that improve validation folds of training entities consistently, and lets the gate decide on held-out entities.", "autotune"),
     ("Rule-based checks", "Repeat events, overdue tasks, consumption above specification and incomplete records.", "rules"),
     ("Plain-language descriptions", "Predictions, gate decisions and effect estimates written as sentences from the result's own fields; an optional local model can rewrite them, and a rewrite with any number not in the description is rejected.", "narrate"),
 ]
@@ -140,7 +141,8 @@ STACK = [
 ]
 
 METHODS = ("The methods are established and deliberately transparent: regularised logistic and linear regression with "
-           "per-group offsets, a single-model (S-learner) uplift formulation with treatment interaction terms, Benjamini–Hochberg false-discovery "
+           "per-group offsets, gradient-boosted trees, two-model and boosted uplift estimators, matching and augmented inverse-probability "
+           "weighting for observational effects, sequential tests, Benjamini–Hochberg false-discovery "
            "control and rule-based checks. Vertiq's contribution is the structure around them: point-in-time features, "
            "entity-level holdout, control-group measurement, the promotion gate and local mapping. Stronger estimators can be "
            "registered through register_learner and are evaluated by the same gate.")
@@ -609,9 +611,10 @@ def build_architecture():
             ("verticals", "Industry profiles: time windows, terminology and currency"),
             ("boost", "Gradient-boosted trees for non-linear effects, with path-based contributing factors"),
             ("survival", "Kaplan–Meier time-to-event estimates with censoring and per-entity rhythm"),
-            ("causal", "Matched-cohort average treatment effect on the treated, with balance and an interval"),
+            ("causal", "Matched-cohort ATT and cross-fitted doubly robust (AIPW) ATE, with balance, overlap and intervals"),
             ("design", "Experiment sizing, minimum detectable effects and next-step recommendations"),
-            ("sequential", "Wald's sequential probability ratio test; its result can block a promotion"),
+            ("sequential", "Wald's SPRT for one rate and a mixture SPRT for two live arms; a result can block a promotion"),
+            ("autotune", "Gated search over task settings and candidate features, scored by cross-validation on training entities"),
             ("drift", "Population Stability Index for inputs and scores, and accuracy on new outcomes"),
             ("sequences", "Lagged A-then-B patterns between consecutive events, filtered for false discoveries"),
             ("profiles", "Precomputed scores and factors for serving, with staleness checks"),
@@ -756,6 +759,19 @@ def build_benchmarks():
          f"Found {S('lagged_sequences')['found_planted']}; median lag {S('lagged_sequences')['median_lag_days']['mean']:.0f} days; "
          f"false patterns on random data {pm('lagged_sequences', 'false_patterns_in_random', 1)} per run",
          "Patterns and their timing are recovered"),
+        ("Automatic tuning", "The 240-asset plant; the search may switch learner, add the survival feature and add any of four candidate "
+         "features: skipped maintenance and three random numbers",
+         f"Real feature kept {S('autotune_search')['real_feature_chosen']}; random features kept {S('autotune_search')['noise_features_chosen']['mean']:.1f} per run; "
+         f"tuned model promoted {S('autotune_search')['tuned_promoted']}; AUC {pm('autotune_search', 'tuned_auc')} tuned vs {pm('autotune_search', 'untuned_auc')} untuned",
+         "Changes are kept only when most validation folds improve; the gate promotes the tuned model only when the held-out gain is clear"),
+        ("Two live arms", "Arm A converts at 10%; B at 10% (no difference) or 13%; checked after every observation",
+         f"False alarms {pm('two_sample_sequential', 'false_alarm_rate')} against {pm('two_sample_sequential', 'false_alarm_rate_peeking_z_test')} for a z-test "
+         f"checked every 100 pairs; detection {pm('two_sample_sequential', 'detection_rate')}, median {S('two_sample_sequential')['median_per_arm_when_detected']['mean']:,.0f} per arm",
+         "Continuous monitoring without the inflated false-alarm rate of repeated checks"),
+        ("Doubly robust effect", "3,000 entities; treatment more likely where the outcome is already higher; outcome curved (exp), true effect +1.0",
+         f"AIPW {pm('doubly_robust_effect', 'doubly_robust')}; outcome model alone {pm('doubly_robust_effect', 'outcome_model_only')}; "
+         f"naive {pm('doubly_robust_effect', 'naive_difference')}",
+         f"Consistent although the outcome model is wrong; the 90% interval covered the truth in {S('doubly_robust_effect')['interval_covers_truth']} runs"),
         ("Mapping validation", "2,100 correct mappings across 15 domains",
          f"Correct mappings altered: {S('mapping_repair')['changed_by_repair']['mean']:.0f}", "Validation never alters a correct mapping"),
     ]
@@ -860,6 +876,11 @@ def build_readme():
                             f"{S('sequential')['mean_observations']['mean']:.0f} observations", f"targets 0.05 and 0.80; fixed sample {S('sequential')['fixed_sample_equivalent']['mean']:.0f}"),
         ("Drift", f"PSI {mm('drift_detection', 'shifted_psi')} when shifted", f"{mm('drift_detection', 'stable_max_psi')} when stable"),
         ("Lagged sequences", f"planted found {S('lagged_sequences')['found_planted']}, lag {S('lagged_sequences')['median_lag_days']['mean']:.0f} days", "true lag 18 to 22 days"),
+        ("Automatic tuning", f"real feature kept {S('autotune_search')['real_feature_chosen']}, random features {S('autotune_search')['noise_features_chosen']['mean']:.1f} per run, "
+                             f"AUC {mm('autotune_search', 'tuned_auc')}", f"untuned {mm('autotune_search', 'untuned_auc')}; promoted {S('autotune_search')['tuned_promoted']}"),
+        ("Two live arms (mixture SPRT)", f"false alarms {mm('two_sample_sequential', 'false_alarm_rate')}, detection {mm('two_sample_sequential', 'detection_rate')}",
+                                         f"z-test checked every 100 pairs: false alarms {mm('two_sample_sequential', 'false_alarm_rate_peeking_z_test')}"),
+        ("Doubly robust effect", f"AIPW {mm('doubly_robust_effect', 'doubly_robust')}", f"true 1.0; outcome model alone {mm('doubly_robust_effect', 'outcome_model_only')}; naive {mm('doubly_robust_effect', 'naive_difference')}"),
         ("Mapping validation", f"Correct mappings altered: {S('mapping_repair')['changed_by_repair']['mean']:.0f} of {S('mapping_repair')['correct_mappings']['mean']:.0f} per run", "Must be 0"),
     ]
     core_rows = "\n".join(f"| {a} | {b} | {c} |" for a, b, c in core)
@@ -1104,6 +1125,11 @@ python docs/build.py && git diff --stat                 # regenerates the site a
   additive. Across 100 to 6,400 entities the default tree settings were within 0.01 AUC of the best of five alternatives.
   `learner="auto"` chooses by 3-fold cross-validation on the training entities; with a few hundred entities or fewer its
   choice is close to random when the two learners are within a point or two of each other.
+- Doubly robust estimates are consistent if either the propensity or the outcome model is right, but they vary more than the
+  outcome model alone (standard deviation {S('doubly_robust_effect')['doubly_robust']['sd']:.2f} across benchmark runs); large weights from extreme
+  propensities are clipped and counted in the result.
+- `autotune` scores every trial on the same training entities, so many trials can still favour a lucky change; it keeps a change
+  only when most validation folds agree, and the held-out gate makes the final decision.
 - Version 0.1. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
@@ -1112,9 +1138,7 @@ python docs/build.py && git diff --stat                 # regenerates the site a
   KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
 - Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.
-- A two-sample sequential test (mixture SPRT) for comparing two live arms, and doubly robust effect estimation.
-- An evaluation loop that proposes plugin features and learner settings automatically and keeps only those that pass the gate on
-  training entities, with the held-out entities reserved for the final score.
+- `autotune` for value tasks and uplift, and candidate features proposed from the data rather than supplied by hand.
 
 Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md), and an external assessment of the competitive landscape in [proposals/landscape-review.md](proposals/landscape-review.md).
 

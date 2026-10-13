@@ -70,11 +70,12 @@ Vertiq is a specialised model system, not a general-purpose assistant. Where fou
 | Event prediction | `tasks.predict_event` | Probability that an event occurs for an entity within a time window, such as customer return, equipment failure, readmission or late payment. |
 | Value prediction | `tasks.predict_value` | Expected value of the next event, such as order value, repair cost, length of stay or renewal amount. |
 | Intervention effects | `tasks.predict_uplift` | Effect of any recorded action, such as a maintenance programme, outreach call or carrier change, estimated against a control group, with the entities it helps most. |
-| Effects without a control group | `causal.matched_att` | Matched-cohort estimates when an intervention was not randomised, with balance diagnostics and an interval. |
+| Effects without a control group | `causal` | Matched-cohort and doubly robust estimates when an intervention was not randomised, with balance and overlap diagnostics and an interval. |
 | Time to next event | `survival` | Probability of the next event within a window given the time elapsed, personalised to each entity's rhythm. |
 | Affinity and sequences | `affinity · sequences` | Co-purchase associations, the next likely product, replenishment intervals and tested A-then-B patterns with their typical lag. |
 | Tested insights | `insights` | Segment-level patterns reported only after false-discovery-rate control. |
-| Monitoring | `drift · sequential` | Input and score drift, accuracy on new outcomes, and sequential tests that can be checked continuously. |
+| Monitoring | `drift · sequential` | Input and score drift, accuracy on new outcomes, and sequential tests of one rate or two live arms that can be checked after every observation. |
+| Automatic tuning | `autotune` | Tries learner settings and candidate features one change at a time, keeps those that improve validation folds of training entities consistently, and lets the gate decide on held-out entities. |
 | Rule-based checks | `rules` | Repeat events, overdue tasks, consumption above specification and incomplete records. |
 | Plain-language descriptions | `narrate` | Predictions, gate decisions and effect estimates written as sentences from the result's own fields; an optional local model can rewrite them, and a rewrite with any number not in the description is rejected. |
 
@@ -97,7 +98,7 @@ Intervention effects are estimated against control groups rather than inferred f
 
 - **Control-group uplift.** vertiq.uplift compares treated entities with a randomly held-out group over the same window and ranks entities by estimated incremental effect. In the benchmark it estimated a planted −20% offer effect at -20.2%.
 - **Configurable horizons.** window_days sets the prediction horizon, cutoffs the number of historical training points and history the event types used as inputs, so each task matches the operating cycle of the industry.
-- **Small footprint.** The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 48 seconds on a laptop using 8 cores.
+- **Small footprint.** The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 196 seconds on a laptop using 4 cores.
 
 ### Defensive deployment
 
@@ -208,7 +209,7 @@ Plugins add features; the evaluation gate determines whether they improve perfor
 ## Benchmarks
 
 Synthetic scenarios with known ground truth, 5 runs each, mean ± standard deviation (`python benchmarks/run.py`,
-48 seconds on a laptop using 8 cores, arm64, Python 3.10.10).
+196 seconds on a laptop using 4 cores, arm64, Python 3.10.10).
 
 | Scenario | Vertiq | Reference |
 |---|---|---|
@@ -226,6 +227,9 @@ Synthetic scenarios with known ground truth, 5 runs each, mean ± standard devia
 | Sequential test | false alarms 0.041 ± 0.014, detection 0.799 ± 0.017, 147 observations | targets 0.05 and 0.80; fixed sample 253 |
 | Drift | PSI 0.931 ± 0.037 when shifted | 0.011 ± 0.004 when stable |
 | Lagged sequences | planted found 5/5, lag 20 days | true lag 18 to 22 days |
+| Automatic tuning | real feature kept 5/5, random features 0.0 per run, AUC 0.761 ± 0.047 | untuned 0.735 ± 0.059; promoted 2/5 |
+| Two live arms (mixture SPRT) | false alarms 0.042 ± 0.007, detection 1.000 ± 0.000 | z-test checked every 100 pairs: false alarms 0.363 ± 0.024 |
+| Doubly robust effect | AIPW 0.906 ± 0.171 | true 1.0; outcome model alone 0.849 ± 0.010; naive 2.450 ± 0.121 |
 | Mapping validation | Correct mappings altered: 0 of 2100 per run | Must be 0 |
 
 ### Real data: Online Retail II
@@ -266,7 +270,7 @@ Production-like test set (audit columns and locale-specific number formats):
 
 ## Verify the results
 
-Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 48 seconds on a laptop using 8 cores. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
+Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 196 seconds on a laptop using 4 cores. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
 
 ```bash
 git clone https://github.com/BiswajitBiswa/vertiq && cd vertiq
@@ -277,7 +281,7 @@ python docs/build.py && git diff --stat                 # regenerates the site a
 
 ## Methods
 
-The methods are established and deliberately transparent: regularised logistic and linear regression with per-group offsets, a single-model (S-learner) uplift formulation with treatment interaction terms, Benjamini–Hochberg false-discovery control and rule-based checks. Vertiq's contribution is the structure around them: point-in-time features, entity-level holdout, control-group measurement, the promotion gate and local mapping. Stronger estimators can be registered through register_learner and are evaluated by the same gate.
+The methods are established and deliberately transparent: regularised logistic and linear regression with per-group offsets, gradient-boosted trees, two-model and boosted uplift estimators, matching and augmented inverse-probability weighting for observational effects, sequential tests, Benjamini–Hochberg false-discovery control and rule-based checks. Vertiq's contribution is the structure around them: point-in-time features, entity-level holdout, control-group measurement, the promotion gate and local mapping. Stronger estimators can be registered through register_learner and are evaluated by the same gate.
 
 ## Positioning
 
@@ -307,6 +311,11 @@ The methods are established and deliberately transparent: regularised logistic a
   additive. Across 100 to 6,400 entities the default tree settings were within 0.01 AUC of the best of five alternatives.
   `learner="auto"` chooses by 3-fold cross-validation on the training entities; with a few hundred entities or fewer its
   choice is close to random when the two learners are within a point or two of each other.
+- Doubly robust estimates are consistent if either the propensity or the outcome model is right, but they vary more than the
+  outcome model alone (standard deviation 0.17 across benchmark runs); large weights from extreme
+  propensities are clipped and counted in the result.
+- `autotune` scores every trial on the same training entities, so many trials can still favour a lucky change; it keeps a change
+  only when most validation folds agree, and the held-out gate makes the final decision.
 - Version 0.1. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
@@ -315,9 +324,7 @@ The methods are established and deliberately transparent: regularised logistic a
   KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
 - Vertiq LM: complete preference training on the production-like set, evaluate a 9B student and publish the adapter.
-- A two-sample sequential test (mixture SPRT) for comparing two live arms, and doubly robust effect estimation.
-- An evaluation loop that proposes plugin features and learner settings automatically and keeps only those that pass the gate on
-  training entities, with the held-out entities reserved for the final score.
+- `autotune` for value tasks and uplift, and candidate features proposed from the data rather than supplied by hand.
 
 Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md), and an external assessment of the competitive landscape in [proposals/landscape-review.md](proposals/landscape-review.md).
 
