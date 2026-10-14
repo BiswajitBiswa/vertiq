@@ -75,6 +75,8 @@ Vertiq is a specialised model system, not a general-purpose assistant. Where fou
 | Affinity and sequences | `affinity · sequences` | Co-purchase associations, the next likely product, replenishment intervals and tested A-then-B patterns with their typical lag. |
 | Tested insights | `insights` | Segment-level patterns reported only after false-discovery-rate control. |
 | Monitoring | `drift · sequential` | Input and score drift, accuracy on new outcomes, and sequential tests of one rate or two live arms that can be checked after every observation. |
+| Pattern search | `patterns` | Finds patterns without being told where to look: every attribute, group, weekday, part of day and item group is compared with the value and with every other feature, under false-discovery control, and written as sentences. |
+| One-command report | `report · tables` | From exported tables (CSV or Excel) to a written report: Vertiq proposes the mapping and the join between tables from the values, checks them, and runs every analysis that applies. |
 | Several possible outcomes | `category.predict_category` | Which of several events comes next (a repair, a replacement or nothing; an upgrade or a cancellation), with a probability for each. |
 | Planning under a budget | `plan` | Who should receive which action, given each action's measured effect, its cost and the value of the outcome, within a budget. |
 | Checks on proposed actions | `guard` | Allow, hold or block an action proposed by an agent or a person, from the measured effect of that action and rule flags; unmeasured actions are held for a person. |
@@ -175,6 +177,13 @@ print(narrate.gate(task.report()))        # "A model to predict whether breakdow
 print(narrate.prediction(task.score("EQ-602"), target="breakdown", window_days=30))
 ```
 
+From exported files to a written report, with no mapping written by hand (Vertiq proposes and checks it):
+
+```bash
+python -m vertiq.report config.json --out report.md
+# config.json: {"records": {"file": "orders.xlsx"}, "items": {"file": "order_lines.xlsx"}, "noun": "orders", "currency": "₹"}
+```
+
 ## Extending Vertiq
 
 ```python
@@ -240,6 +249,7 @@ Synthetic scenarios with known ground truth, 5 runs each, mean ± standard devia
 | Features from the menu | skipped-maintenance count kept 5/5, AUC 0.778 ± 0.034 | untuned 0.735 ± 0.059 |
 | Several possible outcomes | macro AUC 0.803 ± 0.011 | past mix 0.686 ± 0.022 |
 | Why a rate changed | only the true driver named: 5/5 | rate and mix effects add up to the change |
+| Pattern search | planted found 2.0 ± 0.0 of 2 | findings in random data 0.0 ± 0.0 |
 | Mapping validation | Correct mappings altered: 0 of 2100 per run | Must be 0 |
 
 ### Real data: Online Retail II

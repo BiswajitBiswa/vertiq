@@ -97,6 +97,8 @@ CAPABILITIES = [
     ("Affinity and sequences", "Co-purchase associations, the next likely product, replenishment intervals and tested A-then-B patterns with their typical lag.", "affinity · sequences"),
     ("Tested insights", "Segment-level patterns reported only after false-discovery-rate control.", "insights"),
     ("Monitoring", "Input and score drift, accuracy on new outcomes, and sequential tests of one rate or two live arms that can be checked after every observation.", "drift · sequential"),
+    ("Pattern search", "Finds patterns without being told where to look: every attribute, group, weekday, part of day and item group is compared with the value and with every other feature, under false-discovery control, and written as sentences.", "patterns"),
+    ("One-command report", "From exported tables (CSV or Excel) to a written report: Vertiq proposes the mapping and the join between tables from the values, checks them, and runs every analysis that applies.", "report · tables"),
     ("Several possible outcomes", "Which of several events comes next (a repair, a replacement or nothing; an upgrade or a cancellation), with a probability for each.", "category.predict_category"),
     ("Planning under a budget", "Who should receive which action, given each action's measured effect, its cost and the value of the outcome, within a budget.", "plan"),
     ("Checks on proposed actions", "Allow, hold or block an action proposed by an agent or a person, from the measured effect of that action and rule flags; unmeasured actions are held for a person.", "guard"),
@@ -620,6 +622,9 @@ def build_architecture():
             ("design", "Experiment sizing, minimum detectable effects and next-step recommendations"),
             ("sequential", "Wald's SPRT for one rate and a mixture SPRT for two live arms; a result can block a promotion"),
             ("autotune", "Gated search over task settings and candidate features, scored by cross-validation on training entities"),
+            ("patterns", "Automatic search for tested patterns across all features of a dataset, with false-discovery control"),
+            ("report", "python -m vertiq.report config.json: exported tables to a written report"),
+            ("tables", "Mapping and join proposals from the values alone, checked by mapping.repair"),
             ("menu", "Candidate features as reviewable specs (count, since, share, sum, group rate, attribute); no generated code"),
             ("category", "Which of several outcomes comes next, one model per outcome, gated on macro AUC against the past mix"),
             ("plan", "Choice of action per entity under a budget from measured effects, costs and outcome values"),
@@ -807,6 +812,10 @@ def build_benchmarks():
          f"Only B named as a driver: {S('change_drivers')['drivers_exactly_B']}; C's mix effect {pm('change_drivers', 'c_mix_effect')}, "
          f"rate effect {pm('change_drivers', 'c_rate_effect')}",
          "Rate and mix effects separate exactly"),
+        ("Pattern search", "400 orders with two planted patterns (online orders rarely include a drink; pizza orders are worth more), and 400 with none",
+         f"Planted found {pm('pattern_search', 'planted_found', 1)} of 2; other findings {pm('pattern_search', 'other_findings', 1)} per run; "
+         f"findings in random data {pm('pattern_search', 'findings_in_random_data', 1)}",
+         f"{S('pattern_search')['tested']['mean']:.0f} comparisons per dataset under false-discovery control at 10%"),
         ("Mapping validation", "2,100 correct mappings across 15 domains",
          f"Correct mappings altered: {S('mapping_repair')['changed_by_repair']['mean']:.0f}", "Validation never alters a correct mapping"),
     ]
@@ -922,6 +931,7 @@ def build_readme():
         ("Features from the menu", f"skipped-maintenance count kept {S('menu_search')['kept_skipped_maintenance']}, AUC {mm('menu_search', 'tuned_auc')}", f"untuned {mm('menu_search', 'untuned_auc')}"),
         ("Several possible outcomes", f"macro AUC {mm('multi_outcome', 'macro_auc')}", f"past mix {mm('multi_outcome', 'baseline_macro_auc')}"),
         ("Why a rate changed", f"only the true driver named: {S('change_drivers')['drivers_exactly_B']}", "rate and mix effects add up to the change"),
+        ("Pattern search", f"planted found {mm('pattern_search', 'planted_found', 1)} of 2", f"findings in random data {mm('pattern_search', 'findings_in_random_data', 1)}"),
         ("Mapping validation", f"Correct mappings altered: {S('mapping_repair')['changed_by_repair']['mean']:.0f} of {S('mapping_repair')['correct_mappings']['mean']:.0f} per run", "Must be 0"),
     ]
     core_rows = "\n".join(f"| {a} | {b} | {c} |" for a, b, c in core)
@@ -1059,6 +1069,13 @@ print(task.score("EQ-602"))               # {{"chance": ..., "raises": [...], "l
 from vertiq import narrate
 print(narrate.gate(task.report()))        # "A model to predict whether breakdown happens within 30 days was promoted. ..."
 print(narrate.prediction(task.score("EQ-602"), target="breakdown", window_days=30))
+```
+
+From exported files to a written report, with no mapping written by hand (Vertiq proposes and checks it):
+
+```bash
+python -m vertiq.report config.json --out report.md
+# config.json: {{"records": {{"file": "orders.xlsx"}}, "items": {{"file": "order_lines.xlsx"}}, "noun": "orders", "currency": "₹"}}
 ```
 
 ## Extending Vertiq
