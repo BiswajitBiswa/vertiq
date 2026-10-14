@@ -2,7 +2,7 @@
   "generated": "2026-10-13",
   "python": "3.10.10",
   "machine": "arm64",
-  "seconds": 1275.7,
+  "seconds": 1276.0,
   "wall_seconds": 196.1,
   "jobs": 4,
   "scenarios": {
@@ -1356,6 +1356,60 @@
         }
       ],
       "seconds": 0.0
+    },
+    "pattern_search": {
+      "seeds": 5,
+      "summary": {
+        "tested": {
+          "mean": 126,
+          "sd": 0.0
+        },
+        "planted_found": {
+          "mean": 2,
+          "sd": 0.0
+        },
+        "other_findings": {
+          "mean": 0.4,
+          "sd": 0.4899
+        },
+        "findings_in_random_data": {
+          "mean": 0,
+          "sd": 0.0
+        }
+      },
+      "runs": [
+        {
+          "tested": 126,
+          "planted_found": 2,
+          "other_findings": 1,
+          "findings_in_random_data": 0
+        },
+        {
+          "tested": 126,
+          "planted_found": 2,
+          "other_findings": 0,
+          "findings_in_random_data": 0
+        },
+        {
+          "tested": 126,
+          "planted_found": 2,
+          "other_findings": 1,
+          "findings_in_random_data": 0
+        },
+        {
+          "tested": 126,
+          "planted_found": 2,
+          "other_findings": 0,
+          "findings_in_random_data": 0
+        },
+        {
+          "tested": 126,
+          "planted_found": 2,
+          "other_findings": 0,
+          "findings_in_random_data": 0
+        }
+      ],
+      "seconds": 0.3
     }
   }
 }
