@@ -129,7 +129,7 @@ def _customers(tmp_path, n=300, seed=8):
 
 def test_entity_table_labels_join_events_and_show_in_patterns(tmp_path):
     _customers(tmp_path)
-    cfg = {"records": {"file": "orders.csv"}, "entities": {"file": "customers.csv"}, "noun": "orders"}
+    cfg = {"records": {"file": "orders.csv"}, "entity_table": {"file": "customers.csv"}, "noun": "orders", "entities": "customers"}
     text = report.run(cfg, tmp_path)
     assert "entity table joined on 'Customer Id'" in text
     assert "where Segment is Gold average" in text or "where Segment is Basic average" in text

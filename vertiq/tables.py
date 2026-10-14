@@ -254,10 +254,12 @@ def records_from_lines(rows: list[dict], spec: dict) -> list[dict]:
         if i not in skip and k:
             by[k].append(r)
     line_cols = {spec["item"], spec.get("qty"), spec.get("price"), spec.get("amount"), spec.get("item_group")} - {None}
+    # record-level columns are decided once for the table: those the same on every line of at least 95% of records
+    cols = [c for c in (rows[0] if rows else {}) if c not in line_cols]
+    keep = [c for c in cols if sum(1 for ls in by.values() if all(str(x.get(c)) == str(ls[0].get(c)) for x in ls)) >= 0.95 * len(by)]
     out = []
     for k, ls in by.items():
-        first = ls[0]
-        rec = {c: v for c, v in first.items() if c not in line_cols and all(str(x.get(c)) == str(v) for x in ls)}
+        rec = {c: ls[0].get(c, "") for c in keep}         # the first line's value when a few records differ
         total = 0.0
         for x in ls:
             try:
