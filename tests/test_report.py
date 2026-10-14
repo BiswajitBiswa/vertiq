@@ -23,12 +23,15 @@ def _write(tmp_path, n=300, seed=4):
         for it in items:
             q = rnd.choice([1, 1, 2])
             price = 250 if MENU[it] == "Pizza" else 60
-            lines.append({"Order No": no, "Item": it, "Category": MENU[it], "Qty": q, "Unit Price": price, "Amount": price * q})
+            lines.append({"Order No": no, "Store Group": rnd.choice(["Services", ""]), "Item": it, "Category": MENU[it], "Qty": q,
+                          "Unit Price": price, "Amount": price * q})
             total += price * q
         orders.append({"Order No": no, "Phone": rnd.choice(["-", f"98{rnd.randint(10000000, 99999999)}", f"97{rnd.randint(100, 140):08d}"]),
                        "Date": f"{rnd.randint(1, 28):02d}/{rnd.randint(1, 9):02d}/2026", "Time": f"{rnd.randint(1, 11)}:{rnd.randint(10, 59)} PM",
-                       "Channel": "Online" if online else "Store", "Payment": rnd.choice(["Card", "Cash", "Wallet"]), "Total": total})
-    orders.append({"Order No": "Total", "Phone": "", "Date": "", "Time": "", "Channel": "", "Payment": "", "Total": sum(o["Total"] for o in orders)})
+                       "Channel": "Online" if online else "Store", "Payment": rnd.choice(["Card", "Cash", "Wallet"]), "Subtotal": total,
+                       "Total": total})
+    orders.append({"Order No": "Total", "Phone": "", "Date": "", "Time": "", "Channel": "", "Payment": "",
+                   "Subtotal": sum(o["Total"] for o in orders), "Total": sum(o["Total"] for o in orders)})
     for name, rows in (("orders.csv", orders), ("lines.csv", lines)):
         with open(tmp_path / name, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=list(rows[0]))
@@ -41,7 +44,7 @@ def test_propose_and_join_from_values(tmp_path):
     orders, lines = _write(tmp_path)
     rows = report.read_table(tmp_path / "orders.csv")
     m, notes = propose(rows)
-    assert m.entity == "Phone" and m.time == "Date" and m.clock == "Time" and m.value == "Total"
+    assert m.entity == "Phone" and m.time == "Date" and m.clock == "Time" and m.value in ("Total", "Subtotal")
     assert "Channel" in m.attrs and "Order No" in m.attrs
     j, _ = find_join(rows, report.read_table(tmp_path / "lines.csv"))
     assert (j["event_key"], j["key"], j["item"], j["item_group"]) == ("Order No", "Order No", "Item", "Category")
