@@ -1,0 +1,344 @@
+{
+  "tables": [
+    "austin_animal_intakes",
+    "chicago_building_permits",
+    "chicago_food_inspections",
+    "nyc_311",
+    "nyc_collisions",
+    "online_retail"
+  ],
+  "methods": {
+    "rules": {
+      "austin_animal_intakes": {
+        "roles": {
+          "entity": false,
+          "time": true,
+          "type": true,
+          "value": true,
+          "group": true
+        },
+        "correct": 4,
+        "exact": false,
+        "mapping": {
+          "entity": "age_upon_intake",
+          "time": "datetime2",
+          "type": null,
+          "value": null,
+          "group": null
+        }
+      },
+      "chicago_building_permits": {
+        "roles": {
+          "entity": false,
+          "time": true,
+          "type": true,
+          "value": false,
+          "group": true
+        },
+        "correct": 3,
+        "exact": false,
+        "mapping": {
+          "entity": "contact_1_zipcode",
+          "time": "issue_date",
+          "type": null,
+          "value": "street_number",
+          "group": null
+        }
+      },
+      "chicago_food_inspections": {
+        "roles": {
+          "entity": false,
+          "time": true,
+          "type": false,
+          "value": false,
+          "group": true
+        },
+        "correct": 2,
+        "exact": false,
+        "mapping": {
+          "entity": "address",
+          "time": "inspection_date",
+          "type": null,
+          "value": "license_",
+          "group": null
+        }
+      },
+      "nyc_311": {
+        "roles": {
+          "entity": false,
+          "time": true,
+          "type": false,
+          "value": false,
+          "group": true
+        },
+        "correct": 2,
+        "exact": false,
+        "mapping": {
+          "entity": "police_precinct",
+          "time": "created_date",
+          "type": null,
+          "value": "x_coordinate_state_plane",
+          "group": null
+        }
+      },
+      "nyc_collisions": {
+        "roles": {
+          "entity": false,
+          "time": true,
+          "type": true,
+          "value": false,
+          "group": true
+        },
+        "correct": 3,
+        "exact": false,
+        "mapping": {
+          "entity": "contributing_factor_vehicle_1",
+          "time": "crash_date",
+          "type": null,
+          "value": "latitude",
+          "group": null
+        }
+      },
+      "online_retail": {
+        "roles": {
+          "entity": false,
+          "time": true,
+          "type": true,
+          "value": false,
+          "group": true
+        },
+        "correct": 3,
+        "exact": false,
+        "mapping": {
+          "entity": "StockCode",
+          "time": "InvoiceDate",
+          "type": null,
+          "value": "Quantity",
+          "group": null
+        }
+      }
+    },
+    "base": {
+      "austin_animal_intakes": {
+        "roles": {
+          "entity": true,
+          "time": true,
+          "type": true,
+          "value": true,
+          "group": true
+        },
+        "correct": 5,
+        "exact": true,
+        "mapping": {
+          "entity": "animal_id",
+          "time": "datetime",
+          "type": null,
+          "value": null,
+          "group": null
+        }
+      },
+      "chicago_building_permits": {
+        "roles": {
+          "entity": false,
+          "time": false,
+          "type": true,
+          "value": false,
+          "group": true
+        },
+        "correct": 2,
+        "exact": false,
+        "mapping": null
+      },
+      "chicago_food_inspections": {
+        "roles": {
+          "entity": false,
+          "time": true,
+          "type": true,
+          "value": true,
+          "group": true
+        },
+        "correct": 4,
+        "exact": false,
+        "mapping": {
+          "entity": "inspection_id",
+          "time": "inspection_date",
+          "type": "inspection_type",
+          "value": null,
+          "group": null
+        }
+      },
+      "nyc_311": {
+        "roles": {
+          "entity": false,
+          "time": false,
+          "type": false,
+          "value": true,
+          "group": true
+        },
+        "correct": 2,
+        "exact": false,
+        "mapping": null
+      },
+      "nyc_collisions": {
+        "roles": {
+          "entity": false,
+          "time": true,
+          "type": false,
+          "value": true,
+          "group": true
+        },
+        "correct": 3,
+        "exact": false,
+        "mapping": {
+          "entity": "crash_date",
+          "time": "crash_date",
+          "type": "crash_time",
+          "value": null,
+          "group": "borough"
+        }
+      },
+      "online_retail": {
+        "roles": {
+          "entity": false,
+          "time": true,
+          "type": true,
+          "value": true,
+          "group": false
+        },
+        "correct": 3,
+        "exact": false,
+        "mapping": {
+          "entity": "Invoice",
+          "time": "InvoiceDate",
+          "type": null,
+          "value": "Price",
+          "group": "Customer ID"
+        }
+      }
+    },
+    "v2-pref": {
+      "austin_animal_intakes": {
+        "roles": {
+          "entity": true,
+          "time": true,
+          "type": true,
+          "value": true,
+          "group": true
+        },
+        "correct": 5,
+        "exact": true,
+        "mapping": {
+          "entity": "animal_id",
+          "time": "datetime",
+          "type": "intake_type",
+          "value": null,
+          "group": null
+        }
+      },
+      "chicago_building_permits": {
+        "roles": {
+          "entity": false,
+          "time": true,
+          "type": true,
+          "value": true,
+          "group": true
+        },
+        "correct": 4,
+        "exact": false,
+        "mapping": {
+          "entity": "permit_number",
+          "time": "application_start_date",
+          "type": "permit_type",
+          "value": "subtotal_paid",
+          "group": null
+        }
+      },
+      "chicago_food_inspections": {
+        "roles": {
+          "entity": false,
+          "time": true,
+          "type": false,
+          "value": true,
+          "group": true
+        },
+        "correct": 3,
+        "exact": false,
+        "mapping": {
+          "entity": "a food safety inspection",
+          "time": "inspection_date",
+          "type": null,
+          "value": null,
+          "group": null
+        }
+      },
+      "nyc_311": {
+        "roles": {
+          "entity": false,
+          "time": true,
+          "type": true,
+          "value": true,
+          "group": true
+        },
+        "correct": 4,
+        "exact": false,
+        "mapping": {
+          "entity": "incident_zip",
+          "time": "created_date",
+          "type": "complaint_type",
+          "value": null,
+          "group": "borough"
+        }
+      },
+      "nyc_collisions": {
+        "roles": {
+          "entity": true,
+          "time": true,
+          "type": true,
+          "value": true,
+          "group": true
+        },
+        "correct": 5,
+        "exact": true,
+        "mapping": {
+          "entity": "collision_id",
+          "time": "crash_date",
+          "type": "vehicle_type_code1",
+          "value": "number_of_persons_injured",
+          "group": "borough"
+        }
+      },
+      "online_retail": {
+        "roles": {
+          "entity": true,
+          "time": true,
+          "type": false,
+          "value": true,
+          "group": true
+        },
+        "correct": 4,
+        "exact": false,
+        "mapping": {
+          "entity": "Customer ID",
+          "time": "InvoiceDate",
+          "type": "Invoice",
+          "value": "Price",
+          "group": "Country"
+        }
+      }
+    }
+  },
+  "summary": {
+    "rules": {
+      "roles_correct": 0.567,
+      "exact": "0/6"
+    },
+    "base": {
+      "roles_correct": 0.633,
+      "exact": "1/6"
+    },
+    "v2-pref": {
+      "roles_correct": 0.833,
+      "exact": "2/6"
+    }
+  }
+}
