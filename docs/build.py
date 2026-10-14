@@ -259,7 +259,7 @@ def page(path: str, title: str, body: str, desc: str) -> None:
 <main>
 {body}
 </main>
-<footer><div><span>Vertiq {E(CORE.get('version', '0.1.0'))} · Apache License 2.0</span><a href="{REPO}">Source on GitHub</a><a href="{up}benchmarks.html">Benchmarks</a><a href="{up}guides/index.html">Industry guides</a></div></footer>
+<footer><div><span>Vertiq {E(CORE.get('version', '0.2.0'))} · Apache License 2.0</span><a href="{REPO}">Source on GitHub</a><a href="{up}benchmarks.html">Benchmarks</a><a href="{up}guides/index.html">Industry guides</a></div></footer>
 </body></html>
 """
     out = DOCS / path
@@ -966,7 +966,7 @@ def build_readme():
     caps = "\n".join(f"| {t} | `{a}` | {d} |" for t, d, a in CAPABILITIES)
     guides = "\n".join(f"- [{g['name']}]({SITE}guides/{g['slug']}.html): {g['blurb']}" for g in GUIDES)
     best = lm_run("v2-pref")
-    text = f"""<p align="center"><img src="docs/assets/logo.svg" alt="Vertiq" width="290"></p>
+    text = f"""<p align="center"><img src="https://raw.githubusercontent.com/BiswajitBiswa/vertiq/main/docs/assets/logo.svg" alt="Vertiq" width="290"></p>
 
 <p align="center"><b>Self-improving decision intelligence: a local language model and outcome-trained decision models,<br>improved recursively under an evaluation gate.</b></p>
 
@@ -1066,8 +1066,9 @@ flowchart LR
 ## Installation
 
 ```bash
-pip install git+https://github.com/BiswajitBiswa/vertiq
-pip install "vertiq[lm] @ git+https://github.com/BiswajitBiswa/vertiq"      # Vertiq LM tooling
+pip install vertiq                  # the decision engine: pure Python, no dependencies
+pip install "vertiq[excel]"         # also read .xlsx and .xls exports in vertiq-report
+pip install "vertiq[lm]"            # Vertiq LM tooling (Apple Silicon)
 ```
 
 ## Quick start
@@ -1095,7 +1096,7 @@ print(narrate.prediction(task.score("EQ-602"), target="breakdown", window_days=3
 From exported files to a written report, with no mapping written by hand (Vertiq proposes and checks it):
 
 ```bash
-python -m vertiq.report config.json --out report.md
+vertiq-report config.json --out report.md          # or: python -m vertiq.report config.json
 # config.json: {{"records": {{"file": "orders.xlsx"}}, "items": {{"file": "order_lines.xlsx"}}, "noun": "orders", "currency": "₹"}}
 ```
 
@@ -1237,7 +1238,7 @@ python docs/build.py && git diff --stat                 # regenerates the site a
   sector) is added as a plugin by a person and judged by the same gate.
 - `autotune` scores every trial on the same training entities, so many trials can still favour a lucky change; it keeps a change
   only when most validation folds agree, and the held-out gate makes the final decision.
-- Version 0.1. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+- Version 0.2. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 

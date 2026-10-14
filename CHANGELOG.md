@@ -2,7 +2,7 @@
 
 All notable changes are recorded here. Versions follow semantic versioning; before 1.0 the API may change between minor versions.
 
-## Unreleased
+## 0.2.0 (2026-10-14)
 
 - Held-out real-export mapping benchmark (`benchmarks/real`): six public exports from six sectors, accepted answers per
   role, never trained on. Vertiq LM 83% of roles, the untrained 4B 63%, the rule-based proposer 57%.
