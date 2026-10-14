@@ -28,7 +28,9 @@ MIN_EVIDENCE = 30
 TOTAL_LABELS = re.compile(r"^\s*(grand\s+total|sub\s*-?\s*total|totals?|sum|summe|gesamt|total\s+general|totale|somme|"
                           r"subtotal|kul|कुल|合计|総計|итого)\b", re.I)
 DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d.%m.%Y", "%Y%m%d", "%d-%m-%Y", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S",
-                "%Y-%m-%d %H:%M", "%d/%m/%Y %H:%M", "%m/%d/%Y %H:%M", "%d.%m.%Y %H:%M", "%d-%m-%Y %H:%M")
+                "%Y-%m-%d %H:%M", "%d/%m/%Y %H:%M", "%m/%d/%Y %H:%M", "%d.%m.%Y %H:%M", "%d-%m-%Y %H:%M",
+                "%d/%m/%Y %H:%M:%S", "%m/%d/%Y %H:%M:%S", "%d.%m.%Y %H:%M:%S", "%d-%m-%Y %H:%M:%S", "%m-%d-%Y %H:%M:%S",
+                "%d/%m/%Y %I:%M %p", "%m/%d/%Y %I:%M %p", "%d-%m-%Y %I:%M %p")
 
 
 @dataclass

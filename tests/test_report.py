@@ -68,3 +68,22 @@ def test_the_join_key_names_the_record_not_the_customer(tmp_path):
     used = next(x for x in log if x.startswith("Mapping used"))
     assert '"entity": "Phone"' in used and "Order No" in used
     assert any("80 of 80 records got line items" in x for x in log) and groups
+
+
+def test_a_single_line_item_table_becomes_records(tmp_path):
+    rnd = random.Random(9)
+    rows = []
+    for i in range(120):
+        inv, cust, when = f"{700000 + i}", f"{12000 + rnd.randint(0, 40)}", f"{rnd.randint(1, 28):02d}/{rnd.randint(1, 9):02d}/2026 {rnd.randint(9, 20)}:15"
+        for _ in range(rnd.randint(1, 4)):
+            item = rnd.choice(list(MENU))
+            rows.append({"Invoice": inv, "Description": item + f" {rnd.randint(1, 4)}", "Quantity": rnd.choice([1, 2, 3, 6]),
+                         "InvoiceDate": when, "Price": rnd.choice(["2.55", "4.95", "1.25", "3.75"]), "Customer ID": cust, "Country": rnd.choice(["UK", "France", "Spain"])})
+    with open(tmp_path / "lines.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    ds, groups, log = report.build({"records": {"file": "lines.csv"}, "noun": "invoices"}, tmp_path)
+    assert any("one row per item: records keyed by 'Invoice'" in x for x in log)
+    assert len(ds.events) == 120 and all(e.items for e in ds.events)
+    assert '"entity": "Customer ID"' in next(x for x in log if x.startswith("Mapping used"))
