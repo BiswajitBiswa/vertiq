@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 
-from .mapping import (_TIME_OF_DAY, MIN_EVIDENCE, Mapping, _complete, _quantities, date_formats, fitness, placeholder_ids,
+from .mapping import (_TIME_OF_DAY, MIN_EVIDENCE, Mapping, _complete, _id_numbers, _quantities, date_formats, fitness, placeholder_ids,
                       profile, structural_rows)
 
 
@@ -21,15 +21,6 @@ def _records(rows: list[dict]) -> list[dict]:
 
 def _vals(rows, c):
     return [str(r.get(c) if r.get(c) is not None else "").strip() for r in rows]
-
-
-def _id_numbers(vals: list[str]) -> bool:
-    """Whole numbers of 4 or more digits that nearly all have the same length (customer 13085, phone 9075255510):
-    identifiers. Amounts vary in length (999, 1499, 12000) or carry decimals."""
-    vs = [v for v in vals if v]
-    if not vs or not all(v.isdigit() and len(v) >= 4 for v in vs):
-        return False
-    return Counter(len(v) for v in vs).most_common(1)[0][1] >= 0.9 * len(vs)
 
 
 def propose(rows: list[dict], record_key: str | None = None, latest: bool = False) -> tuple[Mapping | None, list[str]]:
@@ -222,7 +213,8 @@ def find_lines(rows: list[dict]) -> tuple[dict | None, list[str]]:
     group = None
     for c in sorted(texts, key=lambda c: -distinct[c]):
         filled = sum(1 for v in _vals(data, c) if v) / n
-        if c in (item,) or not 3 <= distinct[c] < distinct[item] or filled < 0.8:
+        # a group has far fewer values than items; a product code beside the product name is the item again
+        if c in (item,) or not 3 <= distinct[c] <= 0.5 * distinct[item] or filled < 0.8:
             continue
         by: dict[str, Counter] = defaultdict(Counter)
         for r in data:

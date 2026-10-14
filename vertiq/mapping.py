@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from difflib import SequenceMatcher
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -173,6 +174,15 @@ def placeholder_ids(rows: list[dict], col: str) -> set[str]:
     return out
 
 
+def _id_numbers(vals: list[str]) -> bool:
+    """Whole numbers of 4 or more digits that nearly all have the same length (customer 13085, phone 9075255510):
+    identifiers. Amounts vary in length (999, 1499, 12000) or carry decimals."""
+    vs = [v for v in vals if v]
+    if not vs or not all(v.isdigit() and len(v) >= 4 for v in vs):
+        return False
+    return Counter(len(v) for v in vs).most_common(1)[0][1] >= 0.9 * len(vs)
+
+
 def fitness(rows: list[dict], col: str, role: str, kind: dict | None = None) -> float:
     """How well a column can play a role, from 0 (cannot) to 1, judged only from its values.
       entity  filled with non-placeholder values; not dates, times of day, amounts or counts; names and short
@@ -199,7 +209,8 @@ def fitness(rows: list[dict], col: str, role: str, kind: dict | None = None) -> 
             return 0.0                       # small whole numbers that repeat are counts, not identities
         if real and sum(1 for v in real if re.search(r"\d", v)) < 0.8 * len(real):
             fill *= 0.85                     # names identify less reliably than codes and numbers
-        elif len(vals) >= MIN_EVIDENCE and k == "number" and sum(1 for v in real if len(v) >= 6) < 0.8 * len(real):
+        elif len(vals) >= MIN_EVIDENCE and k == "number" and sum(1 for v in real if len(v) >= 6) < 0.8 * len(real) \
+                and not _id_numbers(real):
             fill *= 0.6                      # short plain numbers are as often prices or counts as identifiers
         if len(vals) >= MIN_EVIDENCE and len(set(real)) < 2:
             return 0.0                       # across many rows, one value everywhere carries no identity
@@ -333,9 +344,11 @@ def check(m: Mapping, rows: list[dict], exclude: set | tuple = ()) -> tuple[Mapp
         f = fitness(rows, cur, role, kind)
         if f >= 0.5:
             continue
-        # a replacement group or type must be text labels; a numeric code is kept when proposed, never chosen
+        # a replacement group or type must be text labels; a numeric code is kept when proposed, never chosen.
+        # a replacement entity must have many values: a country or store column is a label, not whom records are about
         cands = sorted(((fitness(rows, c, role, kind), c) for c in kind if c not in taken() and c not in exclude
-                        and (role not in ("group", "type") or kind[c] == "text")), reverse=True)
+                        and (role not in ("group", "type") or kind[c] == "text") and (role != "entity" or _many(rows, c))),
+                       reverse=True)
         best = cands[0] if cands else (0.0, None)
         second = cands[1][0] if len(cands) > 1 else 0.0
         if best[1] and best[0] >= 0.8 and best[0] - second >= 0.15:
@@ -354,6 +367,13 @@ def check(m: Mapping, rows: list[dict], exclude: set | tuple = ()) -> tuple[Mapp
                 break
     d["attrs"] = [a for a in d["attrs"] if a not in taken()]
     return Mapping(**d), changes
+
+
+def _many(rows: list[dict], c: str) -> bool:
+    """Enough distinct values to name whom records are about (at least 20, or 5% of the filled rows)."""
+    vals = [str(r.get(c, "") if r.get(c) is not None else "").strip() for r in rows]
+    filled = [v for v in vals if not _blank(v)]
+    return len(set(filled)) >= max(20, 0.05 * len(filled)) if len(vals) >= MIN_EVIDENCE else True
 
 
 def _why(rows, col, role, kind) -> str:

@@ -140,3 +140,21 @@ def test_a_customer_list_alone_is_read_as_one_row_per_entity(tmp_path):
     ds, _g, log = report.build({"records": {"file": "customers.csv"}}, tmp_path)
     assert any("one row per entity" in x for x in log)
     assert '"time": "Last Order"' in next(x for x in log if x.startswith("Mapping used"))
+
+
+def test_a_product_code_beside_the_product_name_is_not_an_item_group():
+    """Online-store lines carry a stock code for each product name. The code is the item again, not a group,
+    so patterns and combos speak in product names."""
+    from vertiq.tables import find_lines
+    rnd = random.Random(4)
+    products = [(f"{20000 + i}", f"PRODUCT NUMBER {i}") for i in range(60)]
+    rows = []
+    for inv in range(300):
+        at = f"2010-03-{1 + inv % 28:02d} 1{inv % 10}:00:00"
+        for code, name in rnd.sample(products, 3):
+            rows.append({"Invoice": str(489000 + inv), "StockCode": code, "Description": name,
+                         "Quantity": str(rnd.randint(1, 12)), "InvoiceDate": at, "Price": f"{rnd.uniform(1, 9):.2f}",
+                         "Customer ID": str(rnd.randint(12000, 12400))})
+    spec, _ = find_lines(rows)
+    assert spec["key"] == "Invoice" and spec["item"] in ("Description", "StockCode")
+    assert spec["item_group"] is None

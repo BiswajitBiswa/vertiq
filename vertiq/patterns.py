@@ -7,13 +7,15 @@ Every record (event) is described by features taken from the data itself:
   group        each entity group, when there are 2 to 12
   weekday      the day of the week, when records fall on more than one
   part of day  before noon, afternoon (12:00 to 17:00) or evening (17:00 on), when records carry a time
-  item groups  "includes Pizza" for each item group (or item, when there are few) on the record's line items
+  item groups  "includes Pizza" for each item group (or item, without groups) on the record's line items;
+               at most the 40 most common, so a catalogue of thousands of products stays one family of tests
 
 and every comparison is tested:
 
   value  the record's value with a feature against without it (a normal approximation to Welch's test)
   rate   how often one feature occurs with another feature against without it (two proportions), for every
-         pair of features from different sources
+         pair of features from different sources, except two item groups (vertiq.affinity covers what is
+         bought together)
 
 All p-values form one family and are filtered with Benjamini-Hochberg at `q` (10% by default), so the more
 comparisons are made, the stronger a pattern must be to be reported. A pattern must also be large enough to
@@ -31,16 +33,28 @@ from .contract import Dataset
 from .learn import benjamini_hochberg, two_proportion_p
 
 MAX_LEVELS = 12
-ITEM_LIMIT = 40          # without item groups, items themselves are features only when there are this few
+ITEM_LIMIT = 40          # at most this many item groups (or items) are features: the most common ones
 
 
-def _mean_p(a: list[float], b: list[float]) -> float:
-    if len(a) < 2 or len(b) < 2:
+def _mean_p_sums(a: tuple, b: tuple) -> float:
+    """Welch's test by a normal approximation, from (count, sum, sum of squares) of each side, values centred on the
+    overall mean."""
+    (na, sa, qa), (nb, sb, qb) = a, b
+    if na < 2 or nb < 2:
         return 1.0
-    se = math.sqrt(statistics.variance(a) / len(a) + statistics.variance(b) / len(b))
+    va, vb = max(0.0, (qa - sa * sa / na) / (na - 1)), max(0.0, (qb - sb * sb / nb) / (nb - 1))
+    se = math.sqrt(va / na + vb / nb)
+    gap = abs(sa / na - sb / nb)
     if se == 0:
-        return 1.0 if statistics.mean(a) == statistics.mean(b) else 0.0
-    return math.erfc(abs(statistics.mean(a) - statistics.mean(b)) / se / math.sqrt(2))
+        return 1.0 if gap < 1e-12 else 0.0
+    return math.erfc(gap / se / math.sqrt(2))
+
+
+def _bitset(ix: list[int], n: int) -> int:
+    buf = bytearray((n + 7) // 8)
+    for i in ix:
+        buf[i >> 3] |= 1 << (i & 7)
+    return int.from_bytes(buf, "little")
 
 
 def _part_of_day(h: int) -> str:
@@ -68,7 +82,7 @@ def features(ds: Dataset, item_groups: dict[str, str] | None = None, min_n: int 
     timed = any(e.at.hour or e.at.minute for e in events)
     weekdays = {e.at.strftime("%A") for e in events}
     item_names = {name for e in events for name, _q in (e.items or ())}
-    use_items = bool(item_groups) or len(item_names) <= ITEM_LIMIT
+    use_items = bool(item_names)
     grp_levels = {groups.get(e.entity, "") for e in events} - {""}
     types = {e.type for e in events} - {""}
     for i, e in enumerate(events):
@@ -96,13 +110,16 @@ def features(ds: Dataset, item_groups: dict[str, str] | None = None, min_n: int 
                 raw[i].add((f"item:{g}", f"includes {g}"))
     counts = Counter(f for s in raw for f in s)
     keep = {f for f, c in counts.items() if min_n <= c <= n - min_n}
+    # chosen by how often they occur, never by outcome, so the false-discovery control still holds
+    items = sorted((f for f in keep if f[0].startswith("item:")), key=lambda f: (-counts[f], f[1]))
+    keep -= set(items[ITEM_LIMIT:])
     # a two-level attribute gives two complementary features; one of them carries all the information
     by_source: dict[str, list] = defaultdict(list)
+    levels_of: dict[str, int] = Counter(f[0] for f in counts)
     for f in keep:
         by_source[f[0]].append(f)
     for src, fs in by_source.items():
-        levels = {f for s in raw for f in s if f[0] == src}
-        if len(levels) == 2 and len(fs) == 2:
+        if levels_of[src] == 2 and len(fs) == 2:
             keep.discard(sorted(fs, key=lambda f: f[1])[1])
     feats = sorted(keep)
     return [{"source": s, "label": lab} for s, lab in feats], [s & keep for s in raw]
@@ -120,35 +137,51 @@ def find(ds: Dataset, *, item_groups: dict[str, str] | None = None, noun: str = 
     values = [float(e.value or 0) for e in events]
     use_value = any(values)
     overall = statistics.mean(values) if use_value else 0.0
+    # each feature as the indices of the records that have it, and as a bitset, so every comparison is a count
+    rows: dict[tuple, list[int]] = {k: [] for k in keys}
+    for i, s in enumerate(has):
+        for k in s:
+            rows[k].append(i)
+    bits = {k: _bitset(ix, n) for k, ix in rows.items()}
     tests = []
     if use_value:
+        shifted = [v - overall for v in values]       # sums of squares around the mean keep the variance exact enough
+        tot, tot2 = sum(shifted), sum(v * v for v in shifted)
         for k in keys:
-            a = [v for v, s in zip(values, has) if k in s]
-            b = [v for v, s in zip(values, has) if k not in s]
-            tests.append({"kind": "value", "feature": k[1], "n_with": len(a), "n_without": len(b),
-                          "with": statistics.mean(a), "without": statistics.mean(b), "p": _mean_p(a, b),
-                          "big": abs(statistics.mean(a) - statistics.mean(b)) >= min_value_gap * abs(overall)})
+            ix = rows[k]
+            s1 = sum(shifted[i] for i in ix)
+            s2 = sum(shifted[i] * shifted[i] for i in ix)
+            a, b = (len(ix), s1, s2), (n - len(ix), tot - s1, tot2 - s2)
+            ma, mb = s1 / a[0] + overall, (tot - s1) / b[0] + overall
+            tests.append({"kind": "value", "feature": k[1], "n_with": a[0], "n_without": b[0],
+                          "with": ma, "without": mb, "p": _mean_p_sums(a, b),
+                          "big": abs(ma - mb) >= min_value_gap * abs(overall)})
     for i, ka in enumerate(keys):
         for kb in keys[i + 1:]:
             if ka[0] == kb[0]:
                 continue                      # levels of one attribute exclude each other by construction
+            if ka[0].startswith("item:") and kb[0].startswith("item:"):
+                continue                      # items bought together: vertiq.affinity, with its own thresholds
             # context (weekday, part of day, group) is the condition; otherwise the first feature is
             cond, out = (kb, ka) if kb[0] in ("weekday", "part_of_day", "group") and ka[0] not in ("weekday", "part_of_day", "group") else (ka, kb)
-            w = [out in s for s in has if cond in s]
-            wo = [out in s for s in has if cond not in s]
-            if len(w) < min_n or len(wo) < min_n or not (any(w) or any(wo)):
+            nw, no = len(rows[cond]), n - len(rows[cond])
+            hw = (bits[cond] & bits[out]).bit_count()
+            ho = len(rows[out]) - hw
+            if nw < min_n or no < min_n or not (hw or ho):
                 continue
-            r1, r0 = sum(w) / len(w), sum(wo) / len(wo)
-            tests.append({"kind": "rate", "feature": cond[1], "outcome": out[1], "n_with": len(w), "n_without": len(wo),
-                          "with": r1, "without": r0, "p": two_proportion_p(sum(w), len(w), sum(wo), len(wo)),
+            r1, r0 = hw / nw, ho / no
+            tests.append({"kind": "rate", "feature": cond[1], "outcome": out[1], "n_with": nw, "n_without": no,
+                          "with": r1, "without": r0, "p": two_proportion_p(hw, nw, ho, no),
                           "big": abs(r1 - r0) >= min_rate_gap})
     if not tests:
         return {"status": "ok", "records": n, "features": len(keys), "tested": 0, "found": [], "not_clear": 0}
     flags = benjamini_hochberg([t["p"] for t in tests], q)
     found = [t for t, ok in zip(tests, flags) if ok and t["big"]]
     found.sort(key=lambda t: t["p"])
+    # with several items per record, records that include any common item are bigger records; say so
+    many_items = sum(len(e.items or ()) for e in events) / n > 2
     for t in found:
-        t["text"] = _sentence(t, noun, currency)
+        t["text"] = _sentence(t, noun, currency, many_items)
         t["p_value"] = round(t.pop("p"), 6)
         for k in ("with", "without"):
             t[k] = round(t[k], 4)
@@ -189,10 +222,12 @@ def _does(label: str) -> str:
     return f"fall on {label}"
 
 
-def _sentence(t: dict, noun: str, cur: str) -> str:
+def _sentence(t: dict, noun: str, cur: str, many_items: bool = False) -> str:
     p = "p < 0.001" if t["p"] < 0.001 else f"p = {t['p']:.3f}"
     if t["kind"] == "value":
+        size = (f" Part of the gap is size: {noun} with more items are more likely to include any one item."
+                if many_items and t["feature"].startswith("includes ") else "")
         return (f"{noun.capitalize()} {_where(t['feature'])} average {cur}{t['with']:,.0f}, against {cur}{t['without']:,.0f} "
-                f"for the rest ({t['n_with']} vs {t['n_without']} {noun}; {p}).")
+                f"for the rest ({t['n_with']} vs {t['n_without']} {noun}; {p}).{size}")
     return (f"{t['with']:.0%} of {noun} {_where(t['feature'])} {_does(t['outcome'])}, against {t['without']:.0%} of the rest "
             f"({t['n_with']} vs {t['n_without']} {noun}; {p}).")

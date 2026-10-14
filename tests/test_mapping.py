@@ -99,3 +99,20 @@ def test_a_column_that_mixes_decimal_styles_reads_each_value_on_its_own():
 def test_dates_with_times_are_known_formats():
     from vertiq.mapping import date_formats
     assert date_formats(["15/01/2023 09:45", "03/02/2023 18:10"]) == ["%d/%m/%Y %H:%M"]
+
+
+def test_short_customer_numbers_stay_the_entity_and_a_country_never_replaces_them():
+    """Online-store exports: 5-digit customer numbers (an id, not a price) beside a country column with a few
+    dozen values. Repair keeps the customer; a column with few values is a label, not whom records are about."""
+    from vertiq.mapping import fitness, repair
+    import random
+    rnd = random.Random(3)
+    countries = [f"Country {i}" for i in range(24)]
+    rows = [{"Invoice": str(489434 + i), "Date": f"2010-0{1 + i % 9}-1{i % 10} 10:{i % 60:02d}:00",
+             "Customer ID": str(rnd.randint(12000, 18999)), "Country": rnd.choice(countries), "Total": f"{rnd.uniform(5, 900):.2f}"}
+            for i in range(600)]
+    assert fitness(rows, "Customer ID", "entity") > 0.9
+    m, notes = repair(Mapping(entity="Customer ID", time="Date", value="Total", attrs=["Invoice"]), rows, exclude={"Invoice"})
+    assert m.entity == "Customer ID", notes
+    m, notes = repair(Mapping(entity="Date", time="Date", value="Total"), rows, exclude={"Invoice"})
+    assert m.entity != "Country"
