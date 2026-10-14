@@ -497,7 +497,8 @@ def attach_items(ds: Dataset, rows: list[dict], *, key: str, event_key: str, ite
             groups[name] = str(r[item_group]).strip()
     events, matched = [], set()
     for e in ds.events:
-        k = str((e.attrs or {}).get(event_key) or "").strip()
+        # the key is normally kept as an attribute; when the mapping made it the entity, the entity holds it
+        k = str((e.attrs or {}).get(event_key) or "").strip() or (e.entity if event_key not in (e.attrs or {}) else "")
         if k in lines:
             matched.add(k)
             events.append(Event(e.entity, e.at, e.type, e.value, e.attrs, tuple(lines[k])))
