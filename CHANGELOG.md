@@ -2,6 +2,23 @@
 
 All notable changes are recorded here. Versions follow semantic versioning; before 1.0 the API may change between minor versions.
 
+## 0.2.1 (2026-10-14)
+
+- Reports finish on mid-size exports: UCI Online Retail II (525,461 invoice lines, 28,816 invoices, 4,600 products) in about
+  a minute, where the report did not finish before.
+  - `patterns`: each comparison is a bit count instead of a pass over every record; at most the 40 most common items or item
+    groups are features (chosen by frequency, never by outcome, so false-discovery control holds); item-with-item pairs are
+    left to `affinity`; value patterns on items say that part of the gap is basket size.
+  - `mapping`: fixed-length whole numbers of 4 or more digits count as identifiers when judging fitness, and `repair` moves
+    the entity only to a column with many values, so a country or store column never replaces the customer.
+  - `tables`: a product code beside the product name is the item again, not an item group.
+  - `affinity`: pairs need support on 1 in 1,000 bills in large data, and combos rank by frequency times log2 lift, so
+    frequent strong pairs lead instead of the rarest.
+- Vertiq LM across several Macs: `lm/mesh.py` submits LoRA sweeps and sharded evaluations to a job-queue head node and
+  collects the results; `lm/mesh_job.py` runs on the worker (leaves out over-long examples, saves every 25 steps, resumes
+  on another Mac); `lm/mesh_train.py` reports loss, validation loss, speed and peak memory through mlx-lm's training
+  callback; `lm/evaluate.py` gains `--shard` and `--progress`.
+
 ## 0.2.0 (2026-10-14)
 
 - Held-out real-export mapping benchmark (`benchmarks/real`): six public exports from six sectors, accepted answers per

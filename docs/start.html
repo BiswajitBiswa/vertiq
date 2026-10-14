@@ -169,7 +169,8 @@ join, checks everything against the rows, and writes what it can say and what it
   <li>Items bought together, when there are line items</li><li>Predictions that passed the evaluation gate, or the reason they did not</li></ul></div>
   <div class="card"><h3>Shapes it recognises</h3><ul><li>Records with a separate line-item file (orders and order lines)</li>
   <li>A single line-item file (one row per item)</li><li>One row per entity (a customer list, an asset register)</li>
-  <li>Exports with title rows, totals rows and misnamed file types</li></ul></div>
+  <li>Exports with title rows, totals rows and misnamed file types</li>
+  <li>Large line-item exports: hundreds of thousands of lines and catalogues of thousands of products</li></ul></div>
 </div></section>
 <section class="read"><h2>In Python</h2><pre><code>from vertiq.report import read_table
 from vertiq.tables import propose
