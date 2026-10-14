@@ -8,6 +8,8 @@ result hides inside an average.
 
 Run: lm/.venv/bin/python lm/evaluate.py --model lm/models/qwen3.5-4b-4bit [--adapter lm/adapters/mapping] --name base
      [--data lm/data/v2/test.jsonl] [--prompt 1|2]  (score an older model on newer tables in its own prompt format)
+     [--shard 2/4]      score every 4th table starting at the 3rd, so several machines can split one test set
+     [--progress]       print `MESH {"step": n, "metrics": {...}}` after each table, for the GPU mesh dashboard
 """
 from __future__ import annotations
 
@@ -41,10 +43,15 @@ def main():
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--data", default=str(ROOT / "data" / "test.jsonl"))
     ap.add_argument("--prompt", type=int, default=0, help="rebuild prompts as v1 or v2 from the rows (0: as stored)")
+    ap.add_argument("--shard", default="", help="i/k: score tables i, i+k, i+2k, ... (0-based)")
+    ap.add_argument("--progress", action="store_true")
     a = ap.parse_args()
     from mlx_lm import generate, load
     model, tok = load(a.model, adapter_path=a.adapter) if a.adapter else load(a.model)
     tests = [json.loads(l) for l in open(a.data)]
+    if a.shard:
+        i, k = (int(x) for x in a.shard.split("/"))
+        tests = tests[i::k]
     if a.limit:
         tests = tests[:a.limit]
     rows, started = [], time.time()
@@ -67,6 +74,10 @@ def main():
         except (ValueError, json.JSONDecodeError):
             rec.update(parsed=False, exact=False, roles=0.0, attrs=0.0, loads=False, loads_repaired=False, exact_repaired=False)
         rows.append(rec)
+        if a.progress:
+            n = len(rows)
+            print("MESH " + json.dumps({"step": n, "metrics": {"eval_exact": round(sum(r["exact"] for r in rows) / n, 4),
+                                                                "eval_roles": round(sum(r["roles"] for r in rows) / n, 4)}}), flush=True)
 
     def summary(rs):
         n = len(rs) or 1

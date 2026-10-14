@@ -42,6 +42,28 @@ memory-heavy applications before training.
 `lm/report.py --watch` writes a live page (`lm/runs/report.html`) while training runs.
 `python benchmarks/collect_lm.py` turns scored runs into `benchmarks/results/lm.json`.
 
+## Several Macs: sweeps and split evaluations
+
+`lm/mesh.py` sends work to a GPU mesh: a head node that keeps a job queue, and workers on other Apple Silicon
+Macs that run jobs while those Macs are idle. Progress, loss curves and logs show on the head's dashboard
+(`http://<head>:9400/dashboard`), including when the only worker is this Mac.
+
+```bash
+python3 lm/mesh.py sweep --name v3-sweep --data lm/data/v3 --grid lr=1e-4,2e-4 --grid layers=4,8 --iters 150
+python3 lm/mesh.py eval  --name v2-eval --adapter lm/adapters/mapping-v2 --test lm/data/v2/test.jsonl --shards 3
+python3 lm/mesh.py collect --name v3-sweep      # results to lm/runs/mesh/<name>/, with a comparison table
+```
+
+- A sweep runs one LoRA fine-tuning job per grid point (`lm/mesh_job.py train`), each scored on held-out tables
+  afterwards. Examples longer than `--maxlen` tokens are left out, not cut. Each job saves its adapter every 25
+  steps, so a job moved to another Mac continues from there.
+- An evaluation splits a test set into shards (`lm/evaluate.py --shard i/k`), one job each; `collect` merges them.
+- Only the vertiq package, the job scripts and the named data and adapter go into a job's bundle. Vertiq LM's
+  training data is generated or public.
+- Workers load the base model from Hugging Face (`VERTIQ_BASE`, default `mlx-community/Qwen3.5-4B-MLX-4bit`)
+  and need the same environment as above (`--python lm/.venv/bin/python` when starting the worker).
+- The head is `MESH_HEAD` (default `localhost:9400`); the token is `MESH_TOKEN` or the head's own token file.
+
 ## Teachers
 
 The teacher chain tries any OpenAI-compatible API teachers you configure (`TEACHER_API_KEY`, `TEACHER_BASE_URL`,
