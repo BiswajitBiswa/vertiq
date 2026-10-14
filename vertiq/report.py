@@ -117,10 +117,15 @@ def build(config: dict, base: Path = Path(".")) -> tuple[object, dict, list[str]
         log += [f"Line items: {w}" for w in why]
         if found:
             it.update(found)
+    from .tables import entity_table
+    shape = entity_table(rows) if not it else None
+    if shape and shape["counts"]:
+        log.append(f"Table shape: one row per entity (key {shape['key']!r}) with totals {shape['counts']}; each row is "
+                   "read as the entity's latest activity, and its totals describe, never predict")
     if rec.get("mapping"):
         proposal = Mapping.parse(rec["mapping"])
     else:
-        proposal, why = propose(rows, record_key=it.get("event_key"))
+        proposal, why = propose(rows, record_key=it.get("event_key"), latest=bool(shape and shape["counts"]))
         log += [f"Mapping proposal: {w}" for w in why]
         if proposal is None:
             return None, {}, log
@@ -132,6 +137,10 @@ def build(config: dict, base: Path = Path(".")) -> tuple[object, dict, list[str]
     log += [f"Mapping used: {json.dumps(m.as_dict())}"] + [f"Mapping check: {n}" for n in notes]
     log += [f"Loading: {p}" for p in problems[:12]] + ([f"Loading: and {len(problems) - 12} more"] if len(problems) > 12 else [])
     groups: dict = {}
+    if config.get("entities"):                        # a customer list, asset register or policy master
+        from .tables import attach_entities
+        ds, more, _labels = attach_entities(ds, read_table(base / config["entities"]["file"]), config["entities"].get("key"))
+        log += [f"Entities: {n}" for n in more]
     if it:
         if it.get("key"):
             ds, groups, more = attach_items(ds, lines, key=it["key"], event_key=it["event_key"], item=it["item"],

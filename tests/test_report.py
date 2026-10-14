@@ -103,3 +103,40 @@ def test_repeating_names_are_the_entity_and_full_totals_rows_are_skipped(tmp_pat
     assert '"entity": "Customer"' in next(x for x in log if x.startswith("Mapping used"))
     assert any("summary row" in x for x in log) and len(ds.events) == 200
     assert any(x.startswith("Mapping proposal: confirm: value") for x in log)
+
+
+def _customers(tmp_path, n=300, seed=8):
+    rnd = random.Random(seed)
+    custs, orders = [], []
+    for i in range(n):
+        cid, seg = f"{40000 + i}", rnd.choice(["Gold", "Silver", "Basic"])
+        k = rnd.randint(1, 6)
+        first = rnd.randint(1, 200)
+        spend = 0
+        for j in range(k):
+            day = first + j * rnd.randint(5, 30)
+            amount = (900 if seg == "Gold" else 300) + rnd.randint(0, 100)
+            spend += amount
+            orders.append({"Order": f"OR{len(orders):05d}", "Customer": cid, "Date": f"2026-{1 + day // 30 % 12:02d}-{1 + day % 28:02d}", "Amount": amount})
+        custs.append({"Customer Id": cid, "Segment": seg, "Orders": k, "Spend": spend, "First Order": f"2026-01-{1 + first % 28:02d}",
+                      "Last Order": f"2026-09-{1 + (first + k) % 28:02d}"})
+    for name, rows in (("customers.csv", custs), ("orders.csv", orders)):
+        with open(tmp_path / name, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(rows[0]))
+            w.writeheader()
+            w.writerows(rows)
+
+
+def test_entity_table_labels_join_events_and_show_in_patterns(tmp_path):
+    _customers(tmp_path)
+    cfg = {"records": {"file": "orders.csv"}, "entities": {"file": "customers.csv"}, "noun": "orders"}
+    text = report.run(cfg, tmp_path)
+    assert "entity table joined on 'Customer Id'" in text
+    assert "where Segment is Gold average" in text or "where Segment is Basic average" in text
+
+
+def test_a_customer_list_alone_is_read_as_one_row_per_entity(tmp_path):
+    _customers(tmp_path)
+    ds, _g, log = report.build({"records": {"file": "customers.csv"}}, tmp_path)
+    assert any("one row per entity" in x for x in log)
+    assert '"time": "Last Order"' in next(x for x in log if x.startswith("Mapping used"))

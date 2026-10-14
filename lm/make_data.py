@@ -25,7 +25,7 @@ import json
 import random
 import re
 import sys
-from datetime import date, timedelta
+from datetime import datetime, date, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -275,6 +275,63 @@ def example(dom: str, r: random.Random) -> tuple[str, dict]:
     return render(table), {**truth, "_rows": table}
 
 
+# v3: what real exports carry besides the record itself. Wide tables, several amount columns, a second date,
+# free text, empty and placeholder columns, ISO timestamps. None of these columns belongs in the mapping.
+MESS = {
+    "address": [["street_number", "street_name", "city", "state", "zip"], ["address", "locality", "pincode"]],
+    "coords": [["latitude", "longitude", "location"]],
+    "contact": [["contact_1_name", "contact_1_type", "contact_1_city"], ["captain", "created_by"]],
+    "fees": [["fee_paid", "fee_unpaid", "fee_waived", "subtotal_paid"], ["tax", "round_off", "charges"]],
+    "text": [["description", "notes"], ["resolution_description"], ["violations", "comments"]],
+    "empty": [["landmark", "email", "gstin", "descriptor_2", "anniversary"]],
+    "placeholder": [["remarks", "external_id", "pax"]],
+    "dates": [["closed_date", "due_date", "last_modified", "resolution_updated"]],
+}
+WORDS = "the of pothole sink handwashing repaired inspected closed pending water leak front store sign permit noise heat".split()
+
+
+def add_mess(prompt: str, truth: dict, r: random.Random) -> tuple[str, dict]:
+    """Distractor columns added to a table, and sometimes ISO timestamps on the time column; the mapping is
+    unchanged, since none of the added columns plays a role."""
+    rows = truth["_rows"]
+    used = set(rows[0])
+    for kind in r.sample(list(MESS), r.randint(3, len(MESS))):
+        for name in r.choice(MESS[kind]):
+            if name in used:
+                continue
+            used.add(name)
+            for i, row in enumerate(rows):
+                if kind == "address":
+                    row[name] = r.choice([str(r.randint(10, 9999)), "MAIN ST", "CHICAGO", "IL", str(r.randint(10000, 99999))])
+                elif kind == "coords":
+                    row[name] = f"{r.uniform(-90, 90):.6f}"
+                elif kind == "contact":
+                    row[name] = r.choice(["", "OWNER", "ARCHITECT", "R. SHARMA", "J. LEE", "NAPERVILLE"])
+                elif kind == "fees":
+                    row[name] = r.choice(["0", "0", str(r.randint(10, 900))])
+                elif kind == "text":
+                    row[name] = " ".join(r.choice(WORDS) for _ in range(r.randint(4, 12))).upper()
+                elif kind == "empty":
+                    row[name] = ""
+                elif kind == "placeholder":
+                    row[name] = r.choice(["-", "N/A", "0"])
+                else:
+                    row[name] = r.choice(["", f"2026-{r.randint(1, 12):02d}-{r.randint(1, 28):02d}T{r.randint(0, 23):02d}:00:00.000"])
+    if r.random() < 0.3:                                       # ISO timestamps on the time column
+        try:
+            stamps = [datetime.strptime(rw[truth["time"]], truth["date_format"]) for rw in rows]
+            for rw, t in zip(rows, stamps):
+                rw[truth["time"]] = t.strftime("%Y-%m-%dT%H:%M:%S") + ".000"
+            truth["date_format"] = "%Y-%m-%dT%H:%M:%S.%f"
+        except (ValueError, KeyError):
+            pass
+    cols = list(rows[0])
+    r.shuffle(cols)
+    table = [{c: str(rw.get(c, "")) for c in cols} for rw in rows]
+    truth["_rows"] = table
+    return render(table), truth
+
+
 def chat(prompt: str, truth: dict, dom: str) -> dict:
     ans = json.dumps({k: v for k, v in truth.items() if not k.startswith("_")}, ensure_ascii=False)
     return {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": ans}],
@@ -284,7 +341,14 @@ def chat(prompt: str, truth: dict, dom: str) -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT / "data" / "v2"))
+    ap.add_argument("--messy", type=float, default=0.0, help="share of tables given real-export clutter (v3)")
     a = ap.parse_args()
+
+    def make(dom):
+        prompt, truth = example(dom, r)
+        if a.messy and r.random() < a.messy:
+            prompt, truth = add_mess(prompt, truth, r)
+        return chat(prompt, truth, dom)
     r = random.Random(SEED)
     domains = sorted(D)
     unseen = sorted(r.sample(domains, UNSEEN))
@@ -293,10 +357,10 @@ def main():
     for dom in seen:
         for split, n in (("train", PER_DOMAIN_TRAIN), ("valid", PER_DOMAIN_VALID), ("test", PER_DOMAIN_TEST // 2)):
             for _ in range(n):
-                out[split].append(chat(*example(dom, r), dom) | {"seen": True})
+                out[split].append(make(dom) | {"seen": True})
     for dom in unseen:
         for _ in range(PER_DOMAIN_TEST):
-            out["test"].append(chat(*example(dom, r), dom) | {"seen": False})
+            out["test"].append(make(dom) | {"seen": False})
     data = Path(a.out)
     data.mkdir(parents=True, exist_ok=True)
     for split, rows in out.items():

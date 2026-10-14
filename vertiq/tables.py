@@ -26,7 +26,7 @@ def _id_numbers(vals: list[str]) -> bool:
     return Counter(len(v) for v in vs).most_common(1)[0][1] >= 0.9 * len(vs)
 
 
-def propose(rows: list[dict], record_key: str | None = None) -> tuple[Mapping | None, list[str]]:
+def propose(rows: list[dict], record_key: str | None = None, latest: bool = False) -> tuple[Mapping | None, list[str]]:
     """A mapping chosen from the values: the time is the date column that is filled best, with a separate
     time-of-day column if there is one; the value is the most complete amount column; the entity is the best
     identifier that repeats (a person or asset), else the best identifier; attributes are the remaining
@@ -43,6 +43,20 @@ def propose(rows: list[dict], record_key: str | None = None) -> tuple[Mapping | 
     if not dates or dates[0][0] < 0.5:
         return None, ["no column holds dates"]
     time = dates[0][1]
+    if latest:                                        # one row per entity: the latest date column is the last activity
+        good = [c for f, c in dates if f >= 0.5]
+
+        def last(c):
+            fs = date_formats(_vals(data, c))
+            from datetime import datetime as _dt
+            got = []
+            for v in _vals(data, c):
+                try:
+                    got.append(_dt.strptime(v, fs[0]))
+                except (ValueError, IndexError):
+                    pass
+            return sorted(got)[len(got) // 2] if got else _dt.min
+        time = max(good, key=last) if good else time
     fmts = date_formats(_vals(data, time))
     clock = next((c for c in kind if c != time and sum(1 for v in _vals(data, c) if _TIME_OF_DAY.match(v)) >= 0.8 * len(data)), None)
     amounts = [c for c in kind if kind[c] == "number" and fitness(data, c, "value", kind) >= 0.5 and c not in _quantities(data, kind)
@@ -248,3 +262,61 @@ def records_from_lines(rows: list[dict], spec: dict) -> list[dict]:
         rec["Line value"] = f"{total:.2f}"
         out.append(rec)
     return out
+
+
+def entity_table(rows: list[dict]) -> dict | None:
+    """Whether a table has one row per entity (a customer list, an asset register, a policy master): an
+    identifier column that differs on (nearly) every row. Returns {"key", "dates", "counts"}: the date columns
+    (first and last activity, renewal) and whole-number columns, which in such tables are usually totals
+    computed when the file was exported. None when no column identifies each row."""
+    data = [r for i, r in enumerate(rows, start=1) if i not in structural_rows(rows)]
+    if len(data) < MIN_EVIDENCE:
+        return None
+    kind = profile(data)
+    keys = []
+    for c in kind:
+        real = [v for v in _vals(data, c) if v not in placeholder_ids(data, c)]
+        if len(real) >= 0.8 * len(data) and len(set(real)) >= 0.98 * len(real) and kind[c] != "date" and \
+                (_id_numbers(real) or sum(1 for v in real if any(ch.isdigit() for ch in v)) >= 0.8 * len(real)):
+            keys.append((len(real), c))
+    if not keys:
+        return None
+    key = max(keys)[1]
+    dates = [c for c in kind if kind[c] == "date"]
+    counts = [c for c in _quantities(data, kind) if c != key]
+    return {"key": key, "dates": dates, "counts": counts}
+
+
+def attach_entities(ds, rows: list[dict], key: str | None = None) -> tuple[object, list[str], set]:
+    """Entity attributes from a table with one row per entity, joined to the dataset's entities by the column
+    whose values match most entity ids (at least 30% of entities). Returns the dataset, notes, and the names of
+    attributes that are fixed labels (safe as prediction features); dates and numbers in such tables are often
+    totals computed at export time and would leak the future into a prediction, so they are kept for
+    description only."""
+    from .contract import Dataset, Entity
+    data = [r for i, r in enumerate(rows, start=1) if i not in structural_rows(rows)]
+    ids = {e.id for e in ds.entities}
+    if key is None:
+        best = (0.0, None)
+        for c in (data[0] if data else {}):
+            share = len(set(_vals(data, c)) & ids) / max(1, len(ids))
+            if share > best[0]:
+                best = (share, c)
+        if best[0] < 0.3:
+            return ds, [f"entity table: no column matches the entity ids (best {best[0]:.0%})"], set()
+        key = best[1]
+    kind = profile(data)
+    labels = {c for c in kind if c != key and kind[c] == "text" and 2 <= len(set(_vals(data, c)) - {"", "-"}) <= 12}
+    by = {str(r.get(key) or "").strip(): r for r in data}
+    ents, matched = [], 0
+    for e in ds.entities:
+        r = by.get(e.id)
+        if r:
+            matched += 1
+            extra = {c: r[c] for c in r if c != key and str(r[c]).strip() not in ("", "-")}
+            ents.append(Entity(e.id, e.group, {**(e.attrs or {}), **extra}))
+        else:
+            ents.append(e)
+    note = (f"entity table joined on {key!r}: {matched} of {len(ds.entities)} entities found; fixed labels "
+            f"{sorted(labels) or 'none'} can describe and predict; dates and totals describe only")
+    return Dataset(ents, ds.events, ds.actions), [note], labels
