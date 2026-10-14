@@ -1,0 +1,18 @@
+{
+  "_about": "Held-out real exports for table mapping. Never used for training. Each role lists every acceptable answer (null = no column). Sources are public open data; the tables are fetched by benchmarks/real/fetch.sh and not stored in the repository.",
+  "austin_animal_intakes": {"source": "https://data.austintexas.gov/resource/wter-evkm.csv?$limit=500", "sector": "animal care",
+    "entity": ["animal_id"], "time": ["datetime", "datetime2"], "type": ["intake_type", null], "value": [null], "group": ["animal_type", "intake_condition", null]},
+  "chicago_building_permits": {"source": "https://data.cityofchicago.org/resource/ydr8-5enu.csv?$limit=500", "sector": "permits",
+    "entity": ["permit_", "id", "contact_1_name"], "time": ["issue_date", "application_start_date"], "type": ["permit_type", "review_type", null],
+    "value": ["total_fee", "subtotal_paid", "building_fee_paid", "building_fee_subtotal"], "group": ["review_type", "permit_type", "contact_1_type", "work_type", null]},
+  "chicago_food_inspections": {"source": "https://data.cityofchicago.org/resource/4ijn-s7e5.csv?$limit=500", "sector": "inspections",
+    "entity": ["license_", "dba_name"], "time": ["inspection_date"], "type": ["inspection_type", "results"], "value": [null], "group": ["facility_type", "risk", "zip", null]},
+  "nyc_311": {"source": "https://data.cityofnewyork.us/resource/erm2-nwe9.csv?$limit=500", "sector": "city services",
+    "entity": ["incident_address", "bbl", "unique_key", "street_name"], "time": ["created_date"], "type": ["complaint_type", "descriptor"], "value": [null],
+    "group": ["agency", "agency_name", "borough", "community_board", "city", null]},
+  "nyc_collisions": {"source": "https://data.cityofnewyork.us/resource/h9gi-nx95.csv?$limit=500", "sector": "road safety",
+    "entity": ["collision_id", "on_street_name"], "time": ["crash_date"], "type": ["contributing_factor_vehicle_1", "vehicle_type_code1", null],
+    "value": ["number_of_persons_injured", null], "group": ["borough", "zip_code", null]},
+  "online_retail": {"source": "https://archive.ics.uci.edu/dataset/502/online+retail+ii (first 500 lines)", "sector": "retail",
+    "entity": ["Customer ID"], "time": ["InvoiceDate"], "type": [null, "Country"], "value": ["Price", null], "group": ["Country", null]}
+}

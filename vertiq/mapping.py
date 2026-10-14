@@ -30,7 +30,7 @@ TOTAL_LABELS = re.compile(r"^\s*(grand\s+total|sub\s*-?\s*total|totals?|sum|summ
 DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d.%m.%Y", "%Y%m%d", "%d-%m-%Y", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S",
                 "%Y-%m-%d %H:%M", "%d/%m/%Y %H:%M", "%m/%d/%Y %H:%M", "%d.%m.%Y %H:%M", "%d-%m-%Y %H:%M",
                 "%d/%m/%Y %H:%M:%S", "%m/%d/%Y %H:%M:%S", "%d.%m.%Y %H:%M:%S", "%d-%m-%Y %H:%M:%S", "%m-%d-%Y %H:%M:%S",
-                "%d/%m/%Y %I:%M %p", "%m/%d/%Y %I:%M %p", "%d-%m-%Y %I:%M %p")
+                "%d/%m/%Y %I:%M %p", "%m/%d/%Y %I:%M %p", "%d-%m-%Y %I:%M %p", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M")
 
 
 @dataclass
@@ -316,6 +316,13 @@ def check(m: Mapping, rows: list[dict], exclude: set | tuple = ()) -> tuple[Mapp
         changes.append(f"attrs: row counters dropped {dropped}")
         d["attrs"] = [a for a in d["attrs"] if a not in dropped]
     # fitness: a role whose column cannot play it is moved to the clearly best free column, or flagged
+    for role in ("entity", "time"):
+        cur = d[role]
+        if cur is not None and cur not in kind:      # an invented name: snap() found no similar column
+            cands = sorted(((fitness(rows, c, role, kind), c) for c in kind if c not in taken() and c not in exclude), reverse=True)
+            if cands and cands[0][0] >= 0.5 and (len(cands) < 2 or cands[0][0] - cands[1][0] >= 0.15):
+                changes.append(f"{role}: {cur!r} isn't a column -> {cands[0][1]!r}, the best-fitting one")
+                d[role] = cands[0][1]
     for role in ("entity", "time", "value", "group"):
         cur = d[role]
         if cur is None or cur not in kind:
