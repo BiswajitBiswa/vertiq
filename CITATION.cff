@@ -4,7 +4,6 @@ title: "Vertiq: decision models trained on a business's own outcomes"
 authors:
   - family-names: Tripathy
     given-names: Biswajit
-    affiliation: Ideator Labs
 version: 0.1.0
 date-released: 2026-10-11
 license: Apache-2.0
