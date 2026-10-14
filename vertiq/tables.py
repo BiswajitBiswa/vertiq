@@ -17,6 +17,15 @@ def _vals(rows, c):
     return [str(r.get(c) if r.get(c) is not None else "").strip() for r in rows]
 
 
+def _id_numbers(vals: list[str]) -> bool:
+    """Whole numbers of 4 or more digits that nearly all have the same length (customer 13085, phone 9075255510):
+    identifiers. Amounts vary in length (999, 1499, 12000) or carry decimals."""
+    vs = [v for v in vals if v]
+    if not vs or not all(v.isdigit() and len(v) >= 4 for v in vs):
+        return False
+    return Counter(len(v) for v in vs).most_common(1)[0][1] >= 0.9 * len(vs)
+
+
 def propose(rows: list[dict], record_key: str | None = None) -> tuple[Mapping | None, list[str]]:
     """A mapping chosen from the values: the time is the date column that is filled best, with a separate
     time-of-day column if there is one; the value is the most complete amount column; the entity is the best
@@ -36,7 +45,8 @@ def propose(rows: list[dict], record_key: str | None = None) -> tuple[Mapping | 
     time = dates[0][1]
     fmts = date_formats(_vals(data, time))
     clock = next((c for c in kind if c != time and sum(1 for v in _vals(data, c) if _TIME_OF_DAY.match(v)) >= 0.8 * len(data)), None)
-    amounts = [c for c in kind if kind[c] == "number" and fitness(data, c, "value", kind) >= 0.5 and c not in _quantities(data, kind)]
+    amounts = [c for c in kind if kind[c] == "number" and fitness(data, c, "value", kind) >= 0.5 and c not in _quantities(data, kind)
+               and not _id_numbers(_vals(data, c))]
     value = None
     if amounts:
         # prefer a column no other amount column is more complete than, then the one with the fewest zeros
@@ -52,10 +62,10 @@ def propose(rows: list[dict], record_key: str | None = None) -> tuple[Mapping | 
             continue                                  # records without an id become one-off entities (reported)
         real = [v for v in _vals(data, c) if v not in placeholder_ids(data, c)]
         distinct = len(set(real)) / max(1, len(real))
-        # an identifier is a code with letters and digits, or a long number (an account or phone number);
-        # short plain numbers are amounts or counts
-        coded = sum(1 for v in real if any(ch.isdigit() for ch in v)
-                    and (any(ch.isalpha() for ch in v) or len(v.replace(" ", "")) >= 6)) >= 0.8 * len(real)
+        # an identifier is a code with letters and digits, a fixed-length whole number (an account, customer or phone
+        # number), or a long number; short numbers and numbers with decimals are amounts or counts
+        coded = _id_numbers(real) or sum(1 for v in real if any(ch.isdigit() for ch in v)
+                                         and (any(ch.isalpha() for ch in v) or len(v.replace(" ", "")) >= 6)) >= 0.8 * len(real)
         if coded and distinct >= 0.3:
             ids.append((distinct < 0.98, f, c))       # repeating identifiers first: they name who the record is about
     if not ids:
@@ -126,3 +136,109 @@ def find_join(records: list[dict], lines: list[dict]) -> tuple[dict | None, list
     out = {"event_key": event_key, "key": key, "item": item, "qty": qty, "item_group": group}
     return out, [f"joined on {event_key!r} = {key!r} ({best[0]:.0%} of records); item {item!r}"
                  + (f", item group {group!r}" if group else "") + (f", quantity {qty!r}" if qty else "")]
+
+
+def find_lines(rows: list[dict]) -> tuple[dict | None, list[str]]:
+    """Whether a single table holds line items (one row per item) rather than records, and its columns:
+    {"key", "item", "qty", "price", "amount", "item_group"}. The key is a coded column that repeats (2% to 90%
+    distinct) and whose rows share one timestamp in at least 95% of keys; the item is the text column with the
+    most distinct values; quantity and price are found from their values. None when the table is not lines."""
+    data = [r for i, r in enumerate(rows, start=1) if i not in structural_rows(rows)]
+    n = len(data)
+    if n < MIN_EVIDENCE:
+        return None, []
+    kind = profile(data)
+    dates = [c for c in kind if kind[c] == "date"]
+    if not dates:
+        return None, []
+    time = max(dates, key=lambda c: sum(1 for v in _vals(data, c) if v))
+    best = None
+    for c in kind:
+        if c in dates:
+            continue
+        vals = _vals(data, c)
+        distinct = len(set(v for v in vals if v))
+        if not 0.02 * n <= distinct <= 0.9 * n or sum(1 for v in vals if any(ch.isdigit() for ch in v)) < 0.8 * n:
+            continue
+        times: dict[str, set] = defaultdict(set)
+        for r, v in zip(data, vals):
+            times[v].add(str(r.get(time) or ""))
+        same = sum(1 for t in times.values() if len(t) == 1) / max(1, len(times))
+        if same >= 0.95 and (best is None or distinct > best[1]):
+            best = (c, distinct)
+    if not best:
+        return None, []
+    key = best[0]
+    texts = [c for c in kind if kind[c] == "text" and c != key]
+    distinct = {c: len(set(_vals(data, c)) - {""}) for c in texts}
+    items = [c for c in texts if distinct[c] >= 10]
+    if not items:
+        return None, []
+    item = max(items, key=lambda c: distinct[c])
+    nums = [c for c in kind if kind[c] == "number" and c != key]
+    whole = [c for c in nums if all(float(v).is_integer() for v in _vals(data, c) if _isnum(v))
+             and sum(1 for v in _vals(data, c) if _isnum(v) and 1 <= abs(float(v)) <= 100) >= 0.7 * n]
+    qty = whole[0] if whole else None
+    prices = [c for c in nums if c != qty and any("." in v for v in _vals(data, c)[:200])]
+    price = prices[0] if prices else None
+    amount = None
+    if qty and price:
+        for c in nums:
+            if c in (qty, price):
+                continue
+            ok = sum(1 for r in data if _isnum(r.get(c)) and _isnum(r.get(qty)) and _isnum(r.get(price))
+                     and abs(float(r[c]) - float(r[qty]) * float(r[price])) <= 0.01 * max(1.0, abs(float(r[c]))))
+            if ok >= 0.9 * n:
+                amount = c
+                break
+    group = None
+    for c in sorted(texts, key=lambda c: -distinct[c]):
+        filled = sum(1 for v in _vals(data, c) if v) / n
+        if c in (item,) or not 3 <= distinct[c] < distinct[item] or filled < 0.8:
+            continue
+        by: dict[str, Counter] = defaultdict(Counter)
+        for r in data:
+            by[str(r.get(item) or "").strip()][str(r.get(c) or "").strip()] += 1
+        if sum(cnt.most_common(1)[0][1] for cnt in by.values()) / n >= 0.95:
+            group = c
+            break
+    spec = {"key": key, "item": item, "qty": qty, "price": price, "amount": amount, "item_group": group, "time": time}
+    return spec, [f"one row per item: records keyed by {key!r} ({best[1]} records from {n} lines), item {item!r}"
+                  + (f", quantity {qty!r}" if qty else "") + (f", price {price!r}" if price else "")
+                  + (f", line amount {amount!r}" if amount else "") + (f", item group {group!r}" if group else "")]
+
+
+def _isnum(v) -> bool:
+    try:
+        float(str(v).replace(",", ""))
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def records_from_lines(rows: list[dict], spec: dict) -> list[dict]:
+    """One row per record from a line table: the record's columns taken from its first line (those that are the
+    same on all its lines), and "Line value" = the sum of the line amounts, or of quantity x price."""
+    skip = structural_rows(rows)
+    by: dict[str, list] = defaultdict(list)
+    for i, r in enumerate(rows, start=1):
+        k = str(r.get(spec["key"]) or "").strip()
+        if i not in skip and k:
+            by[k].append(r)
+    line_cols = {spec["item"], spec.get("qty"), spec.get("price"), spec.get("amount"), spec.get("item_group")} - {None}
+    out = []
+    for k, ls in by.items():
+        first = ls[0]
+        rec = {c: v for c, v in first.items() if c not in line_cols and all(str(x.get(c)) == str(v) for x in ls)}
+        total = 0.0
+        for x in ls:
+            try:
+                if spec.get("amount"):
+                    total += float(str(x[spec["amount"]]).replace(",", ""))
+                elif spec.get("qty") and spec.get("price"):
+                    total += float(str(x[spec["qty"]]).replace(",", "")) * float(str(x[spec["price"]]).replace(",", ""))
+            except (TypeError, ValueError):
+                continue
+        rec["Line value"] = f"{total:.2f}"
+        out.append(rec)
+    return out
