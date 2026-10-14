@@ -65,7 +65,7 @@ def build(config: dict, base: Path = Path(".")) -> tuple[object, dict, list[str]
         log += [f"Mapping proposal: {w}" for w in why]
         if proposal is None:
             return None, {}, log
-    m, notes = repair(proposal, rows)
+    m, notes = repair(proposal, rows, exclude={it["event_key"]} if it.get("event_key") else ())
     ds, problems = apply(m, rows)
     if ds.events and not any(e.type for e in ds.events):
         name = config.get("event", "record")

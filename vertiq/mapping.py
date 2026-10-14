@@ -282,10 +282,11 @@ def _int_ids(rows: list[dict], c: str) -> bool:
     return len(set(vals)) == len(vals) and all(v.isdigit() for v in vals)
 
 
-def check(m: Mapping, rows: list[dict]) -> tuple[Mapping, list[str]]:
+def check(m: Mapping, rows: list[dict], exclude: set | tuple = ()) -> tuple[Mapping, list[str]]:
     """Hold each role to what its values can be: time holds dates, the entity is not a date, the value
     is a number, and a row counter carries no information. A role is only moved when the data leaves
-    exactly one candidate; otherwise it is left alone. Returns the mapping and what was changed."""
+    exactly one candidate; otherwise it is left alone. Returns the mapping and what was changed.
+    `exclude`: columns never offered as a replacement (for example a key that identifies each record)."""
     kind, changes = profile(rows), []
     if not kind:
         return m, changes
@@ -320,7 +321,7 @@ def check(m: Mapping, rows: list[dict]) -> tuple[Mapping, list[str]]:
         if f >= 0.5:
             continue
         # a replacement group or type must be text labels; a numeric code is kept when proposed, never chosen
-        cands = sorted(((fitness(rows, c, role, kind), c) for c in kind if c not in taken()
+        cands = sorted(((fitness(rows, c, role, kind), c) for c in kind if c not in taken() and c not in exclude
                         and (role not in ("group", "type") or kind[c] == "text")), reverse=True)
         best = cands[0] if cands else (0.0, None)
         second = cands[1][0] if len(cands) > 1 else 0.0
@@ -354,11 +355,12 @@ def _why(rows, col, role, kind) -> str:
     return {"time": "not dates", "value": "not an amount", "group": "not a set of repeated labels"}.get(role, "unfit")
 
 
-def repair(m: Mapping, rows: list[dict]) -> tuple[Mapping, list[str]]:
+def repair(m: Mapping, rows: list[dict], exclude: set | tuple = ()) -> tuple[Mapping, list[str]]:
     """Everything the data can settle, in order: names snapped to real columns, roles held to their
-    value types, then the date format decided by the rows. The model proposes; the data disposes."""
+    value types, then the date format decided by the rows. The model proposes; the data disposes.
+    `exclude`: columns never offered as a replacement role (see check)."""
     m, notes = snap(m, list(rows[0]) if rows else [])
-    m, more = check(m, rows)
+    m, more = check(m, rows, exclude)
     m, note = fix_dates(m, rows)
     return m, notes + more + ([note] if note else [])
 

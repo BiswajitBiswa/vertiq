@@ -48,8 +48,8 @@ def propose(rows: list[dict], record_key: str | None = None) -> tuple[Mapping | 
         if c in (time, clock, value, record_key):
             continue
         f = fitness(data, c, "entity", kind)
-        if f < 0.5:
-            continue
+        if f < 0.2:
+            continue                                  # records without an id become one-off entities (reported)
         real = [v for v in _vals(data, c) if v not in placeholder_ids(data, c)]
         distinct = len(set(real)) / max(1, len(real))
         # an identifier is a code with letters and digits, or a long number (an account or phone number);
@@ -69,6 +69,9 @@ def propose(rows: list[dict], record_key: str | None = None) -> tuple[Mapping | 
               and 2 <= len(set(v for v in _vals(data, c) if v)) <= 12 and n >= 2]
     m = Mapping(entity=entity, time=time, value=value, attrs=labels + record_keys, date_format=fmts[0] if fmts else "%Y-%m-%d",
                 clock=clock)
+    fill = ids[0][1]
+    if fill < 0.8:
+        notes.append(f"{entity!r} is filled on {fill:.0%} of records; the rest have no id and count as one-off entities")
     notes.append(f"proposed from the values: entity {entity!r}, time {time!r}" + (f" with time of day {clock!r}" if clock else "")
                  + (f", value {value!r}" if value else "") + (f", attributes {labels + record_keys}" if labels or record_keys else ""))
     if len(fmts) > 1:
