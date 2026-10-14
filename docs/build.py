@@ -812,6 +812,10 @@ with its original prompt format.</p>{table(runs_v2)}</section>
   {lm_run('v2-sft')['unseen']['exact_repaired'] * 100:.1f}% to {lm_run('v2-pref')['unseen']['exact_repaired'] * 100:.1f}%. To fit 16 GB, the 8% of preference
   examples longer than 460 tokens were left out. DPO was not used because it keeps a second copy of the model. Constrained
   decoding was evaluated and not adopted: it would correct 2 of 88 remaining errors.</p></div>
+  <div class="card"><h3>Several Macs</h3><p><code>lm/mesh.py</code> sends LoRA sweeps (one job per setting) and evaluations split into
+  shards to a job-queue head node; workers on other Apple Silicon Macs run them while those Macs are idle and on wall power. Loss,
+  validation loss and peak memory stream to the head's dashboard. A job saves its adapter every 25 steps and resumes on another Mac
+  if its own is needed. Only the vertiq package, the job scripts and the named data go to a worker.</p></div>
   <div class="card"><h3>Reproduction</h3><p><code>lm/make_data.py</code>, <code>lm/train.sh</code>, <code>lm/evaluate.py</code>,
   <code>lm/collect_failures.py</code> and <code>lm/pref.sh</code>; <code>lm/round3.sh</code> runs the production-like round end to end.</p></div>
 </section>"""
@@ -1027,7 +1031,8 @@ join, checks everything against the rows, and writes what it can say and what it
   <li>Items bought together, when there are line items</li><li>Predictions that passed the evaluation gate, or the reason they did not</li></ul></div>
   <div class="card"><h3>Shapes it recognises</h3><ul><li>Records with a separate line-item file (orders and order lines)</li>
   <li>A single line-item file (one row per item)</li><li>One row per entity (a customer list, an asset register)</li>
-  <li>Exports with title rows, totals rows and misnamed file types</li></ul></div>
+  <li>Exports with title rows, totals rows and misnamed file types</li>
+  <li>Large line-item exports: hundreds of thousands of lines and catalogues of thousands of products</li></ul></div>
 </div></section>
 <section class="read"><h2>In Python</h2><pre><code>{E(py)}</code></pre>
 <p>Domain knowledge goes in as plugins (features, rules, learners), and every addition is judged by the same evaluation gate.

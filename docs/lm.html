@@ -180,6 +180,10 @@ with its original prompt format.</p><div class="tbl"><table><thead><tr><th>Model
   33.3% to 41.7%. To fit 16 GB, the 8% of preference
   examples longer than 460 tokens were left out. DPO was not used because it keeps a second copy of the model. Constrained
   decoding was evaluated and not adopted: it would correct 2 of 88 remaining errors.</p></div>
+  <div class="card"><h3>Several Macs</h3><p><code>lm/mesh.py</code> sends LoRA sweeps (one job per setting) and evaluations split into
+  shards to a job-queue head node; workers on other Apple Silicon Macs run them while those Macs are idle and on wall power. Loss,
+  validation loss and peak memory stream to the head's dashboard. A job saves its adapter every 25 steps and resumes on another Mac
+  if its own is needed. Only the vertiq package, the job scripts and the named data go to a worker.</p></div>
   <div class="card"><h3>Reproduction</h3><p><code>lm/make_data.py</code>, <code>lm/train.sh</code>, <code>lm/evaluate.py</code>,
   <code>lm/collect_failures.py</code> and <code>lm/pref.sh</code>; <code>lm/round3.sh</code> runs the production-like round end to end.</p></div>
 </section>
