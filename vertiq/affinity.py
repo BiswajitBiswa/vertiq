@@ -7,11 +7,14 @@ try next (cross-sell), and items people buy again on a cycle (refills).
   refills      items bought again on a steady cycle, and who is due now
 
 Lift = how many times more often two things go together than if choices were independent:
-1.0 is chance, 2.0 is twice as often. Only pairs seen at least MIN_PAIR times count, so a single
-big order never makes a pattern. Plain data in: [(customer id, bill id, when, item name)].
+1.0 is chance, 2.0 is twice as often. Only pairs seen at least MIN_PAIR times, and on at least 1 in 1,000
+bills (or customers) in large data, count, so a single big order or two rare items never make a pattern.
+Combos rank by how often the pair occurs times log2 of its lift: frequent strong pairs first, not the
+rarest. Plain data in: [(customer id, bill id, when, item name)].
 """
 from __future__ import annotations
 
+import math
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from itertools import combinations
@@ -56,8 +59,8 @@ def analyse(lines, min_pair: int = MIN_PAIR) -> dict:
         pair_cust.update(combinations(sorted(items)[:MAX_ITEMS_PER_BILL * 3], 2))
     result["top_items"] = [{"item": i, "customers": c, "share": round(100 * c / n_cust, 1)}
                            for i, c in item_cust.most_common(8)]
-    result["combos"] = _combos(pair_bills, item_bills, n_bills, min_pair)
-    lifts, cross = _cross_sell(pair_cust, item_cust, n_cust, bought, min_pair)
+    result["combos"] = _combos(pair_bills, item_bills, n_bills, max(min_pair, math.ceil(n_bills / 1000)))
+    lifts, cross = _cross_sell(pair_cust, item_cust, n_cust, bought, max(min_pair, math.ceil(n_cust / 1000)))
     result["cross_sell"], result["_lifts"] = cross, lifts
     result["_bought"] = {cid: {i: max(ds) for i, ds in items.items()} for cid, items in bought.items()}
     result["refills"], result["_cycles"] = _refills(bought)
@@ -75,7 +78,7 @@ def _combos(pair_bills: Counter, item_bills: Counter, n: int, min_pair: int = 5)
         out.append({"items": [a, b], "bills_together": together, "lift": round(lift, 2),
                     "a_then_b": round(100 * together / item_bills[a], 1),
                     "b_then_a": round(100 * together / item_bills[b], 1)})
-    out.sort(key=lambda c: (-c["lift"] * min(c["bills_together"], 50), c["items"]))
+    out.sort(key=lambda c: (-c["bills_together"] * math.log2(c["lift"]), c["items"]))
     return out[:10]
 
 
