@@ -9,7 +9,8 @@ config.json names the tables and how they map to the contract; nothing else is c
                "value": "Total", "attrs": ["Order No", "Channel"], "date_format": "%d/%m/%Y"}},
    "items":   {"file": "order_lines.csv", "key": "Order No", "event_key": "Order No", "item": "Item",
                "qty": "Qty", "item_group": "Category"},
-   "noun": "orders", "currency": "₹"}
+   "entity_table": {"file": "customers.csv"},
+   "noun": "orders", "currency": "₹", "entities": "customers"}
 
 CSV is read with the standard library; .xlsx needs openpyxl (pip install openpyxl). Every mapping is checked
 against the rows by vertiq.mapping.repair before use, and every section below comes from a Vertiq module:
@@ -137,9 +138,10 @@ def build(config: dict, base: Path = Path(".")) -> tuple[object, dict, list[str]
     log += [f"Mapping used: {json.dumps(m.as_dict())}"] + [f"Mapping check: {n}" for n in notes]
     log += [f"Loading: {p}" for p in problems[:12]] + ([f"Loading: and {len(problems) - 12} more"] if len(problems) > 12 else [])
     groups: dict = {}
-    if config.get("entities"):                        # a customer list, asset register or policy master
+    if config.get("entity_table"):                    # a customer list, asset register or policy master
         from .tables import attach_entities
-        ds, more, _labels = attach_entities(ds, read_table(base / config["entities"]["file"]), config["entities"].get("key"))
+        et = config["entity_table"]
+        ds, more, _labels = attach_entities(ds, read_table(base / et["file"]), et.get("key"))
         log += [f"Entities: {n}" for n in more]
     if it:
         if it.get("key"):
