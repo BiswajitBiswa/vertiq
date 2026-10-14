@@ -668,6 +668,38 @@ def change_drivers(seed: int) -> dict:
             "c_mix_effect": c["mix_effect"], "c_rate_effect": c["rate_effect"]}
 
 
+# ---- 23. pattern search without being told where to look -----------------------------------------
+def pattern_search(seed: int) -> dict:
+    """400 orders with a channel, a payment method, a time and line items. Two planted patterns: online orders
+    rarely include a drink (10% against 60%) and orders with pizza are worth more. A second set of 400 orders
+    has no relationships at all. The search must find the two and report nothing in the random set."""
+    from vertiq import patterns
+    menu = {"Margherita": "Pizza", "Farmhouse": "Pizza", "Cola": "Drinks", "Lemonade": "Drinks", "Fries": "Sides", "Salad": "Sides"}
+
+    def orders(planted, rnd):
+        events = []
+        for _ in range(400):
+            online = rnd.random() < 0.4
+            pizza = rnd.random() < 0.5
+            items = [rnd.choice(["Margherita", "Farmhouse"])] if pizza else []
+            if rnd.random() < ((0.1 if online else 0.6) if planted else 0.4):
+                items.append(rnd.choice(["Cola", "Lemonade"]))
+            if rnd.random() < 0.5:
+                items.append(rnd.choice(["Fries", "Salad"]))
+            at = (NOW - timedelta(days=rnd.randint(0, 60))).replace(hour=rnd.randint(9, 21), minute=rnd.randint(0, 59))
+            events.append(Event(f"C{rnd.randint(1, 300)}", at, "order", (300 if (pizza and planted) else 200) + rnd.gauss(0, 40),
+                                {"channel": "online" if online else "store", "payment": rnd.choice(["card", "cash", "wallet"])},
+                                tuple((x, 1) for x in items)))
+        return Dataset([Entity(f"C{i}") for i in range(1, 301)], events)
+    rnd = random.Random(seed)
+    r = patterns.find(orders(True, rnd), item_groups=menu)
+    planted = {("rate", frozenset({"channel = online", "includes Drinks"})), ("value", frozenset({"includes Pizza"}))}
+    got = {(f["kind"], frozenset({f["feature"], f.get("outcome")} - {None})) for f in r["found"]}
+    null = patterns.find(orders(False, rnd), item_groups=menu)
+    return {"tested": r["tested"], "planted_found": len(planted & got), "other_findings": len(got - planted),
+            "findings_in_random_data": len(null["found"])}
+
+
 SCENARIOS = [("churn_customers", churn_customers), ("machines", machines), ("patients", patients),
              ("noise", noise), ("uplift_targeting", uplift_targeting), ("insight_discovery", insight_discovery),
              ("mapping_repair", mapping_repair), ("interactions", interactions), ("renewal_survival", renewal_survival),
@@ -676,7 +708,7 @@ SCENARIOS = [("churn_customers", churn_customers), ("machines", machines), ("pat
              ("autotune_search", autotune_search), ("two_sample_sequential", two_sample_sequential),
              ("doubly_robust_effect", doubly_robust_effect), ("budget_plan", budget_plan),
              ("agent_guard", agent_guard), ("menu_search", menu_search), ("multi_outcome", multi_outcome),
-             ("change_drivers", change_drivers)]
+             ("change_drivers", change_drivers), ("pattern_search", pattern_search)]
 
 
 def _summary(runs: list[dict]) -> dict:

@@ -40,6 +40,7 @@ class Mapping:
     group: str | None = None
     attrs: list[str] = field(default_factory=list)
     date_format: str = "%Y-%m-%d"
+    clock: str | None = None          # a separate time-of-day column ("09:35 PM", "21:35"), when the date has none
 
     @classmethod
     def parse(cls, text_or_dict) -> "Mapping":
@@ -55,11 +56,14 @@ class Mapping:
         clean = lambda v: (str(v) if v not in (None, "", "null", "none") else None)      # noqa: E731
         return cls(entity=str(d["entity"]), time=str(d["time"]), type=clean(d.get("type")), value=clean(d.get("value")),
                    group=clean(d.get("group")), attrs=[str(a) for a in (d.get("attrs") or []) if a],
-                   date_format=str(d.get("date_format") or "%Y-%m-%d"))
+                   date_format=str(d.get("date_format") or "%Y-%m-%d"), clock=clean(d.get("clock")))
 
     def as_dict(self) -> dict:
-        return {"entity": self.entity, "time": self.time, "type": self.type, "value": self.value, "group": self.group,
-                "attrs": list(self.attrs), "date_format": self.date_format}
+        d = {"entity": self.entity, "time": self.time, "type": self.type, "value": self.value, "group": self.group,
+             "attrs": list(self.attrs), "date_format": self.date_format}
+        if self.clock:
+            d["clock"] = self.clock
+        return d
 
 
 def snap(m: Mapping, columns: list[str], min_ratio: float = 0.75) -> tuple[Mapping, list[str]]:
@@ -80,13 +84,14 @@ def snap(m: Mapping, columns: list[str], min_ratio: float = 0.75) -> tuple[Mappi
         return None
     out = Mapping(entity=fix(m.entity, "entity") or m.entity, time=fix(m.time, "time") or m.time,
                   type=fix(m.type, "type"), value=fix(m.value, "value"), group=fix(m.group, "group"),
-                  attrs=[a for a in (fix(a, "attr") for a in m.attrs) if a], date_format=m.date_format)
+                  attrs=[a for a in (fix(a, "attr") for a in m.attrs) if a], date_format=m.date_format,
+                  clock=fix(m.clock, "clock"))
     used = {out.entity, out.time}
     for role in ("type", "value", "group"):
         if getattr(out, role) in used:
             changes.append(f"{role}: repeats another role, dropped")
             setattr(out, role, None)
-    out.attrs = [a for a in dict.fromkeys(out.attrs) if a not in {out.entity, out.time, out.type, out.value, out.group}]
+    out.attrs = [a for a in dict.fromkeys(out.attrs) if a not in {out.entity, out.time, out.type, out.value, out.group, out.clock}]
     return out, changes
 
 
@@ -164,8 +169,8 @@ def placeholder_ids(rows: list[dict], col: str) -> set[str]:
 
 def fitness(rows: list[dict], col: str, role: str, kind: dict | None = None) -> float:
     """How well a column can play a role, from 0 (cannot) to 1, judged only from its values.
-      entity  filled with non-placeholder values; not dates, times of day, amounts or counts; names rank
-              below codes and numbers
+      entity  filled with non-placeholder values; not dates, times of day, amounts or counts; names and short
+              plain numbers rank below codes and long numbers (ids, phone numbers)
       time    dates, filled
       value   numbers that are not identifiers or row counters, filled
       group   repeated labels (2 to 50 distinct, or up to 5% of rows), filled; judged from MIN_EVIDENCE rows
@@ -188,6 +193,8 @@ def fitness(rows: list[dict], col: str, role: str, kind: dict | None = None) -> 
             return 0.0                       # small whole numbers that repeat are counts, not identities
         if real and sum(1 for v in real if re.search(r"\d", v)) < 0.8 * len(real):
             fill *= 0.85                     # names identify less reliably than codes and numbers
+        elif len(vals) >= MIN_EVIDENCE and k == "number" and sum(1 for v in real if len(v) >= 6) < 0.8 * len(real):
+            fill *= 0.6                      # short plain numbers are as often prices or counts as identifiers
         if len(vals) >= MIN_EVIDENCE and len(set(real)) < 2:
             return 0.0                       # across many rows, one value everywhere carries no identity
         return fill                          # in a few rows, one entity throughout is fine (one asset's history)
@@ -207,15 +214,16 @@ def fitness(rows: list[dict], col: str, role: str, kind: dict | None = None) -> 
 
 
 def _quantities(rows: list[dict], kind: dict) -> list[str]:
-    """Columns that look like quantities: whole numbers, mostly small (1 to 1,000), not all the same."""
+    """Columns that look like quantities: whole numbers, mostly 1 to 100, few distinct values (at most 25),
+    not all the same. Prices and totals in whole currency units vary far more."""
     out = []
     for c, k in kind.items():
         if k != "number":
             continue
         vals = [_num(r.get(c)) for r in rows if str(r.get(c) or "").strip()]
         vals = [v for v in vals if v is not None]
-        if len(vals) >= 3 and all(v == int(v) for v in vals) and sum(1 for v in vals if 1 <= v <= 1000) >= 0.9 * len(vals) \
-                and len(set(vals)) > 1:
+        if len(vals) >= 3 and all(v == int(v) for v in vals) and sum(1 for v in vals if 1 <= v <= 100) >= 0.9 * len(vals) \
+                and 1 < len(set(vals)) <= 25:
             out.append(c)
     return out
 
@@ -412,7 +420,7 @@ def apply(m: Mapping, rows: list[dict]) -> tuple[Dataset, list[str]]:
     fail are skipped and named; nothing is guessed."""
     problems = []
     cols = set(rows[0]) if rows else set()
-    for role in ROLES:
+    for role in ROLES + ("clock",):
         c = getattr(m, role)
         if c is not None and c not in cols:
             problems.append(f"column {c!r} (for {role}) isn't in the table")
@@ -433,6 +441,12 @@ def apply(m: Mapping, rows: list[dict]) -> tuple[Dataset, list[str]]:
         except ValueError:
             problems.append(f"row {i}: {r[m.time]!r} doesn't match {m.date_format}")
             continue
+        if m.clock:
+            t = _clock(r.get(m.clock))
+            if t is None:
+                problems.append(f"row {i}: time of day {r.get(m.clock)!r} not understood; date kept")
+            else:
+                at = at.replace(hour=t[0], minute=t[1])
         val = _num(r[m.value], dec) if m.value else 0.0
         if val is None:
             problems.append(f"row {i}: value {r[m.value]!r} isn't a number")
@@ -449,6 +463,50 @@ def apply(m: Mapping, rows: list[dict]) -> tuple[Dataset, list[str]]:
                         "each is kept as its own one-off entity")
     ents = [Entity(e, groups.get(e, "")) for e in sorted({ev.entity for ev in events})]
     return Dataset(ents, events), problems
+
+
+def _clock(v) -> tuple[int, int] | None:
+    s = str(v or "").strip()
+    for f in ("%I:%M %p", "%I:%M%p", "%H:%M", "%H:%M:%S", "%I:%M:%S %p"):
+        try:
+            t = datetime.strptime(s.upper(), f)
+            return t.hour, t.minute
+        except ValueError:
+            continue
+    return None
+
+
+def attach_items(ds: Dataset, rows: list[dict], *, key: str, event_key: str, item: str, qty: str | None = None,
+                 item_group: str | None = None) -> tuple[Dataset, dict[str, str], list[str]]:
+    """Attach line items to the records they belong to through a shared key (order lines to orders, claim
+    lines to claims, part lines to work orders). `event_key` is the attribute of each event holding the key
+    (keep that column in the mapping's attrs); `key`, `item`, `qty` and `item_group` are columns of the line
+    table. Returns the dataset with items on each event, {item: item group} and notes. Summary and empty
+    line rows are skipped; lines whose key matches no record are counted, not guessed."""
+    skip = structural_rows(rows)
+    lines: dict[str, list] = {}
+    groups: dict[str, str] = {}
+    for i, r in enumerate(rows, start=1):
+        k = str(r.get(key) or "").strip()
+        name = str(r.get(item) or "").strip()
+        if i in skip or not k or not name:
+            continue
+        n = _num(r.get(qty)) if qty else 1.0
+        lines.setdefault(k, []).append((name, n if n else 1.0))
+        if item_group and str(r.get(item_group) or "").strip():
+            groups[name] = str(r[item_group]).strip()
+    events, matched = [], set()
+    for e in ds.events:
+        k = str((e.attrs or {}).get(event_key) or "").strip()
+        if k in lines:
+            matched.add(k)
+            events.append(Event(e.entity, e.at, e.type, e.value, e.attrs, tuple(lines[k])))
+        else:
+            events.append(e)
+    notes = [f"{len(matched)} of {len(ds.events)} records got line items"]
+    if len(lines) - len(matched):
+        notes.append(f"{len(lines) - len(matched)} line keys match no record")
+    return Dataset(ds.entities, events, ds.actions), groups, notes
 
 
 def score(pred: Mapping, truth: Mapping) -> dict:
