@@ -7,6 +7,7 @@ Run:  python docs/build.py      (pure Python; GitHub Pages serves the docs/ fold
 from __future__ import annotations
 
 import html
+import re
 import json
 import math
 import sys
@@ -33,8 +34,8 @@ REPO = "https://github.com/BiswajitBiswa/vertiq"
 SITE = "https://biswajitbiswa.github.io/vertiq/"
 FONTS = ("https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600"
          "&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap")
-NAV = [("index.html", "Overview"), ("architecture.html", "Architecture"), ("learning.html", "Methodology"),
-       ("lm.html", "Vertiq LM"), ("benchmarks.html", "Benchmarks"), ("guides/index.html", "Industries")]
+NAV = [("index.html", "Overview"), ("start.html", "Get started"), ("architecture.html", "Architecture"), ("learning.html", "Methodology"),
+       ("lm.html", "Vertiq LM"), ("benchmarks.html", "Benchmarks"), ("guides/index.html", "Industries"), ("scope.html", "Scope & roadmap")]
 E = html.escape
 RUNS = CORE["scenarios"]["machines"]["seeds"]
 SUITE = f"{CORE['wall_seconds']:.0f} seconds on a laptop using {CORE['jobs']} cores"   # wall-clock time of the parallel run
@@ -233,6 +234,43 @@ def principles_md() -> str:
     out.append("| Principle | Mechanism | Configuration | Operational value |\n|---|---|---|---|")
     out += [f"| {a} | {b} | {c} | {d} |" for a, b, c, d in MATRIX]
     return "\n".join(out)
+
+
+def scope_items(best: dict) -> tuple[list[str], list[str]]:
+    """Limitations and roadmap, shared by the README and scope.html (Markdown inline syntax)."""
+    lims = [
+        f"Most benchmarks use synthetic data. They verify that the methods detect planted signal, reject noise and retain the baseline when appropriate; one public dataset (Online Retail II) has been run. None measures accuracy on a specific organisation's data.",
+        f'The gate requires the gain over the baseline to be clear at 90% confidence (`confidence=0.9`, the default). On small datasets this also holds back some real improvements until more data arrives: with 240 assets and a real signal, 7 of 15 candidates were promoted, against 13 of 15 with the check off. `confidence=None` turns the check off; the candidate then only has to not be worse.',
+        f"Plain-language descriptions (`narrate`) are written from templates by default. The trained rewrite model gives real rewrites for {NARR['runs'][1]['accepted_rewrites_not_copies']} of {NARR['runs'][1]['n']} held-out descriptions, and every rewrite is checked: each number must be the template's and stay next to what it described. The checks catch invented and moved numbers, not every misleading sentence.",
+        f"After validation, Vertiq LM maps {best['overall']['exact_repaired'] * 100:.0f}% of held-out tables exactly ({best['unseen']['exact_repaired'] * 100:.0f}% from domains it was not trained on) and loads {best['overall']['loads_repaired'] * 100:.0f}% without errors. Proposed mappings should be reviewed before production use.",
+        f'Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity depends on every confounder being observed; `design.next_step` reports the experiment size needed to settle the question.',
+        f'On the synthetic benchmarks, boosted trees improve on linear models where effects are non-linear and do not where effects are additive. Across 100 to 6,400 entities the default tree settings were within 0.01 AUC of the best of five alternatives. `learner="auto"` chooses by 3-fold cross-validation on the training entities; with a few hundred entities or fewer its choice is close to random when the two learners are within a point or two of each other.',
+        f"Doubly robust estimates are consistent if either the propensity or the outcome model is right, but they vary more than the outcome model alone (standard deviation {S('doubly_robust_effect')['doubly_robust']['sd']:.2f} across benchmark runs); large weights from extreme propensities are clipped and counted in the result.",
+        f'The rule-based mapping proposer gets 57% of roles right on the held-out real exports and Vertiq LM 83%; both are checked by validation, which flags what it cannot settle (for example two complete amount columns, or day/month order), but meaning (which amount is the one that matters) still needs a person or the model.',
+        f'Tables with one row per entity (customer lists, asset registers) often hold totals and dates computed when the file was exported; Vertiq uses them to describe, never as prediction features.',
+        f'`plan` and `guard` rely on uplift tasks, so they are only as good as the recorded actions and control groups; an action that was never measured is excluded from plans and held by the check. `guard` does not decide on its own: it allows only measured, clearly helpful actions.',
+        f'`menu` proposes features from a fixed set of operations; anything outside it (external data, formulas specific to a sector) is added as a plugin by a person and judged by the same gate.',
+        f'`autotune` scores every trial on the same training entities, so many trials can still favour a lucky change; it keeps a change only when most validation folds agree, and the held-out gate makes the final decision.',
+        f'Version 0.2. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).',
+    ]
+    road = [
+        f'Further public benchmarks: M5 (value prediction), NASA C-MAPSS (equipment failure), KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.',
+        f'Vertiq LM: a training round on tables with real-export clutter (`lm/make_data.py --messy`), scored on the synthetic and the real held-out sets; evaluate a 9B student and publish the adapter with a `vertiq map` command.',
+        f'`autotune` for value tasks and uplift; menu operations for group-level signals and external series (weather, prices) joined by date and location; menu items suggested by a language model for a sector, checked by `menu.parse`.',
+        f'Turning free-text fields (support tickets, maintenance notes) into validated events.',
+    ]
+    return lims, road
+
+
+def md_inline(text: str) -> str:
+    """Markdown inline code and links to HTML; links to repository files go to GitHub."""
+    out = E(text)
+    out = re.sub(r"`([^`]+)`", r"<code>\1</code>", out)
+
+    def link(m):
+        url = m.group(2) if m.group(2).startswith("http") else f"{REPO}/blob/main/{m.group(2)}"
+        return f'<a href="{url}">{m.group(1)}</a>'
+    return re.sub(r"\[([^\]]+)\]\(([^)]+)\)", link, out)
 
 
 # ---- layout ------------------------------------------------------------------------------------
@@ -534,7 +572,7 @@ def build_index():
     <p class="lede">Vertiq combines a local language model that reads any operational dataset with decision models trained on real
     outcomes. Both improve through recursive self-improvement: each generation trains its successor, and a generation reaches production
     only after it outperforms the current one on held-out data.</p>
-    <p class="cta"><a class="btn" href="{REPO}">View on GitHub</a><a class="btn ghost" href="#rsi">How RSI works</a></p>
+    <p class="cta"><a class="btn" href="start.html">Get started</a><a class="btn ghost" href="{REPO}">View on GitHub</a><a class="btn ghost" href="#rsi">How RSI works</a></p>
   </div>
   {fig_hero()}
 </section>
@@ -687,6 +725,39 @@ candidate receives a p-value, and the set is filtered with the Benjamini–Hochb
 than 20 entities are excluded. In the benchmark, the planted pattern was detected in {S('insight_discovery')['found_planted']} runs, with
 no false product patterns reported on random data.</p></section>
 <section><h2>Recursive self-improvement</h2><p class="read">{E(RSI_TEXT)}</p>{fig_rsi()}</section>
+<section class="read"><h2>Checking a mapping against the data</h2>
+<p>A mapping, whether written by a person, proposed by Vertiq LM or proposed from the values, is checked against every row before use.
+Summary and mostly empty rows are named and skipped. Identifiers that stand for "no value" ("-", "NA", a default number on many
+rows) become one-off entities instead of merging records. A role whose column is empty, a placeholder or the wrong kind moves to the
+clearly best-fitting column or is flagged; an amount column that is zero where another column records the same amount, or that amount
+times a quantity, gives way to the complete one. Judgements that need volume wait for 30 rows. Across
+{S('mapping_repair')['correct_mappings']['mean'] * CORE['scenarios']['mapping_repair']['seeds']:,.0f} known-correct mappings,
+these checks changed {S('mapping_repair')['changed_by_repair']['mean']:.0f}.</p></section>
+<section class="read"><h2>Finding patterns without being told where to look</h2>
+<p>Every attribute value, group, weekday, part of day and item group becomes a feature. Each is compared with the record's value
+and with every other feature, and all p-values are filtered together with Benjamini–Hochberg at 10%, so the more comparisons are
+made, the stronger a pattern must be. A pattern must also be large enough to matter. On planted data the search found
+{S('pattern_search')['planted_found']['mean']:.0f} of 2 patterns in every run and nothing in random data.</p></section>
+<section class="read"><h2>Improving itself under the gate</h2>
+<p>The tuning loop tries one change at a time (a learner, a setting, or a feature from a fixed menu of counts, recency and shares),
+scores it by five-fold cross-validation on training entities, and keeps it only if the mean improves and most folds agree. The
+final model must then beat the baseline and the untuned model on held-out entities. No generated code is run.</p></section>
+<section class="grid">
+  <div class="card"><h3>Effects of actions</h3><p>With a control group: uplift for any recorded action, with cross-fitted checks. Without one:
+  matched cohorts and doubly robust estimation, with balance and overlap reported. Live comparisons use sequential tests that can be
+  checked after every observation without inflating false alarms.</p></div>
+  <div class="card"><h3>Plans and checks on actions</h3><p>Plans choose an action per entity within a budget from measured effects.
+  Proposed actions, from a person or an automated agent, are allowed only when their measured effect is clear; unmeasured
+  actions are held for a person.</p></div>
+  <div class="card"><h3>Entity tables and leakage</h3><p>Customer lists and asset registers join events by key. Their fixed labels
+  describe and predict; totals and dates computed when the file was exported describe only, since using them as features would
+  leak the future.</p></div>
+</section>
+<section class="read"><h2>Testing on data it was not built for</h2>
+<p>Synthetic benchmarks plant a known answer. Mapping is also tested on six public exports from six sectors, held out from all
+training, with every acceptable answer listed per role; Vertiq LM gets {REAL['summary']['v2-pref']['roles_correct'] * 100:.0f}% of
+roles right after validation. New behaviour found on real files becomes a general rule with a test on generated data, and the
+check that no correct mapping is changed runs after every change.</p></section>
 <section class="note"><b>Data governance.</b> The host application determines which records are eligible for training. Train only on
 records with documented consent and exclude records whose owners have opted out. Scoring existing customers is handled separately from training.</section>"""
     page("learning.html", "Vertiq methodology", body, "Point-in-time features, entity-level holdout, control groups and recursive self-improvement.")
@@ -917,6 +988,66 @@ analyses apply, which domain plugins to add and how results are validated.</p></
         page(f"guides/{g['slug']}.html", f"Vertiq for {g['name'].lower()}", body, g["blurb"])
 
 
+def build_start():
+    """Get started: install, the one-command report, and Python use."""
+    cfg = ('{"records": {"file": "orders.xlsx"},\n'
+           ' "items": {"file": "order_lines.xlsx"},\n'
+           ' "entity_table": {"file": "customers.xlsx"},\n'
+           ' "noun": "orders", "currency": "₹", "entities": "customers"}')
+    py = """from vertiq.report import read_table
+from vertiq.tables import propose
+from vertiq.mapping import repair, apply
+from vertiq.tasks import predict_event
+from vertiq import patterns, narrate
+
+rows = read_table("orders.xlsx")                 # CSV or Excel; header found below titles
+m, notes = propose(rows)                         # mapping proposed from the values
+m, more = repair(m, rows)                        # checked against every row
+ds, problems = apply(m, rows)                    # summary rows skipped, placeholder ids kept apart
+
+for f in patterns.find(ds, noun="orders")["found"]:
+    print(f["text"])                             # tested patterns, under false-discovery control
+
+task = predict_event(ds, target="record", window_days=30)
+print(narrate.gate(task.report()))               # promoted, kept, or why there is not enough data"""
+    body = f"""
+<section class="read"><div class="kicker">Get started</div><h1>Install and first report</h1>
+<p class="lede">The decision engine is pure Python with no dependencies. One command turns exported tables into a written report;
+the same steps are available as functions.</p></section>
+<section class="read"><h2>Install</h2><pre><code>pip install vertiq                  # the decision engine
+pip install "vertiq[excel]"         # also read .xlsx and .xls exports
+pip install "vertiq[lm]"            # Vertiq LM tooling (Apple Silicon)</code></pre></section>
+<section class="read"><h2>A report from exported files</h2>
+<p>Write a small config naming the files; nothing else is required. Vertiq proposes the mapping from the values, finds how the files
+join, checks everything against the rows, and writes what it can say and what it cannot say yet.</p>
+<pre><code>{E(cfg)}</code></pre><pre><code>vertiq-report config.json --out report.md</code></pre>
+<div class="grid">
+  <div class="card"><h3>What the report contains</h3><ul><li>Loading notes: the mapping used, what was checked, rows skipped and why</li>
+  <li>What happened: the last period against the one before</li><li>Patterns: every comparison tested, with false-discovery control</li>
+  <li>Items bought together, when there are line items</li><li>Predictions that passed the evaluation gate, or the reason they did not</li></ul></div>
+  <div class="card"><h3>Shapes it recognises</h3><ul><li>Records with a separate line-item file (orders and order lines)</li>
+  <li>A single line-item file (one row per item)</li><li>One row per entity (a customer list, an asset register)</li>
+  <li>Exports with title rows, totals rows and misnamed file types</li></ul></div>
+</div></section>
+<section class="read"><h2>In Python</h2><pre><code>{E(py)}</code></pre>
+<p>Domain knowledge goes in as plugins (features, rules, learners), and every addition is judged by the same evaluation gate.
+See the <a href="architecture.html">architecture</a> and the <a href="guides/index.html">industry guides</a>.</p></section>"""
+    page("start.html", "Get started with Vertiq", body, "Install Vertiq and turn exported tables into a written report with one command.")
+
+
+def build_scope():
+    """Scope and roadmap: limitations and what comes next, from the same list as the README."""
+    best = lm_run("v2-pref")
+    lims, road = scope_items(best)
+    body = f"""
+<section class="read"><div class="kicker">Scope & roadmap</div><h1>What Vertiq does not do yet, and what comes next</h1>
+<p class="lede">Every limitation below is measured or stated in the code; the README carries the same list.</p></section>
+<section class="read"><h2>Limitations</h2><ul>{"".join(f"<li>{md_inline(x)}</li>" for x in lims)}</ul></section>
+<section class="read"><h2>Roadmap</h2><ul>{"".join(f"<li>{md_inline(x)}</li>" for x in road)}</ul>
+<p>Changes by release are in the <a href="{REPO}/blob/main/CHANGELOG.md">changelog</a>.</p></section>"""
+    page("scope.html", "Vertiq scope and roadmap", body, "Measured limitations of Vertiq and its roadmap.")
+
+
 def build_readme():
     """README.md, with every figure read from the same results files as the site."""
     def mm(name, key, nd=3, scale=1.0):
@@ -966,6 +1097,9 @@ def build_readme():
     caps = "\n".join(f"| {t} | `{a}` | {d} |" for t, d, a in CAPABILITIES)
     guides = "\n".join(f"- [{g['name']}]({SITE}guides/{g['slug']}.html): {g['blurb']}" for g in GUIDES)
     best = lm_run("v2-pref")
+    lims, road = scope_items(best)
+    lims_md = "\n".join(f"- {x}" for x in lims)
+    road_md = "\n".join(f"- {x}" for x in road)
     text = f"""<p align="center"><img src="https://raw.githubusercontent.com/BiswajitBiswa/vertiq/main/docs/assets/logo.svg" alt="Vertiq" width="290"></p>
 
 <p align="center"><b>Self-improving decision intelligence: a local language model and outcome-trained decision models,<br>improved recursively under an evaluation gate.</b></p>
@@ -1205,51 +1339,11 @@ python docs/build.py && git diff --stat                 # regenerates the site a
 
 ## Limitations
 
-- Most benchmarks use synthetic data. They verify that the methods detect planted signal, reject noise and retain the baseline
-  when appropriate; one public dataset (Online Retail II) has been run. None measures accuracy on a specific organisation's data.
-- The gate requires the gain over the baseline to be clear at 90% confidence (`confidence=0.9`, the default). On small datasets this
-  also holds back some real improvements until more data arrives: with 240 assets and a real signal, 7 of 15 candidates were
-  promoted, against 13 of 15 with the check off. `confidence=None` turns the check off; the candidate then only has to not be worse.
-- Plain-language descriptions (`narrate`) are written from templates. A local model can rewrite them, and a rewrite is kept only
-  if every number in it appears in the template and it is no longer. On 17 descriptions, Qwen 3.5 4B given the full result
-  attached real numbers to the wrong quantity in 4; given only the template, its accepted rewrites were close paraphrases, and
-  Qwen 3.5 9B returned the template unchanged. Fluent rewrites would need fine-tuning on reviewed examples.
-- After validation, Vertiq LM maps {best['overall']['exact_repaired'] * 100:.0f}% of held-out tables exactly ({best['unseen']['exact_repaired'] * 100:.0f}% from domains it was
-  not trained on) and loads {best['overall']['loads_repaired'] * 100:.0f}%
-  without errors. Proposed mappings should be reviewed before production use.
-- Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity
-  depends on every confounder being observed; `design.next_step` reports the experiment size needed to settle the question.
-- On the synthetic benchmarks, boosted trees improve on linear models where effects are non-linear and do not where effects are
-  additive. Across 100 to 6,400 entities the default tree settings were within 0.01 AUC of the best of five alternatives.
-  `learner="auto"` chooses by 3-fold cross-validation on the training entities; with a few hundred entities or fewer its
-  choice is close to random when the two learners are within a point or two of each other.
-- Doubly robust estimates are consistent if either the propensity or the outcome model is right, but they vary more than the
-  outcome model alone (standard deviation {S('doubly_robust_effect')['doubly_robust']['sd']:.2f} across benchmark runs); large weights from extreme
-  propensities are clipped and counted in the result.
-- The rule-based mapping proposer gets 57% of roles right on the held-out real exports and Vertiq LM 83%; both are checked by
-  validation, which flags what it cannot settle (for example two complete amount columns, or day/month order), but meaning
-  (which amount is the one that matters) still needs a person or the model.
-- Tables with one row per entity (customer lists, asset registers) often hold totals and dates computed when the file was
-  exported; Vertiq uses them to describe, never as prediction features.
-- `plan` and `guard` rely on uplift tasks, so they are only as good as the recorded actions and control groups; an action
-  that was never measured is excluded from plans and held by the check. `guard` does not decide on its own: it allows only
-  measured, clearly helpful actions.
-- `menu` proposes features from a fixed set of operations; anything outside it (external data, formulas specific to a
-  sector) is added as a plugin by a person and judged by the same gate.
-- `autotune` scores every trial on the same training entities, so many trials can still favour a lucky change; it keeps a change
-  only when most validation folds agree, and the held-out gate makes the final decision.
-- Version 0.2. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+{lims_md}
 
 ## Roadmap
 
-- Further public benchmarks: M5 (value prediction), NASA C-MAPSS (equipment failure),
-  KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
-- Distribution on PyPI.
-- Vertiq LM: a training round on tables with real-export clutter (`lm/make_data.py --messy`), scored on the synthetic and the real
-  held-out sets; evaluate a 9B student and publish the adapter with a `vertiq map` command.
-- `autotune` for value tasks and uplift; menu operations for group-level signals and external series (weather, prices) joined by
-  date and location; menu items suggested by a language model for a sector, checked by `menu.parse`.
-- Turning free-text fields (support tickets, maintenance notes) into validated events.
+{road_md}
 
 Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md), and an external assessment of the competitive landscape in [proposals/landscape-review.md](proposals/landscape-review.md).
 
@@ -1287,6 +1381,6 @@ if __name__ == "__main__":
     for f in (DOCS / "guides").glob("*.html"):
         if f.name not in keep:
             f.unlink()
-    build_index(), build_architecture(), build_learning(), build_lm(), build_benchmarks(), build_guides(), build_readme()
+    build_index(), build_start(), build_architecture(), build_learning(), build_lm(), build_benchmarks(), build_guides(), build_scope(), build_readme()
     (DOCS / ".nojekyll").write_text("")
     print("built", len(list(DOCS.rglob("*.html"))), "pages")

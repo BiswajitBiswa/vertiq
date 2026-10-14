@@ -147,7 +147,7 @@ section[id] { scroll-margin-top: 84px; }
   <rect x="27.5" y="26" width="9" height="25" rx="2" fill="#f4f5ee"/>
   <rect x="42" y="17" width="9" height="34" rx="2" fill="#f4f5ee"/>
   <circle cx="46.5" cy="10.5" r="3.6" fill="#c9a54e"/>
-</svg>vertiq</a><nav class="nav" aria-label="Sections"><a href="index.html">Overview</a><a href="architecture.html">Architecture</a><a href="learning.html" aria-current="page">Methodology</a><a href="lm.html">Vertiq LM</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Industries</a></nav></div></header>
+</svg>vertiq</a><nav class="nav" aria-label="Sections"><a href="index.html">Overview</a><a href="start.html">Get started</a><a href="architecture.html">Architecture</a><a href="learning.html" aria-current="page">Methodology</a><a href="lm.html">Vertiq LM</a><a href="benchmarks.html">Benchmarks</a><a href="guides/index.html">Industries</a><a href="scope.html">Scope & roadmap</a></nav></div></header>
 <main>
 
 <section class="read"><div class="kicker">Methodology</div><h1>Training and evaluation methodology</h1>
@@ -170,6 +170,39 @@ candidate receives a p-value, and the set is filtered with the Benjamini–Hochb
 than 20 entities are excluded. In the benchmark, the planted pattern was detected in 5/5 runs, with
 no false product patterns reported on random data.</p></section>
 <section><h2>Recursive self-improvement</h2><p class="read">Vertiq improves its models through recursive self-improvement (RSI) under evaluation control. In each round a teacher model generates additional training examples, and every example is validated against its own data before it is used. The student model is trained and evaluated on held-out records; it is promoted only if it outperforms the production model, and the promoted model becomes the starting point for the next round. Its incorrect outputs are retained as negative examples for the following round, and new outcome data is added at every cycle. No iteration reaches production without passing the evaluation gate.</p><figure><div class="scroll"><svg viewBox="0 0 1080 360" role="img" aria-label="Recursive self-improvement: a teacher generates examples, validation verifies them, the student trains, the evaluation gate promotes or retains, and incorrect outputs feed the next round."><defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="br" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah acc"/></marker></defs><rect x="16" y="30" width="230" height="116" rx="6" class="box"/><text x="30" y="52" class="k">TEACHER</text><text x="30" y="74" class="t">Generates examples</text><text x="30" y="96" class="s">open-weight model or a</text><text x="30" y="114" class="s">configured API endpoint</text><rect x="286" y="30" width="230" height="116" rx="6" class="box"/><text x="300" y="52" class="k">VALIDATION</text><text x="300" y="74" class="t">Verifies examples</text><text x="300" y="96" class="s">each example must load and</text><text x="300" y="114" class="s">match a blind re-mapping</text><rect x="556" y="30" width="230" height="116" rx="6" class="box"/><text x="570" y="52" class="k">STUDENT</text><text x="570" y="74" class="t">Trains</text><text x="570" y="96" class="s">Vertiq LM or a</text><text x="570" y="114" class="s">decision model</text><rect x="826" y="30" width="230" height="116" rx="6" class="gate"/><text x="840" y="52" class="k">EVALUATION GATE</text><text x="840" y="74" class="t">Promotes or retains</text><text x="840" y="96" class="s">compared with the baseline</text><text x="840" y="114" class="s">and the production model</text><text x="840" y="132" class="s">on held-out records</text><line x1="246" y1="88" x2="284" y2="88" class="ln" marker-end="url(#ar)"/><line x1="516" y1="88" x2="554" y2="88" class="ln" marker-end="url(#ar)"/><line x1="786" y1="88" x2="824" y2="88" class="ln" marker-end="url(#ar)"/><rect x="826" y="226" width="230" height="116" rx="6" class="box"/><text x="840" y="248" class="k">NEGATIVE EXAMPLES</text><text x="840" y="270" class="t">Feed the next round</text><text x="840" y="292" class="s">incorrect outputs are</text><text x="840" y="310" class="s">penalised in preference</text><text x="840" y="328" class="s">training (ORPO)</text><rect x="286" y="226" width="230" height="116" rx="6" class="box dash"/><text x="300" y="248" class="k">OUTCOME DATA</text><text x="300" y="270" class="t">Added each cycle</text><text x="300" y="292" class="s">transactions, failures,</text><text x="300" y="310" class="s">renewals, claims</text><line x1="941" y1="146" x2="941" y2="224" class="ln acc" marker-end="url(#br)"/><text x="951" y="190" class="lbl">after promotion</text><path d="M826 284 H686 V148" class="ln" marker-end="url(#ar)"/><text x="756" y="276" class="lbl" text-anchor="middle">next round</text><path d="M516 284 H626 V148" class="ln dash" marker-end="url(#ar)"/><text x="571" y="276" class="lbl" text-anchor="middle">each cycle</text></svg></div><figcaption>Each round begins from the model promoted in the previous round. Teacher output is never used without validation, and providers whose terms prohibit training on generated output are excluded.</figcaption></figure></section>
+<section class="read"><h2>Checking a mapping against the data</h2>
+<p>A mapping, whether written by a person, proposed by Vertiq LM or proposed from the values, is checked against every row before use.
+Summary and mostly empty rows are named and skipped. Identifiers that stand for "no value" ("-", "NA", a default number on many
+rows) become one-off entities instead of merging records. A role whose column is empty, a placeholder or the wrong kind moves to the
+clearly best-fitting column or is flagged; an amount column that is zero where another column records the same amount, or that amount
+times a quantity, gives way to the complete one. Judgements that need volume wait for 30 rows. Across
+10,500 known-correct mappings,
+these checks changed 0.</p></section>
+<section class="read"><h2>Finding patterns without being told where to look</h2>
+<p>Every attribute value, group, weekday, part of day and item group becomes a feature. Each is compared with the record's value
+and with every other feature, and all p-values are filtered together with Benjamini–Hochberg at 10%, so the more comparisons are
+made, the stronger a pattern must be. A pattern must also be large enough to matter. On planted data the search found
+2 of 2 patterns in every run and nothing in random data.</p></section>
+<section class="read"><h2>Improving itself under the gate</h2>
+<p>The tuning loop tries one change at a time (a learner, a setting, or a feature from a fixed menu of counts, recency and shares),
+scores it by five-fold cross-validation on training entities, and keeps it only if the mean improves and most folds agree. The
+final model must then beat the baseline and the untuned model on held-out entities. No generated code is run.</p></section>
+<section class="grid">
+  <div class="card"><h3>Effects of actions</h3><p>With a control group: uplift for any recorded action, with cross-fitted checks. Without one:
+  matched cohorts and doubly robust estimation, with balance and overlap reported. Live comparisons use sequential tests that can be
+  checked after every observation without inflating false alarms.</p></div>
+  <div class="card"><h3>Plans and checks on actions</h3><p>Plans choose an action per entity within a budget from measured effects.
+  Proposed actions, from a person or an automated agent, are allowed only when their measured effect is clear; unmeasured
+  actions are held for a person.</p></div>
+  <div class="card"><h3>Entity tables and leakage</h3><p>Customer lists and asset registers join events by key. Their fixed labels
+  describe and predict; totals and dates computed when the file was exported describe only, since using them as features would
+  leak the future.</p></div>
+</section>
+<section class="read"><h2>Testing on data it was not built for</h2>
+<p>Synthetic benchmarks plant a known answer. Mapping is also tested on six public exports from six sectors, held out from all
+training, with every acceptable answer listed per role; Vertiq LM gets 83% of
+roles right after validation. New behaviour found on real files becomes a general rule with a test on generated data, and the
+check that no correct mapping is changed runs after every change.</p></section>
 <section class="note"><b>Data governance.</b> The host application determines which records are eligible for training. Train only on
 records with documented consent and exclude records whose owners have opted out. Scoring existing customers is handled separately from training.</section>
 </main>

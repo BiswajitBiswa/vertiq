@@ -337,50 +337,25 @@ The methods are established and deliberately transparent: regularised logistic a
 
 ## Limitations
 
-- Most benchmarks use synthetic data. They verify that the methods detect planted signal, reject noise and retain the baseline
-  when appropriate; one public dataset (Online Retail II) has been run. None measures accuracy on a specific organisation's data.
-- The gate requires the gain over the baseline to be clear at 90% confidence (`confidence=0.9`, the default). On small datasets this
-  also holds back some real improvements until more data arrives: with 240 assets and a real signal, 7 of 15 candidates were
-  promoted, against 13 of 15 with the check off. `confidence=None` turns the check off; the candidate then only has to not be worse.
-- Plain-language descriptions (`narrate`) are written from templates. A local model can rewrite them, and a rewrite is kept only
-  if every number in it appears in the template and it is no longer. On 17 descriptions, Qwen 3.5 4B given the full result
-  attached real numbers to the wrong quantity in 4; given only the template, its accepted rewrites were close paraphrases, and
-  Qwen 3.5 9B returned the template unchanged. Fluent rewrites would need fine-tuning on reviewed examples.
-- After validation, Vertiq LM maps 54% of held-out tables exactly (42% from domains it was
-  not trained on) and loads 100%
-  without errors. Proposed mappings should be reviewed before production use.
-- Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity
-  depends on every confounder being observed; `design.next_step` reports the experiment size needed to settle the question.
-- On the synthetic benchmarks, boosted trees improve on linear models where effects are non-linear and do not where effects are
-  additive. Across 100 to 6,400 entities the default tree settings were within 0.01 AUC of the best of five alternatives.
-  `learner="auto"` chooses by 3-fold cross-validation on the training entities; with a few hundred entities or fewer its
-  choice is close to random when the two learners are within a point or two of each other.
-- Doubly robust estimates are consistent if either the propensity or the outcome model is right, but they vary more than the
-  outcome model alone (standard deviation 0.17 across benchmark runs); large weights from extreme
-  propensities are clipped and counted in the result.
-- The rule-based mapping proposer gets 57% of roles right on the held-out real exports and Vertiq LM 83%; both are checked by
-  validation, which flags what it cannot settle (for example two complete amount columns, or day/month order), but meaning
-  (which amount is the one that matters) still needs a person or the model.
-- Tables with one row per entity (customer lists, asset registers) often hold totals and dates computed when the file was
-  exported; Vertiq uses them to describe, never as prediction features.
-- `plan` and `guard` rely on uplift tasks, so they are only as good as the recorded actions and control groups; an action
-  that was never measured is excluded from plans and held by the check. `guard` does not decide on its own: it allows only
-  measured, clearly helpful actions.
-- `menu` proposes features from a fixed set of operations; anything outside it (external data, formulas specific to a
-  sector) is added as a plugin by a person and judged by the same gate.
-- `autotune` scores every trial on the same training entities, so many trials can still favour a lucky change; it keeps a change
-  only when most validation folds agree, and the held-out gate makes the final decision.
+- Most benchmarks use synthetic data. They verify that the methods detect planted signal, reject noise and retain the baseline when appropriate; one public dataset (Online Retail II) has been run. None measures accuracy on a specific organisation's data.
+- The gate requires the gain over the baseline to be clear at 90% confidence (`confidence=0.9`, the default). On small datasets this also holds back some real improvements until more data arrives: with 240 assets and a real signal, 7 of 15 candidates were promoted, against 13 of 15 with the check off. `confidence=None` turns the check off; the candidate then only has to not be worse.
+- Plain-language descriptions (`narrate`) are written from templates by default. The trained rewrite model gives real rewrites for 27 of 50 held-out descriptions, and every rewrite is checked: each number must be the template's and stay next to what it described. The checks catch invented and moved numbers, not every misleading sentence.
+- After validation, Vertiq LM maps 54% of held-out tables exactly (42% from domains it was not trained on) and loads 100% without errors. Proposed mappings should be reviewed before production use.
+- Uplift estimation requires a randomised control group. Without one, `causal.matched_att` gives an estimate whose validity depends on every confounder being observed; `design.next_step` reports the experiment size needed to settle the question.
+- On the synthetic benchmarks, boosted trees improve on linear models where effects are non-linear and do not where effects are additive. Across 100 to 6,400 entities the default tree settings were within 0.01 AUC of the best of five alternatives. `learner="auto"` chooses by 3-fold cross-validation on the training entities; with a few hundred entities or fewer its choice is close to random when the two learners are within a point or two of each other.
+- Doubly robust estimates are consistent if either the propensity or the outcome model is right, but they vary more than the outcome model alone (standard deviation 0.17 across benchmark runs); large weights from extreme propensities are clipped and counted in the result.
+- The rule-based mapping proposer gets 57% of roles right on the held-out real exports and Vertiq LM 83%; both are checked by validation, which flags what it cannot settle (for example two complete amount columns, or day/month order), but meaning (which amount is the one that matters) still needs a person or the model.
+- Tables with one row per entity (customer lists, asset registers) often hold totals and dates computed when the file was exported; Vertiq uses them to describe, never as prediction features.
+- `plan` and `guard` rely on uplift tasks, so they are only as good as the recorded actions and control groups; an action that was never measured is excluded from plans and held by the check. `guard` does not decide on its own: it allows only measured, clearly helpful actions.
+- `menu` proposes features from a fixed set of operations; anything outside it (external data, formulas specific to a sector) is added as a plugin by a person and judged by the same gate.
+- `autotune` scores every trial on the same training entities, so many trials can still favour a lucky change; it keeps a change only when most validation folds agree, and the held-out gate makes the final decision.
 - Version 0.2. The API may change before 1.0; changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Roadmap
 
-- Further public benchmarks: M5 (value prediction), NASA C-MAPSS (equipment failure),
-  KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
-- Distribution on PyPI.
-- Vertiq LM: a training round on tables with real-export clutter (`lm/make_data.py --messy`), scored on the synthetic and the real
-  held-out sets; evaluate a 9B student and publish the adapter with a `vertiq map` command.
-- `autotune` for value tasks and uplift; menu operations for group-level signals and external series (weather, prices) joined by
-  date and location; menu items suggested by a language model for a sector, checked by `menu.parse`.
+- Further public benchmarks: M5 (value prediction), NASA C-MAPSS (equipment failure), KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
+- Vertiq LM: a training round on tables with real-export clutter (`lm/make_data.py --messy`), scored on the synthetic and the real held-out sets; evaluate a 9B student and publish the adapter with a `vertiq map` command.
+- `autotune` for value tasks and uplift; menu operations for group-level signals and external series (weather, prices) joined by date and location; menu items suggested by a language model for a sector, checked by `menu.parse`.
 - Turning free-text fields (support tickets, maintenance notes) into validated events.
 
 Further reading on recursive self-improvement is kept in [proposals/reading-list.md](proposals/reading-list.md), and an external assessment of the competitive landscape in [proposals/landscape-review.md](proposals/landscape-review.md).
