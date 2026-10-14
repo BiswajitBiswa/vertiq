@@ -50,7 +50,10 @@ def propose(rows: list[dict]) -> tuple[Mapping | None, list[str]]:
             continue
         real = [v for v in _vals(data, c) if v not in placeholder_ids(data, c)]
         distinct = len(set(real)) / max(1, len(real))
-        coded = sum(1 for v in real if any(ch.isdigit() for ch in v)) >= 0.8 * len(real)
+        # an identifier is a code with letters and digits, or a long number (an account or phone number);
+        # short plain numbers are amounts or counts
+        coded = sum(1 for v in real if any(ch.isdigit() for ch in v)
+                    and (any(ch.isalpha() for ch in v) or len(v.replace(" ", "")) >= 6)) >= 0.8 * len(real)
         if coded and distinct >= 0.3:
             ids.append((distinct < 0.98, f, c))       # repeating identifiers first: they name who the record is about
     if not ids:
@@ -99,8 +102,10 @@ def find_join(records: list[dict], lines: list[dict]) -> tuple[dict | None, list
         return None, ["no item column"]
     item = max(items, key=lambda c: distinct[c])
     group = None
-    for c in sorted(texts, key=lambda c: distinct[c]):
-        if c == item or not 2 <= distinct[c] < distinct[item]:
+    # the most informative grouping that each item belongs to consistently: at least 3 labels, filled on most lines
+    for c in sorted(texts, key=lambda c: -distinct[c]):
+        filled = sum(1 for v in _vals(ls, c) if v) / len(ls)
+        if c == item or not 3 <= distinct[c] < distinct[item] or filled < 0.8:
             continue
         by: dict[str, Counter] = defaultdict(Counter)
         for r in ls:
