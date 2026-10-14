@@ -17,11 +17,13 @@ def _vals(rows, c):
     return [str(r.get(c) if r.get(c) is not None else "").strip() for r in rows]
 
 
-def propose(rows: list[dict]) -> tuple[Mapping | None, list[str]]:
+def propose(rows: list[dict], record_key: str | None = None) -> tuple[Mapping | None, list[str]]:
     """A mapping chosen from the values: the time is the date column that is filled best, with a separate
     time-of-day column if there is one; the value is the most complete amount column; the entity is the best
     identifier that repeats (a person or asset), else the best identifier; attributes are the remaining
-    columns with 2 to 12 repeated labels, and columns that identify each record (kept for joins)."""
+    columns with 2 to 12 repeated labels, and columns that identify each record (kept for joins).
+    `record_key`: a column known to identify the record itself (the key line items join on); it is kept as
+    an attribute and never proposed as the entity, since it names the order, not whom it is about."""
     skip = structural_rows(rows)
     data = [r for i, r in enumerate(rows, start=1) if i not in skip]
     if not data:
@@ -43,7 +45,7 @@ def propose(rows: list[dict]) -> tuple[Mapping | None, list[str]]:
     n = len(data)
     ids = []
     for c in kind:
-        if c in (time, clock, value):
+        if c in (time, clock, value, record_key):
             continue
         f = fitness(data, c, "entity", kind)
         if f < 0.5:
@@ -61,6 +63,8 @@ def propose(rows: list[dict]) -> tuple[Mapping | None, list[str]]:
     ids.sort(reverse=True)
     entity = ids[0][2]
     record_keys = [c for rep, _f, c in ids if not rep and c != entity]
+    if record_key and record_key in kind and record_key not in record_keys:
+        record_keys.append(record_key)
     labels = [c for c in kind if c not in (time, clock, value, entity) and kind[c] == "text"
               and 2 <= len(set(v for v in _vals(data, c) if v)) <= 12 and n >= 2]
     m = Mapping(entity=entity, time=time, value=value, attrs=labels + record_keys, date_format=fmts[0] if fmts else "%Y-%m-%d",

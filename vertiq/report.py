@@ -51,10 +51,17 @@ def build(config: dict, base: Path = Path(".")) -> tuple[object, dict, list[str]
     rec = config["records"]
     rows = read_table(base / rec["file"])
     log = []
+    it = dict(config.get("items") or {})
+    lines = read_table(base / it["file"]) if it else []
+    if it and not it.get("key"):
+        found, why = find_join(rows, lines)          # first: the join key names the record, not whom it is about
+        log += [f"Line items: {w}" for w in why]
+        if found:
+            it.update(found)
     if rec.get("mapping"):
         proposal = Mapping.parse(rec["mapping"])
     else:
-        proposal, why = propose(rows)
+        proposal, why = propose(rows, record_key=it.get("event_key"))
         log += [f"Mapping proposal: {w}" for w in why]
         if proposal is None:
             return None, {}, log
@@ -66,14 +73,7 @@ def build(config: dict, base: Path = Path(".")) -> tuple[object, dict, list[str]
     log += [f"Mapping used: {json.dumps(m.as_dict())}"] + [f"Mapping check: {n}" for n in notes]
     log += [f"Loading: {p}" for p in problems[:12]] + ([f"Loading: and {len(problems) - 12} more"] if len(problems) > 12 else [])
     groups: dict = {}
-    if config.get("items"):
-        it = dict(config["items"])
-        lines = read_table(base / it["file"])
-        if not it.get("key"):
-            found, why = find_join(rows, lines)
-            log += [f"Line items: {w}" for w in why]
-            if found:
-                it.update(found)
+    if it:
         if it.get("key"):
             ds, groups, more = attach_items(ds, lines, key=it["key"], event_key=it["event_key"], item=it["item"],
                                             qty=it.get("qty"), item_group=it.get("item_group"))

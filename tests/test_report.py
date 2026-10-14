@@ -9,7 +9,7 @@ from vertiq.tables import find_join, propose
 MENU = {"Margherita": "Pizza", "Farmhouse": "Pizza", "Cola": "Drinks", "Lemonade": "Drinks", "Fries": "Sides", "Salad": "Sides"}
 
 
-def _write(tmp_path, n=300, seed=4):
+def _write(tmp_path, n=300, seed=4, repeat=True):
     rnd = random.Random(seed)
     orders, lines = [], []
     for i in range(n):
@@ -26,7 +26,8 @@ def _write(tmp_path, n=300, seed=4):
             lines.append({"Order No": no, "Store Group": rnd.choice(["Services", ""]), "Item": it, "Category": MENU[it], "Qty": q,
                           "Unit Price": price, "Amount": price * q})
             total += price * q
-        orders.append({"Order No": no, "Phone": rnd.choice(["-", f"98{rnd.randint(10000000, 99999999)}", f"97{rnd.randint(100, 140):08d}"]),
+        phones = ["-", f"98{rnd.randint(10000000, 99999999)}"] + ([f"97{rnd.randint(100, 140):08d}"] if repeat else [])
+        orders.append({"Order No": no, "Phone": rnd.choice(phones),
                        "Date": f"{rnd.randint(1, 28):02d}/{rnd.randint(1, 9):02d}/2026", "Time": f"{rnd.randint(1, 11)}:{rnd.randint(10, 59)} PM",
                        "Channel": "Online" if online else "Store", "Payment": rnd.choice(["Card", "Cash", "Wallet"]), "Subtotal": total,
                        "Total": total})
@@ -58,3 +59,12 @@ def test_report_runs_from_file_names_only(tmp_path):
     assert "## Patterns" in text and "include Drinks" in text and "where Channel is Online" in text
     assert "a summary row" in text and "placeholder entity" in text
     assert "## Predictions" in text
+
+
+def test_the_join_key_names_the_record_not_the_customer(tmp_path):
+    _write(tmp_path, n=80, repeat=False)              # nobody orders twice: phone and order number are both unique
+    cfg = {"records": {"file": "orders.csv"}, "items": {"file": "lines.csv"}, "noun": "orders"}
+    ds, groups, log = report.build(cfg, tmp_path)
+    used = next(x for x in log if x.startswith("Mapping used"))
+    assert '"entity": "Phone"' in used and "Order No" in used
+    assert any("80 of 80 records got line items" in x for x in log) and groups
