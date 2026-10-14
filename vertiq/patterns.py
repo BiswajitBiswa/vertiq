@@ -48,8 +48,15 @@ def _part_of_day(h: int) -> str:
 
 
 def features(ds: Dataset, item_groups: dict[str, str] | None = None, min_n: int = 10) -> tuple[list[dict], list[set]]:
-    """The features found in the data ({"source", "label"}) and, for each event, the set of features it has."""
+    """The features found in the data ({"source", "label"}) and, for each event, the set of features it has.
+    Entity attributes with 2 to 12 labels (from an entity table) count too, as "{name} = {label}"."""
     events = ds.events
+    ent_attrs = {e.id: (e.attrs or {}) for e in ds.entities}
+    ent_values: dict[str, Counter] = defaultdict(Counter)
+    for e in ds.entities:
+        for k, v in (e.attrs or {}).items():
+            if isinstance(v, str) and v.strip() not in ("", "-"):
+                ent_values[k][v.strip()] += 1
     n = len(events)
     groups = ds.groups()
     raw: list[set] = [set() for _ in events]
@@ -74,6 +81,11 @@ def features(ds: Dataset, item_groups: dict[str, str] | None = None, min_n: int 
                     raw[i].add((f"attr:{k}", f"{k} = {v}"))
         if 2 <= len(grp_levels) <= MAX_LEVELS and groups.get(e.entity):
             raw[i].add(("group", f"group {groups[e.entity]}"))
+        for k, c in ent_values.items():
+            if 2 <= len(c) <= MAX_LEVELS and k not in attr_values:
+                v = str(ent_attrs.get(e.entity, {}).get(k) or "").strip()
+                if v in c:
+                    raw[i].add((f"entity:{k}", f"{k} = {v}"))
         if len(weekdays) > 1:
             raw[i].add(("weekday", e.at.strftime("%A")))
         if timed:
