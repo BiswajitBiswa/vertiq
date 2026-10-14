@@ -13,6 +13,12 @@ from .mapping import (_TIME_OF_DAY, MIN_EVIDENCE, Mapping, _complete, _quantitie
                       profile, structural_rows)
 
 
+def _records(rows: list[dict]) -> list[dict]:
+    """The rows that are records: summary and empty rows left out (found once per table)."""
+    skip = structural_rows(rows)
+    return [r for i, r in enumerate(rows, start=1) if i not in skip]
+
+
 def _vals(rows, c):
     return [str(r.get(c) if r.get(c) is not None else "").strip() for r in rows]
 
@@ -59,12 +65,13 @@ def propose(rows: list[dict], record_key: str | None = None, latest: bool = Fals
         time = max(good, key=last) if good else time
     fmts = date_formats(_vals(data, time))
     clock = next((c for c in kind if c != time and sum(1 for v in _vals(data, c) if _TIME_OF_DAY.match(v)) >= 0.8 * len(data)), None)
-    amounts = [c for c in kind if kind[c] == "number" and fitness(data, c, "value", kind) >= 0.5 and c not in _quantities(data, kind)
+    qcols = _quantities(data, kind)
+    amounts = [c for c in kind if kind[c] == "number" and fitness(data, c, "value", kind) >= 0.5 and c not in qcols
                and not _id_numbers(_vals(data, c))]
     value = None
     if amounts:
         # prefer a column no other amount column is more complete than, then the one with the fewest zeros
-        complete = [c for c in amounts if not any(_complete(data, c, o, _quantities(data, kind)) for o in amounts if o != c)]
+        complete = [c for c in amounts if not any(_complete(data, c, o, qcols) for o in amounts if o != c)]
         value = max(complete or amounts, key=lambda c: sum(1 for v in _vals(data, c) if v not in ("", "0", "0.0")))
         rivals = [c for c in (complete or amounts) if c != value
                   and sum(1 for v in _vals(data, c) if v not in ("", "0", "0.0")) >= 0.9 * len(data)]
@@ -78,7 +85,8 @@ def propose(rows: list[dict], record_key: str | None = None, latest: bool = Fals
         f = fitness(data, c, "entity", kind)
         if f < 0.2:
             continue                                  # records without an id become one-off entities (reported)
-        real = [v for v in _vals(data, c) if v not in placeholder_ids(data, c)]
+        ph = placeholder_ids(data, c)                 # once per column, not once per value
+        real = [v for v in _vals(data, c) if v not in ph]
         distinct = len(set(real)) / max(1, len(real))
         # an identifier is a code with letters and digits, a fixed-length whole number (an account, customer or phone
         # number), or a long number; short numbers and numbers with decimals are amounts or counts
@@ -114,8 +122,8 @@ def find_join(records: list[dict], lines: list[dict]) -> tuple[dict | None, list
     pair is the one whose record values most often appear in the line table (at least 80% of records); the
     item is the line column with the most distinct repeated labels; the item group is a column with fewer labels
     that each item belongs to consistently; the quantity is a small whole-number column."""
-    rs = [r for i, r in enumerate(records, start=1) if i not in structural_rows(records)]
-    ls = [r for i, r in enumerate(lines, start=1) if i not in structural_rows(lines)]
+    rs = _records(records)
+    ls = _records(lines)
     if not rs or not ls:
         return None, ["empty table"]
     best = (0.0, None, None)
@@ -163,7 +171,7 @@ def find_lines(rows: list[dict]) -> tuple[dict | None, list[str]]:
     {"key", "item", "qty", "price", "amount", "item_group"}. The key is a coded column that repeats (2% to 90%
     distinct) and whose rows share one timestamp in at least 95% of keys; the item is the text column with the
     most distinct values; quantity and price are found from their values. None when the table is not lines."""
-    data = [r for i, r in enumerate(rows, start=1) if i not in structural_rows(rows)]
+    data = _records(rows)
     n = len(data)
     if n < MIN_EVIDENCE:
         return None, []
@@ -269,13 +277,14 @@ def entity_table(rows: list[dict]) -> dict | None:
     identifier column that differs on (nearly) every row. Returns {"key", "dates", "counts"}: the date columns
     (first and last activity, renewal) and whole-number columns, which in such tables are usually totals
     computed when the file was exported. None when no column identifies each row."""
-    data = [r for i, r in enumerate(rows, start=1) if i not in structural_rows(rows)]
+    data = _records(rows)
     if len(data) < MIN_EVIDENCE:
         return None
     kind = profile(data)
     keys = []
     for c in kind:
-        real = [v for v in _vals(data, c) if v not in placeholder_ids(data, c)]
+        ph = placeholder_ids(data, c)                 # once per column, not once per value
+        real = [v for v in _vals(data, c) if v not in ph]
         if len(real) >= 0.8 * len(data) and len(set(real)) >= 0.98 * len(real) and kind[c] != "date" and \
                 (_id_numbers(real) or sum(1 for v in real if any(ch.isdigit() for ch in v)) >= 0.8 * len(real)):
             keys.append((len(real), c))
@@ -294,7 +303,7 @@ def attach_entities(ds, rows: list[dict], key: str | None = None) -> tuple[objec
     totals computed at export time and would leak the future into a prediction, so they are kept for
     description only."""
     from .contract import Dataset, Entity
-    data = [r for i, r in enumerate(rows, start=1) if i not in structural_rows(rows)]
+    data = _records(rows)
     ids = {e.id for e in ds.entities}
     if key is None:
         best = (0.0, None)

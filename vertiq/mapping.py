@@ -101,6 +101,9 @@ def date_formats(values: list[str]) -> list[str]:
     """Every known format that parses all the values. One answer means the data decides; two or more
     (e.g. 03/04/2026 fits day-first and month-first) means it is genuinely ambiguous."""
     vals = [str(v).strip() for v in values if str(v or "").strip()]
+    if len(vals) > 2000:                     # decided on 2,000 values spread over the column; apply() names any row that fails
+        step = len(vals) / 2000
+        vals = [vals[int(i * step)] for i in range(2000)]
     fits = []
     for f in DATE_FORMATS:
         try:
