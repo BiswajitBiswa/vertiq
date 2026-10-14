@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-13",
+  "generated": "2026-10-14",
   "hardware": "Apple M1 Pro, 16 GB, MLX 0.32 (4-bit weights, LoRA rank 8 on 4 layers)",
   "base_model": "mlx-community/Qwen3.5-4B-MLX-4bit (Apache-2.0)",
   "test_sets": {
@@ -24,16 +24,16 @@
         "json": 1.0,
         "loads": 0.579,
         "exact": 0.035,
-        "loads_repaired": 0.93,
-        "exact_repaired": 0.088
+        "loads_repaired": 0.974,
+        "exact_repaired": 0.096
       },
       "seen": {
         "n": 66,
         "json": 1.0,
         "loads": 0.485,
         "exact": 0.03,
-        "loads_repaired": 0.879,
-        "exact_repaired": 0.106
+        "loads_repaired": 0.955,
+        "exact_repaired": 0.121
       },
       "unseen": {
         "n": 48,
@@ -55,16 +55,16 @@
         "json": 1.0,
         "loads": 0.667,
         "exact": 0.202,
-        "loads_repaired": 0.939,
-        "exact_repaired": 0.307
+        "loads_repaired": 0.956,
+        "exact_repaired": 0.316
       },
       "seen": {
         "n": 66,
         "json": 1.0,
         "loads": 0.561,
         "exact": 0.258,
-        "loads_repaired": 0.955,
-        "exact_repaired": 0.379
+        "loads_repaired": 0.985,
+        "exact_repaired": 0.394
       },
       "unseen": {
         "n": 48,
@@ -117,8 +117,8 @@
         "json": 1.0,
         "loads": 0.939,
         "exact": 0.351,
-        "loads_repaired": 0.974,
-        "exact_repaired": 0.395
+        "loads_repaired": 0.991,
+        "exact_repaired": 0.404
       },
       "seen": {
         "n": 66,
@@ -133,8 +133,8 @@
         "json": 1.0,
         "loads": 0.875,
         "exact": 0.292,
-        "loads_repaired": 0.938,
-        "exact_repaired": 0.312
+        "loads_repaired": 0.979,
+        "exact_repaired": 0.333
       }
     },
     {
@@ -148,7 +148,7 @@
         "json": 1.0,
         "loads": 0.807,
         "exact": 0.298,
-        "loads_repaired": 0.974,
+        "loads_repaired": 0.982,
         "exact_repaired": 0.342
       },
       "seen": {
@@ -164,7 +164,7 @@
         "json": 1.0,
         "loads": 0.75,
         "exact": 0.146,
-        "loads_repaired": 0.958,
+        "loads_repaired": 0.979,
         "exact_repaired": 0.208
       }
     },
@@ -179,8 +179,8 @@
         "json": 1.0,
         "loads": 0.912,
         "exact": 0.412,
-        "loads_repaired": 0.991,
-        "exact_repaired": 0.439
+        "loads_repaired": 1.0,
+        "exact_repaired": 0.447
       },
       "seen": {
         "n": 66,
@@ -195,8 +195,8 @@
         "json": 1.0,
         "loads": 0.917,
         "exact": 0.312,
-        "loads_repaired": 0.979,
-        "exact_repaired": 0.312
+        "loads_repaired": 1.0,
+        "exact_repaired": 0.333
       }
     },
     {
@@ -210,8 +210,8 @@
         "json": 1.0,
         "loads": 0.851,
         "exact": 0.526,
-        "loads_repaired": 0.982,
-        "exact_repaired": 0.632
+        "loads_repaired": 0.991,
+        "exact_repaired": 0.64
       },
       "seen": {
         "n": 66,
@@ -226,8 +226,8 @@
         "json": 1.0,
         "loads": 0.812,
         "exact": 0.438,
-        "loads_repaired": 0.958,
-        "exact_repaired": 0.562
+        "loads_repaired": 0.979,
+        "exact_repaired": 0.583
       }
     },
     {
