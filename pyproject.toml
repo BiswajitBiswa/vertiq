@@ -4,19 +4,30 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vertiq"
-version = "0.1.0"
+version = "0.2.0"
 description = "Self-improving decision intelligence: a local language model that maps any operational dataset and decision models trained on real outcomes, improved through recursive self-improvement under an evaluation gate."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
+authors = [{name = "Biswajit Tripathy"}]
+keywords = ["decision intelligence", "prediction", "uplift", "causal inference", "pattern mining", "evaluation", "tabular data"]
+classifiers = ["Programming Language :: Python :: 3", "License :: OSI Approved :: Apache Software License",
+               "Operating System :: OS Independent", "Intended Audience :: Developers", "Intended Audience :: Science/Research",
+               "Topic :: Scientific/Engineering :: Information Analysis"]
 dependencies = []          # pure Python on purpose: runs anywhere, embeds in any product
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
 lm = ["mlx-lm==0.32.0", "mlx-lm-lora==5.8.6", "huggingface_hub"]     # Vertiq LM, Apple Silicon only
+excel = ["openpyxl>=3.1", "xlrd>=2.0"]                                # reading .xlsx and .xls in vertiq.report
+
+[project.scripts]
+vertiq-report = "vertiq.report:main"
 
 [project.urls]
 Source = "https://github.com/BiswajitBiswa/vertiq"
+Documentation = "https://biswajitbiswa.github.io/vertiq/"
+Changelog = "https://github.com/BiswajitBiswa/vertiq/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 include = ["vertiq*"]
