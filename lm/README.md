@@ -62,3 +62,12 @@ records which teacher generated it.
 are checked against value types: timestamps must contain dates, the entity cannot be a date, the value must be numeric, and row
 counters are excluded from attributes. The date format is inferred from the rows. A role is reassigned only when the data leaves
 exactly one valid candidate; weaker evidence is flagged for review. In 2,100 checks per run, validation altered no correct mapping.
+
+## Other rounds and checks
+
+| Script | What it does |
+|---|---|
+| `lm/make_data.py --messy 0.5` | Training tables with real-export clutter: wide tables, several amount columns, a second date, free text, empty and placeholder columns, ISO timestamps |
+| `lm/evaluate_real.py` + `benchmarks/real/score.py` | Vertiq LM on six held-out public exports (`benchmarks/real/fetch.sh`); never trained on |
+| `lm/narrate_round.sh` | Plain-language rewrites: a local 9B teacher (`lm/narrate_data.py`), a LoRA on the 4B, scoring on held-out descriptions (`lm/narrate.py`) |
+| `lm/fit_length.py`, `lm/mlx_limits.py` | Fit preference training in 16 GB: drop over-long examples, cap MLX's buffer cache |

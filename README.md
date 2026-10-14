@@ -76,7 +76,7 @@ Vertiq is a specialised model system, not a general-purpose assistant. Where fou
 | Tested insights | `insights` | Segment-level patterns reported only after false-discovery-rate control. |
 | Monitoring | `drift · sequential` | Input and score drift, accuracy on new outcomes, and sequential tests of one rate or two live arms that can be checked after every observation. |
 | Pattern search | `patterns` | Finds patterns without being told where to look: every attribute, group, weekday, part of day and item group is compared with the value and with every other feature, under false-discovery control, and written as sentences. |
-| One-command report | `report · tables` | From exported tables (CSV or Excel) to a written report: Vertiq proposes the mapping and the join between tables from the values, checks them, and runs every analysis that applies. |
+| One-command report | `report · tables` | From exported tables (CSV or Excel, read by content rather than file name, header found below titles) to a written report: Vertiq proposes the mapping, recognises line-item and one-row-per-entity tables, joins tables by shared keys, checks everything, and runs every analysis that applies. |
 | Several possible outcomes | `category.predict_category` | Which of several events comes next (a repair, a replacement or nothing; an upgrade or a cancellation), with a probability for each. |
 | Planning under a budget | `plan` | Who should receive which action, given each action's measured effect, its cost and the value of the outcome, within a budget. |
 | Checks on proposed actions | `guard` | Allow, hold or block an action proposed by an agent or a person, from the measured effect of that action and rule flags; unmeasured actions are held for a person. |
@@ -266,6 +266,26 @@ Recency baseline AUC 0.761.
 | Auto (chose boosted) | 0.812 | 0.795–0.827 | +0.043 to +0.059 |
 | scikit-learn logistic regression (reference) | 0.807 |  |  |
 
+### Real exports (held out)
+
+Six public exports from different sectors, never used for training; a role is correct when it is one of the accepted answers
+(`benchmarks/real/labels.json`; `python benchmarks/real/score.py`).
+
+| Method | Roles correct | Tables exactly right |
+|---|---|---|
+| Rule-based proposer (no model) | 57% | 0/6 |
+| Qwen 3.5 4B, no training | 63% | 1/6 |
+| Vertiq LM (round 3 + preference training) | 83% | 2/6 |
+
+### Plain-language rewrites
+
+50 held-out descriptions; a rewrite is accepted only if it keeps every number next to what it described and is no longer.
+
+| Model | Accepted | Real rewrites | Near-copies |
+|---|---|---|---|
+| Qwen 3.5 4B, no training | 39 of 50 | 17 | 22 |
+| Qwen 3.5 4B + LoRA on teacher rewrites | 30 of 50 | 27 | 3 |
+
 ### Vertiq LM table mapping
 
 Qwen 3.5 4B (Apache 2.0, 4-bit MLX), fine-tuned with LoRA on an Apple M1 Pro with 16 GB of memory. 114 held-out tables across 15
@@ -276,18 +296,18 @@ Original test set:
 
 | Model | Loads | Exact | Exact, validated | Unseen domains, exact |
 |---|---|---|---|---|
-| Qwen 3.5 4B, no training | 57.9% | 3.5% | 8.8% | 4.2% |
-| + LoRA fine-tune (round 1) | 66.7% | 20.2% | 30.7% | 12.5% |
+| Qwen 3.5 4B, no training | 57.9% | 3.5% | 9.6% | 4.2% |
+| + LoRA fine-tune (round 1) | 66.7% | 20.2% | 31.6% | 12.5% |
 | + ORPO on its own mistakes | 78.1% | 28.1% | 38.6% | 22.9% |
-| Round 3 fine-tune | 93.9% | 35.1% | 39.5% | 29.2% |
-| Round 3 + ORPO on its own mistakes | 85.1% | 52.6% | 63.2% | 43.8% |
+| Round 3 fine-tune | 93.9% | 35.1% | 40.4% | 29.2% |
+| Round 3 + ORPO on its own mistakes | 85.1% | 52.6% | 64.0% | 43.8% |
 
 Production-like test set (audit columns and locale-specific number formats):
 
 | Model | Loads | Exact | Exact, validated | Unseen domains, exact |
 |---|---|---|---|---|
 | + ORPO on its own mistakes (round 1 model) | 80.7% | 29.8% | 34.2% | 14.6% |
-| Round 3 fine-tune | 91.2% | 41.2% | 43.9% | 31.2% |
+| Round 3 fine-tune | 91.2% | 41.2% | 44.7% | 31.2% |
 | Round 3 + ORPO on its own mistakes | 93.0% | 46.5% | 53.5% | 37.5% |
 
 ## Verify the results
@@ -337,6 +357,11 @@ The methods are established and deliberately transparent: regularised logistic a
 - Doubly robust estimates are consistent if either the propensity or the outcome model is right, but they vary more than the
   outcome model alone (standard deviation 0.17 across benchmark runs); large weights from extreme
   propensities are clipped and counted in the result.
+- The rule-based mapping proposer gets 57% of roles right on the held-out real exports and Vertiq LM 83%; both are checked by
+  validation, which flags what it cannot settle (for example two complete amount columns, or day/month order), but meaning
+  (which amount is the one that matters) still needs a person or the model.
+- Tables with one row per entity (customer lists, asset registers) often hold totals and dates computed when the file was
+  exported; Vertiq uses them to describe, never as prediction features.
 - `plan` and `guard` rely on uplift tasks, so they are only as good as the recorded actions and control groups; an action
   that was never measured is excluded from plans and held by the check. `guard` does not decide on its own: it allows only
   measured, clearly helpful actions.
@@ -351,7 +376,8 @@ The methods are established and deliberately transparent: regularised logistic a
 - Further public benchmarks: M5 (value prediction), NASA C-MAPSS (equipment failure),
   KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
-- Vertiq LM: evaluate a 9B student and publish the adapter.
+- Vertiq LM: a training round on tables with real-export clutter (`lm/make_data.py --messy`), scored on the synthetic and the real
+  held-out sets; evaluate a 9B student and publish the adapter with a `vertiq map` command.
 - `autotune` for value tasks and uplift; menu operations for group-level signals and external series (weather, prices) joined by
   date and location; menu items suggested by a language model for a sector, checked by `menu.parse`.
 - Turning free-text fields (support tickets, maintenance notes) into validated events.

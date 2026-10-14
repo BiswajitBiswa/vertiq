@@ -4,6 +4,15 @@ All notable changes are recorded here. Versions follow semantic versioning; befo
 
 ## Unreleased
 
+- Held-out real-export mapping benchmark (`benchmarks/real`): six public exports from six sectors, accepted answers per
+  role, never trained on. Vertiq LM 83% of roles, the untrained 4B 63%, the rule-based proposer 57%.
+- Entity tables (`tables.entity_table`, `attach_entities`): one row per entity, joined to events by key; fixed labels feed
+  pattern search; totals and dates computed at export describe only. A table alone is read as each entity's latest activity.
+- Reading exports: format by content (an .xls that is really .xlsx; Excel 97-2003 with xlrd; CSV delimiters), header below
+  titles, single line-item tables turned into records, fixed-length id numbers, repeating names as entities, full totals rows.
+- Large exports in linear time (a 15,494-row file: from over 30 minutes to under a second for the proposals).
+- Plain-language rewrites: a 4B adapter trained on 208 checked rewrites by a local 9B teacher; on 50 held-out descriptions
+  27 real rewrites against 17 for the untrained model (`benchmarks/results/narrate.json`).
 - `patterns.find`: tested patterns across all features of a dataset (attributes, groups, weekday, part of day, item
   groups, event type) against the value and each other, with false-discovery control; planted patterns found 2 of 2 and
   nothing reported in random data.

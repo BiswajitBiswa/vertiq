@@ -20,6 +20,14 @@ from guides import GUIDES, snippet  # noqa: E402
 
 CORE = json.loads((ROOT / "benchmarks" / "results" / "core.json").read_text())
 LM = json.loads((ROOT / "benchmarks" / "results" / "lm.json").read_text())
+REAL = json.loads((ROOT / "benchmarks" / "results" / "real.json").read_text())
+NARR = json.loads((ROOT / "benchmarks" / "results" / "narrate.json").read_text())
+REAL_NAMES = {"rules": "Rule-based proposer (no model)", "base": "Qwen 3.5 4B, no training", "v2-pref": "Vertiq LM (round 3 + preference training)"}
+
+
+def real_rows():
+    """(method, share of roles correct, exact tables) on the held-out real exports, after validation."""
+    return [(REAL_NAMES.get(k, k), f"{v['roles_correct'] * 100:.0f}%", v["exact"]) for k, v in REAL["summary"].items()]
 PUBLIC = json.loads((ROOT / "benchmarks" / "results" / "public.json").read_text())
 REPO = "https://github.com/BiswajitBiswa/vertiq"
 SITE = "https://biswajitbiswa.github.io/vertiq/"
@@ -98,7 +106,7 @@ CAPABILITIES = [
     ("Tested insights", "Segment-level patterns reported only after false-discovery-rate control.", "insights"),
     ("Monitoring", "Input and score drift, accuracy on new outcomes, and sequential tests of one rate or two live arms that can be checked after every observation.", "drift · sequential"),
     ("Pattern search", "Finds patterns without being told where to look: every attribute, group, weekday, part of day and item group is compared with the value and with every other feature, under false-discovery control, and written as sentences.", "patterns"),
-    ("One-command report", "From exported tables (CSV or Excel) to a written report: Vertiq proposes the mapping and the join between tables from the values, checks them, and runs every analysis that applies.", "report · tables"),
+    ("One-command report", "From exported tables (CSV or Excel, read by content rather than file name, header found below titles) to a written report: Vertiq proposes the mapping, recognises line-item and one-row-per-entity tables, joins tables by shared keys, checks everything, and runs every analysis that applies.", "report · tables"),
     ("Several possible outcomes", "Which of several events comes next (a repair, a replacement or nothing; an upgrade or a cancellation), with a probability for each.", "category.predict_category"),
     ("Planning under a budget", "Who should receive which action, given each action's measured effect, its cost and the value of the outcome, within a budget.", "plan"),
     ("Checks on proposed actions", "Allow, hold or block an action proposed by an agent or a person, from the measured effect of that action and rule flags; unmeasured actions are held for a person.", "guard"),
@@ -711,6 +719,17 @@ with 16 GB of memory, and it is evaluated on tables from domains excluded from t
 <section><h2>Results: original test set (114 tables)</h2>{table(runs_v1)}
 <figure>{chart}<figcaption>Light bars: exact matches before validation. Dark bars: exact matches after validation. Validation changed no
 correct mapping in {S('mapping_repair')['correct_mappings']['mean']:.0f} checks per run across {CORE['scenarios']['mapping_repair']['seeds']} runs.</figcaption></figure></section>
+<section><h2>Results: real exports (held out)</h2>
+<p class="read">Six public exports from different sectors ({", ".join(sorted({d['sector'] for k, d in json.loads((ROOT / 'benchmarks/real/labels.json').read_text()).items() if not k.startswith('_')}))}),
+never used for training. Each role lists every acceptable answer; every proposal is validated before scoring, as in use.</p>
+<div class="tbl"><table><thead><tr><th>Method</th><th>Roles correct</th><th>Tables exactly right</th></tr></thead><tbody>
+{"".join(f"<tr><td>{E(a)}</td><td>{b}</td><td>{c}</td></tr>" for a, b, c in real_rows())}</tbody></table></div></section>
+<section><h2>Results: plain-language rewrites (50 held-out descriptions)</h2>
+<p class="read">A rewrite counts only if every number is the template's, each number stays next to what it described, and the rewrite is no
+longer than the template; accepted rewrites that are near-copies add nothing. Training data: {NARR['training_examples']} rewrites by a local
+9B teacher, kept from {NARR['teacher_tried']} attempts.</p>
+<div class="tbl"><table><thead><tr><th>Model</th><th>Accepted</th><th>Real rewrites</th><th>Near-copies</th></tr></thead><tbody>
+{"".join(f"<tr><td>{E(r['model'])}</td><td>{r['accepted']} of {r['n']}</td><td>{r['accepted_rewrites_not_copies']}</td><td>{r['copies']}</td></tr>" for r in NARR['runs'])}</tbody></table></div></section>
 <section><h2>Results: production-like test set (114 tables)</h2>
 <p class="read">Includes audit columns and locale-specific number formats (R$ 1.267,81, € 4 350,50, ₹1,267). The earlier model is evaluated
 with its original prompt format.</p>{table(runs_v2)}</section>
@@ -935,6 +954,8 @@ def build_readme():
         ("Mapping validation", f"Correct mappings altered: {S('mapping_repair')['changed_by_repair']['mean']:.0f} of {S('mapping_repair')['correct_mappings']['mean']:.0f} per run", "Must be 0"),
     ]
     core_rows = "\n".join(f"| {a} | {b} | {c} |" for a, b, c in core)
+    real_md = "\n".join(f"| {a} | {b} | {c} |" for a, b, c in real_rows())
+    narr_md = "\n".join(f"| {r['model']} | {r['accepted']} of {r['n']} | {r['accepted_rewrites_not_copies']} | {r['copies']} |" for r in NARR["runs"])
     public_md = "\n".join(f"| {a} | {b} | {c} | {d} |" for a, b, c, d, _e in public_rows())
 
     def lm_rows(test):
@@ -1122,6 +1143,23 @@ Recency baseline AUC {PUBLIC['runs']['linear']['baseline_auc']:.3f}.
 |---|---|---|---|
 {public_md}
 
+### Real exports (held out)
+
+Six public exports from different sectors, never used for training; a role is correct when it is one of the accepted answers
+(`benchmarks/real/labels.json`; `python benchmarks/real/score.py`).
+
+| Method | Roles correct | Tables exactly right |
+|---|---|---|
+{real_md}
+
+### Plain-language rewrites
+
+{NARR['held_out_descriptions']} held-out descriptions; a rewrite is accepted only if it keeps every number next to what it described and is no longer.
+
+| Model | Accepted | Real rewrites | Near-copies |
+|---|---|---|---|
+{narr_md}
+
 ### Vertiq LM table mapping
 
 Qwen 3.5 4B (Apache 2.0, 4-bit MLX), fine-tuned with LoRA on an Apple M1 Pro with 16 GB of memory. 114 held-out tables across 15
@@ -1187,6 +1225,11 @@ python docs/build.py && git diff --stat                 # regenerates the site a
 - Doubly robust estimates are consistent if either the propensity or the outcome model is right, but they vary more than the
   outcome model alone (standard deviation {S('doubly_robust_effect')['doubly_robust']['sd']:.2f} across benchmark runs); large weights from extreme
   propensities are clipped and counted in the result.
+- The rule-based mapping proposer gets 57% of roles right on the held-out real exports and Vertiq LM 83%; both are checked by
+  validation, which flags what it cannot settle (for example two complete amount columns, or day/month order), but meaning
+  (which amount is the one that matters) still needs a person or the model.
+- Tables with one row per entity (customer lists, asset registers) often hold totals and dates computed when the file was
+  exported; Vertiq uses them to describe, never as prediction features.
 - `plan` and `guard` rely on uplift tasks, so they are only as good as the recorded actions and control groups; an action
   that was never measured is excluded from plans and held by the check. `guard` does not decide on its own: it allows only
   measured, clearly helpful actions.
@@ -1201,7 +1244,8 @@ python docs/build.py && git diff --stat                 # regenerates the site a
 - Further public benchmarks: M5 (value prediction), NASA C-MAPSS (equipment failure),
   KKBOX (churn), and Hillstrom and Criteo (randomised uplift); protocols in [proposal 0001](proposals/0001-statistical-validation.md), part C.
 - Distribution on PyPI.
-- Vertiq LM: evaluate a 9B student and publish the adapter.
+- Vertiq LM: a training round on tables with real-export clutter (`lm/make_data.py --messy`), scored on the synthetic and the real
+  held-out sets; evaluate a 9B student and publish the adapter with a `vertiq map` command.
 - `autotune` for value tasks and uplift; menu operations for group-level signals and external series (weather, prices) joined by
   date and location; menu items suggested by a language model for a sector, checked by `menu.parse`.
 - Turning free-text fields (support tickets, maintenance notes) into validated events.

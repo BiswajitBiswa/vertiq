@@ -1,0 +1,31 @@
+{
+  "task": "rewrite a template description in plain words; accepted only if every number is the template's, each stays next to what it described, and it is no longer",
+  "held_out_descriptions": 50,
+  "teacher": "Qwen 3.5 9B (local), 4 tries per description; kept only rewrites that pass every check and are not near-copies",
+  "training_examples": 208,
+  "teacher_tried": 1376,
+  "teacher_rejections": {
+    "longer than the template": 516,
+    "near-copy of the template": 311,
+    "the number N is no longer next to what it described": 339,
+    "the number N is not in the facts": 2
+  },
+  "runs": [
+    {
+      "run": "base",
+      "model": "Qwen 3.5 4B, no training",
+      "n": 50,
+      "accepted": 39,
+      "accepted_rewrites_not_copies": 17,
+      "copies": 22
+    },
+    {
+      "run": "tuned",
+      "model": "Qwen 3.5 4B + LoRA on teacher rewrites",
+      "n": 50,
+      "accepted": 30,
+      "accepted_rewrites_not_copies": 27,
+      "copies": 3
+    }
+  ]
+}
