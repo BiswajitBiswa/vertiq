@@ -4,6 +4,12 @@ All notable changes are recorded here. Versions follow semantic versioning; befo
 
 ## Unreleased
 
+- `patterns.find`: tested patterns across all features of a dataset (attributes, groups, weekday, part of day, item
+  groups, event type) against the value and each other, with false-discovery control; planted patterns found 2 of 2 and
+  nothing reported in random data.
+- `python -m vertiq.report config.json`: exported tables (CSV, or Excel with openpyxl) to a written report.
+- `tables.propose` and `tables.find_join`: a mapping and a line-item join proposed from the values alone, then checked.
+- `mapping`: a separate time-of-day column (`clock`), and `attach_items` for line items joined by a shared key.
 - Mapping validation for real exports: summary and mostly-empty rows are named and skipped; placeholder ids ("-", "NA",
   a default number on many rows) become one-off entities instead of merging into one; a role whose column is empty, a
   placeholder or the wrong kind moves to the clearly best-fitting column or is flagged; a value column that is 0 where
