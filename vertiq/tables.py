@@ -52,6 +52,10 @@ def propose(rows: list[dict], record_key: str | None = None) -> tuple[Mapping | 
         # prefer a column no other amount column is more complete than, then the one with the fewest zeros
         complete = [c for c in amounts if not any(_complete(data, c, o, _quantities(data, kind)) for o in amounts if o != c)]
         value = max(complete or amounts, key=lambda c: sum(1 for v in _vals(data, c) if v not in ("", "0", "0.0")))
+        rivals = [c for c in (complete or amounts) if c != value
+                  and sum(1 for v in _vals(data, c) if v not in ("", "0", "0.0")) >= 0.9 * len(data)]
+        if rivals:
+            notes.append(f"confirm: value {value!r}; {', '.join(repr(c) for c in rivals)} also complete")
     n = len(data)
     ids = []
     for c in kind:
@@ -66,7 +70,9 @@ def propose(rows: list[dict], record_key: str | None = None) -> tuple[Mapping | 
         # number), or a long number; short numbers and numbers with decimals are amounts or counts
         coded = _id_numbers(real) or sum(1 for v in real if any(ch.isdigit() for ch in v)
                                          and (any(ch.isalpha() for ch in v) or len(v.replace(" ", "")) >= 6)) >= 0.8 * len(real)
-        if coded and distinct >= 0.3:
+        many = len(set(real)) >= max(20, 0.05 * len(real))     # an entity has many values; a store or branch code has few
+        named = kind[c] == "text" and not coded and many and distinct < 0.9    # names that repeat: customers, suppliers
+        if (coded and many) or named:
             ids.append((distinct < 0.98, f, c))       # repeating identifiers first: they name who the record is about
     if not ids:
         return None, notes + ["no column identifies whom the records are about"]

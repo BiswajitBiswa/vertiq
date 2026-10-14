@@ -144,8 +144,9 @@ def structural_rows(rows: list[dict]) -> dict[int, str]:
         cells = [r.get(c) for c in cols]
         filled = [str(v).strip() for v in cells if not _blank(v)]
         first = next((v for v in filled if not _AMOUNT.match(v)), "")
-        if first and TOTAL_LABELS.match(first) and len(filled) <= max(2, 0.6 * len(cols)):
-            out[i] = f"a summary row ({first!r})"
+        labels = [v for v in filled if not _AMOUNT.match(v)]
+        if first and TOTAL_LABELS.match(first) and (len(filled) <= max(2, 0.6 * len(cols)) or len(labels) == 1):
+            out[i] = f"a summary row ({first!r})"          # its only label is "Total"; the rest are sums
         elif cols and len(filled) < 0.3 * len(cols):
             out[i] = "mostly empty"
     return out

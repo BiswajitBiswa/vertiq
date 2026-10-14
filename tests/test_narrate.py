@@ -78,3 +78,9 @@ def test_bound_rejects_a_number_moved_to_another_quantity():
     swapped = "Across 77 held-out entities the baseline rule reached 0.452, while the model's AUC was 0.550."
     assert narrate.bound(ok, template) == []
     assert narrate.bound(swapped, template)
+
+
+def test_learning_explains_a_missing_outcome_not_just_rows():
+    r = {"status": "learning", "task": "event", "target": "order", "window_days": 30, "rows": 5000, "positives": 0, "need_rows": 200}
+    text = narrate.gate(r)
+    assert "only 0 of 5,000 training rows had the outcome" in text and "200 needed" not in text

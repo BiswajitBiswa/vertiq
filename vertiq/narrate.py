@@ -64,9 +64,13 @@ def gate(report: dict) -> str:
     what = (f"whether {target} happens within {window} days" if report.get("task") == "event"
             else f"the value of the next {target}")
     if status == "learning":
-        have = report.get("rows", 0)
-        return (f"Not enough data yet to predict {what}: {have:,} training rows, {report.get('need_rows', 0):,} needed. "
-                f"The baseline rule stays in use.")
+        have, need = report.get("rows", 0), report.get("need_rows", 0)
+        if have < need:
+            return f"Not enough data yet to predict {what}: {have:,} training rows, {need:,} needed. The baseline rule stays in use."
+        pos = report.get("positives")
+        why = (f"only {pos:,} of {have:,} training rows had the outcome and {have - pos:,} did not; at least 20 of each are needed"
+               if pos is not None else "the outcome is too rare or too common in the training rows")
+        return f"Not enough examples yet to predict {what}: {why}. The baseline rule stays in use."
     held = m.get("entities_held_out", m.get("held_out"))
     if "auc" in m:
         ev = (f"On {held:,} held-out entities the model ranks outcomes with AUC {m['auc']:.3f}, "

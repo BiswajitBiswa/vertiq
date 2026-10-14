@@ -87,3 +87,19 @@ def test_a_single_line_item_table_becomes_records(tmp_path):
     assert any("one row per item: records keyed by 'Invoice'" in x for x in log)
     assert len(ds.events) == 120 and all(e.items for e in ds.events)
     assert '"entity": "Customer ID"' in next(x for x in log if x.startswith("Mapping used"))
+
+
+def test_repeating_names_are_the_entity_and_full_totals_rows_are_skipped(tmp_path):
+    rnd = random.Random(2)
+    names = [f"{rnd.choice(['ASHA', 'RAVI', 'MEERA', 'JOHN', 'LI', 'SARA'])} {rnd.choice(['K', 'M', 'P', 'S', 'T'])}{i}" for i in range(40)]
+    rows = [{"Date": f"{rnd.randint(1, 28):02d}-{rnd.randint(1, 9):02d}-2026 12:{rnd.randint(10, 59)}:00", "Doc No": f"POS{9000 + i}",
+             "Customer": rnd.choice(names), "Gross": f"{rnd.randint(5, 40) * 100}.00", "Net": f"{rnd.randint(4, 30) * 100}.00"} for i in range(200)]
+    rows.append({"Date": "", "Doc No": "", "Customer": "Total", "Gross": "123456.00", "Net": "99999.00"})
+    with open(tmp_path / "sales.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    ds, _g, log = report.build({"records": {"file": "sales.csv"}}, tmp_path)
+    assert '"entity": "Customer"' in next(x for x in log if x.startswith("Mapping used"))
+    assert any("summary row" in x for x in log) and len(ds.events) == 200
+    assert any(x.startswith("Mapping proposal: confirm: value") for x in log)
