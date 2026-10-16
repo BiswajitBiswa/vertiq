@@ -1,6 +1,8 @@
 """The evaluation gate every task passes through: hold out a share of entities completely, train on
 the rest, and compare against a simple baseline (and the previous model, if any) on the held-out ones.
 A model that doesn't beat the baseline is reported as "kept" (the baseline stays) and never shipped.
+Nor is one that beats it on average but is clearly worse for a segment of the held-out entities (see
+segment_check): an average can hide harm to a store, a region or the newest customers.
 
   classify  metric: AUC (ranking) and Brier (probability error), plus calibration bins
   regress   metric: mean absolute error in the target's own units, and R²
@@ -17,6 +19,7 @@ TEST_PCT = 20
 MIN_ROWS = 200
 MIN_CLASS = 20
 CONFIDENCE = 0.9          # default: promote only when the gain over the baseline is clear at 90%
+SEGMENT_MIN_ENTITIES = 30  # a segment is checked when it has at least this many held-out entities
 
 
 def held_out(key: str, pct: int = TEST_PCT) -> bool:
@@ -61,6 +64,49 @@ def bootstrap(keys: list[str], pred: list[float], base: list[float], y: list, ki
             "gain_ci": [round(_quantile(gain, lo), 4), round(_quantile(gain, hi), 4)]}
 
 
+def segment_check(segments: list[dict], keys: list[str], pred: list[float], base: list[float], y: list, kind: str,
+                  confidence: float = CONFIDENCE, min_entities: int = SEGMENT_MIN_ENTITIES) -> list[dict]:
+    """The model against the baseline within each segment of the held-out rows. `segments` gives, per row, its
+    label in each dimension ({"group": "North", "history": "one record"}); the labels come from the data, never
+    from a list per sector. A segment is checked when it has at least `min_entities` entities (and, for
+    classification, at least 10 rows with and without the outcome). Its gain interval is a bootstrap over its own
+    entities at a level corrected for the number of segments checked (Bonferroni), so checking more segments
+    does not block more models by chance. `worse` is True when the whole interval is below zero: the model is
+    clearly worse than the baseline there."""
+    cells: dict[tuple, list[int]] = {}
+    for i, seg in enumerate(segments):
+        for dim, label in (seg or {}).items():
+            if label not in (None, ""):
+                cells.setdefault((dim, str(label)), []).append(i)
+    if not cells:
+        return []
+    ok = []
+    for (dim, label), idx in cells.items():
+        if len({keys[i] for i in idx}) < min_entities:
+            continue
+        if kind == "classify":
+            pos = sum(y[i] for i in idx)
+            if pos < 10 or len(idx) - pos < 10:
+                continue
+        ok.append(((dim, label), idx))
+    out = []
+    level = 1 - (1 - confidence) / max(1, len(ok))
+    for (dim, label), idx in sorted(ok):
+        pk = lambda xs: [xs[i] for i in idx]       # noqa: E731
+        b = bootstrap(pk(keys), pk(pred), pk(base), pk(y), kind, level=level)
+        if not b:
+            continue
+        rec = {"dimension": dim, "label": label, "entities": len({keys[i] for i in idx}), "rows": len(idx),
+               "level": round(level, 4), "gain_ci": b["gain_ci"], "worse": b["gain_ci"][1] < 0}
+        if kind == "classify":
+            rec.update(auc=_r(auc(pk(pred), pk(y))), baseline_auc=_r(auc(pk(base), pk(y))))
+        else:
+            mae = lambda p: sum(abs(math.expm1(p[i]) - math.expm1(y[i])) for i in idx) / len(idx)  # noqa: E731
+            rec.update(mae=_r(mae(pred)), baseline_mae=_r(mae(base)))
+        out.append(rec)
+    return out
+
+
 SELECT_FOLDS = 3
 
 
@@ -98,7 +144,7 @@ def _r(x):
 def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], baseline: list[float], learner_cls,
              *, kind: str = "classify", previous=None, min_rows: int = MIN_ROWS, fit_kw: dict | None = None,
              min_gain: float = 0.0, confidence: float | None = CONFIDENCE, evidence: dict | None = None,
-             holdout=None) -> dict:
+             holdout=None, segments: list[dict] | None = None) -> dict:
     """{"status": learning | kept | trained, "metrics", "model" (when trained), "reason" (when kept)}.
     `keys` decide the held-out split (use the entity id, so no entity is in both halves).
     `min_gain`: the margin a candidate must win by. For classification, an absolute AUC margin over the
@@ -111,7 +157,10 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
     `evidence`: a sequential test's state (vertiq.sequential.SequentialTest.state()); it is recorded, and
     a decision for H0 (no improvement) blocks promotion. It never forces one.
     `holdout`: a function from key to True for held-out keys (default `held_out`, a fixed 20% by hash);
-    vertiq.autotune uses it for cross-validation folds inside the training entities."""
+    vertiq.autotune uses it for cross-validation folds inside the training entities.
+    `segments`: per row, its label in each segment dimension (see segment_check). A candidate that is clearly
+    worse than the baseline in any checked segment is not promoted; the checks are reported under
+    metrics["segments"]."""
     n = len(y)
     fit_kw = fit_kw or {}
     if kind == "classify":
@@ -162,6 +211,12 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
         if lo <= min_gain:
             reasons.append(f"the gain over the baseline is not clear at {confidence:.0%} confidence "
                            f"(interval lower bound {lo} is not above {min_gain})")
+    if segments:
+        m["segments"] = segment_check(pick(segments, te), held_keys, pred, held_base, held_y, kind, confidence or CONFIDENCE)
+        for seg in m["segments"]:
+            if seg["worse"]:
+                reasons.append(f"it is clearly worse than the baseline for {seg['dimension']} {seg['label']} "
+                               f"({seg['entities']} held-out entities, gain interval {seg['gain_ci']})")
     if evidence:
         m["evidence"] = evidence
         if evidence.get("decision") == "accept_h0":

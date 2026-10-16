@@ -196,6 +196,9 @@ def principles():
             ("Champion–challenger gate", "A candidate must outperform the rule-based baseline and the production model, and its gain over "
              "the baseline must be clear at 90% confidence by default. min_gain sets a required margin: an AUC margin for event tasks "
              "and a relative error reduction for value tasks."),
+            ("Segment check", "A candidate that wins on average but is clearly worse than the baseline for a segment of the "
+             "held-out entities is not promoted. Segments come from the data (entity groups, entity-table labels, length of history), "
+             "each with at least 30 held-out entities, and the confidence level is corrected for the number checked."),
             ("Explicit rejection", "A rejected candidate returns status \"kept\" with the reason, such as the AUC it reached against the "
              "required threshold. The production model remains in service.")]),
     ]
@@ -717,6 +720,9 @@ excluded from training, and a candidate model replaces the baseline only when it
   <div class="card"><h3>Champion–challenger comparison</h3><p>A retrained model must perform at least as well as the production model on the
   same held-out entities before it replaces it, and its gain over the baseline must be clear at 90% confidence, from a bootstrap over
   the held-out entities.</p></div>
+  <div class="card"><h3>No harm hidden in an average</h3><p>The gain is also checked within each segment the data defines: entity groups,
+  labels from an entity table, and length of history. A model clearly worse than the baseline in any segment with at least 30 held-out
+  entities is not promoted, and the report names the segment. Nothing is configured per sector.</p></div>
 </section>
 <section><h2>Causal effect estimation</h2>{fig_uplift()}</section>
 <section class="read"><h2>Statistically tested insights</h2>

@@ -2,6 +2,15 @@
 
 All notable changes are recorded here. Versions follow semantic versioning; before 1.0 the API may change between minor versions.
 
+## Unreleased
+
+- Segment check in the evaluation gate (`harness.segment_check`): a candidate that beats the baseline on average but is
+  clearly worse for a segment of the held-out entities is not promoted, and `narrate.gate` names the segment. Segments
+  come from the data, never from a list per sector: entity groups and entity-table labels with 2 to 12 values, and
+  length of history (one record, 2 to 5, more). Each segment with at least 30 held-out entities gets its own bootstrap
+  interval, at a confidence level corrected for the number of segments checked. On Online Retail II the next-order-value
+  model, already kept, is also clearly worse for customers with more than 5 orders; the purchase model passes all 3 checks.
+
 ## 0.2.1 (2026-10-14)
 
 - Reports finish on mid-size exports: UCI Online Retail II (525,461 invoice lines, 28,816 invoices, 4,600 products) in about

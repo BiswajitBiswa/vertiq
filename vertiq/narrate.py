@@ -83,9 +83,21 @@ def gate(report: dict) -> str:
         lvl = (m.get("intervals") or {}).get("level", 0.9)
         unit = "AUC" if "auc" in m else "relative error reduction"
         ev += f" At {_pct(lvl)} confidence the gain is between {ci[0]:+.3f} and {ci[1]:+.3f} ({unit})."
+    segs = m.get("segments") or []
+    if segs and status == "trained":
+        dims = sorted({"history length" if x["dimension"] == "history" else x["dimension"] for x in segs})
+        ev += (f" It was also checked in {len(segs)} segment{'s' if len(segs) != 1 else ''} ({', '.join(dims)}) and is not "
+               f"clearly worse than the baseline rule in any of them.")
     if status == "trained":
         return f"A model to predict {what} was promoted. {ev}"
     return f"The model to predict {what} was not promoted. {ev} It {_why(report)}, so the current model or rule stays in use."
+
+
+def _segment(seg: dict) -> str:
+    """A checked segment in words: "entities with one record", "region North"."""
+    if seg["dimension"] == "history":
+        return f"entities with {seg['label']}"
+    return f"{seg['dimension']} {seg['label']}"
 
 
 def _why(report: dict) -> str:
@@ -108,6 +120,9 @@ def _why(report: dict) -> str:
         why.append("shows no clear gain, since that range includes " + (f"{gain}" if gain else "zero"))
     if (m.get("evidence") or {}).get("decision") == "accept_h0":
         why.append("showed no improvement in a sequential test")
+    for seg in m.get("segments") or []:
+        if seg["worse"]:
+            why.append(f"is clearly worse than the baseline rule for {_segment(seg)} ({seg['entities']:,} held-out entities)")
     return _join(why) if why else "did not pass the gate: " + report.get("reason", "no reason recorded")
 
 

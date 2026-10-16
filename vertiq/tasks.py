@@ -39,6 +39,28 @@ class _Builder:
         self.ents = {e.id: e for e in ds.entities}
         self.types = [t for t, _n in Counter(e.type for e in ds.events).most_common(TOP_TYPES)]
         self.feature_fns = plugins.features_for(pack)
+        # segment dimensions for the gate's segment check, read from the data: entity groups and entity-table
+        # labels with 2 to 12 values
+        labels: dict[str, set] = {}
+        for e in ds.entities:
+            for k, v in (e.attrs or {}).items():
+                if isinstance(v, str) and v.strip() not in ("", "-"):
+                    labels.setdefault(k, set()).add(v.strip())
+        self.seg_attrs = sorted(k for k, vs in labels.items() if 2 <= len(vs) <= 12)
+        self.seg_group = 2 <= len({g for g in self.groups.values() if g}) <= 12
+
+    def segments(self, eid: str, f: dict) -> dict:
+        """The row's segment labels: its group, its entity-table labels, and how much history it had."""
+        n = round(math.expm1(f.get("log_freq", 0.0)))
+        seg = {"history": "one record" if n <= 1 else "2 to 5 records" if n <= 5 else "more than 5 records"}
+        if self.seg_group and self.groups.get(eid):
+            seg["group"] = self.groups[eid]
+        attrs = (self.ents.get(eid).attrs or {}) if self.ents.get(eid) else {}
+        for k in self.seg_attrs:
+            v = attrs.get(k)
+            if isinstance(v, str) and v.strip():
+                seg[k] = v.strip()
+        return seg
 
     def hist(self, eid: str, cut: datetime) -> list[Event]:
         return [e for e in self.by.get(eid, []) if e.at < cut and (self.history is None or e.type in self.history)]
@@ -164,7 +186,7 @@ def predict_event(ds: Dataset, *, target: str, window_days: int, history: set | 
     time-to-event feature "km_within" (vertiq.survival); the gate decides whether it helps."""
     b = _Builder(ds, target, history, pack, use_survival=survival)
     b.window = window_days
-    rows, y, keys, groups, base = [], [], [], [], []
+    rows, y, keys, groups, base, segs = [], [], [], [], [], []
     for cut in b.cutoffs(window_days, cutoffs):
         cad = b.cadence(cut, window_days)
         for eid, evs in b.by.items():
@@ -176,8 +198,9 @@ def predict_event(ds: Dataset, *, target: str, window_days: int, history: set | 
             keys.append(eid)
             groups.append(b.groups.get(eid, ""))
             base.append(_baseline_event(f, window_days))
+            segs.append(b.segments(eid, f))
     res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner, "classify"), kind="classify", previous=previous,
-                           min_gain=min_gain, confidence=confidence, evidence=evidence, holdout=holdout)
+                           min_gain=min_gain, confidence=confidence, evidence=evidence, holdout=holdout, segments=segs)
     return Task("event", b, window_days, learner, res)
 
 
@@ -187,7 +210,7 @@ def predict_value(ds: Dataset, *, target: str, window_days: int, history: set | 
     """How much will the next `target` event (within `window_days`) be worth? Entities with no such
     event in the window teach nothing here (predict_event answers whether it happens)."""
     b = _Builder(ds, target, history, pack)
-    rows, y, keys, groups, base = [], [], [], [], []
+    rows, y, keys, groups, base, segs = [], [], [], [], [], []
     overall = [e.value for e in ds.events if e.type == target and e.value > 0]
     mean_all = math.log1p(sum(overall) / len(overall)) if overall else 0.0
     for cut in b.cutoffs(window_days, cutoffs):
@@ -205,8 +228,9 @@ def predict_value(ds: Dataset, *, target: str, window_days: int, history: set | 
             keys.append(eid)
             groups.append(b.groups.get(eid, ""))
             base.append(math.log1p(sum(past) / len(past)) if past else mean_all)   # the obvious rule: same as before
+            segs.append(b.segments(eid, f))
     res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner, "regress"), kind="regress", previous=previous, min_gain=min_gain, confidence=confidence,
-                           fit_kw={"epochs": 30}, holdout=holdout)
+                           fit_kw={"epochs": 30}, holdout=holdout, segments=segs)
     return Task("value", b, window_days, learner, res)
 
 
