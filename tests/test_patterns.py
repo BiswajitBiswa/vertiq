@@ -49,3 +49,11 @@ def test_nothing_is_found_in_random_data():
 
 def test_small_data_waits():
     assert patterns.find(_orders(n=12))["status"] == "learning"
+
+
+def test_column_names_and_yes_no_flags_read_as_words():
+    assert patterns._where("payment_mode = Cash") == "where payment mode is Cash"
+    assert patterns._where("is_return = True") == "marked return"
+    assert patterns._where("no_guest = False") == "not marked no guest"
+    assert patterns._does("no_guest = True") == "are marked no guest"
+    assert patterns._does("PaymentMode = Card") == "have payment mode Card"

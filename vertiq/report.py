@@ -137,7 +137,8 @@ def build(config: dict, base: Path = Path(".")) -> tuple[object, dict, list[str]
     m, notes = repair(proposal, rows, exclude={it["event_key"]} if it.get("event_key") else ())
     ds, problems = apply(m, rows)
     if ds.events and not any(e.type for e in ds.events):
-        name = config.get("event", "record")
+        noun = config.get("noun", "")
+        name = config.get("event") or (noun[:-1] if noun.endswith("s") else noun) or "record"
         ds = type(ds)(ds.entities, [replace(e, type=name) for e in ds.events], ds.actions)
     log += [f"Mapping used: {json.dumps(m.as_dict())}"] + [f"Mapping check: {n}" for n in notes]
     log += [f"Loading: {p}" for p in problems[:12]] + ([f"Loading: and {len(problems) - 12} more"] if len(problems) > 12 else [])

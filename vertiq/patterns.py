@@ -120,7 +120,8 @@ def features(ds: Dataset, item_groups: dict[str, str] | None = None, min_n: int 
         by_source[f[0]].append(f)
     for src, fs in by_source.items():
         if levels_of[src] == 2 and len(fs) == 2:
-            keep.discard(sorted(fs, key=lambda f: f[1])[1])
+            # keep the "yes" side of a yes/no column ("is_return = True"), else the first label
+            keep.discard(sorted(fs, key=lambda f: (not _truthy(f[1].split(" = ", 1)[-1]), f[1]))[1])
     feats = sorted(keep)
     return [{"source": s, "label": lab} for s, lab in feats], [s & keep for s in raw]
 
@@ -190,13 +191,39 @@ def find(ds: Dataset, *, item_groups: dict[str, str] | None = None, noun: str = 
             "found": found[:limit], "not_clear": len(tests) - len(found)}
 
 
+_TRUE, _FALSE = {"true", "yes", "y", "1"}, {"false", "no", "n", "0"}
+
+
+def _truthy(v: str) -> bool:
+    return v.strip().lower() in _TRUE
+
+
+def _flag(v: str) -> bool | None:
+    """True or False for a yes/no value, None for any other label."""
+    v = v.strip().lower()
+    return True if v in _TRUE else False if v in _FALSE else None
+
+
+def _name(column: str) -> str:
+    """A column name as words: "payment_mode" -> "payment mode", "is_return" -> "return", "NoGuest" -> "no guest"."""
+    import re
+    words = re.sub(r"([a-z])([A-Z])", r"\1 \2", column).replace("_", " ").replace("-", " ").split()
+    if len(words) > 1 and words[0].lower() in ("is", "has", "was"):
+        words = words[1:]
+    return " ".join(w.lower() if w[:1].isupper() and w[1:].islower() else w for w in words)
+
+
 def _where(label: str) -> str:
-    """The feature as a condition on records: "that include Pizza", "where Type is TakeAway", "on Saturday"."""
+    """The feature as a condition on records: "that include Pizza", "where payment mode is Cash", "marked return",
+    "on Saturday"."""
     if label.startswith("includes "):
         return f"that include {label[9:]}"
     if " = " in label:
         k, v = label.split(" = ", 1)
-        return f"where {k} is {v}"
+        flag = _flag(v)
+        if flag is not None:
+            return f"{'marked' if flag else 'not marked'} {_name(k)}"
+        return f"where {_name(k)} is {v}"
     if label.startswith("group "):
         return f"in {label}"
     if label in ("before noon",):
@@ -212,7 +239,10 @@ def _does(label: str) -> str:
         return f"include {label[9:]}"
     if " = " in label:
         k, v = label.split(" = ", 1)
-        return f"have {k} {v}"
+        flag = _flag(v)
+        if flag is not None:
+            return f"are {'marked' if flag else 'not marked'} {_name(k)}"
+        return f"have {_name(k)} {v}"
     if label.startswith("group "):
         return f"are in {label}"
     if label == "before noon":

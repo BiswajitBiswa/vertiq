@@ -56,7 +56,7 @@ def test_report_runs_from_file_names_only(tmp_path):
     cfg = {"records": {"file": "orders.csv"}, "items": {"file": "lines.csv"}, "noun": "orders", "currency": "₹", "event": "order"}
     (tmp_path / "config.json").write_text(json.dumps(cfg))
     text = report.run(cfg, tmp_path)
-    assert "## Patterns" in text and "include Drinks" in text and "where Channel is Online" in text
+    assert "## Patterns" in text and "include Drinks" in text and "where channel is Online" in text
     assert "a summary row" in text and "placeholder entity" in text
     assert "## Predictions" in text
 
@@ -132,7 +132,7 @@ def test_entity_table_labels_join_events_and_show_in_patterns(tmp_path):
     cfg = {"records": {"file": "orders.csv"}, "entity_table": {"file": "customers.csv"}, "noun": "orders", "entities": "customers"}
     text = report.run(cfg, tmp_path)
     assert "entity table joined on 'Customer Id'" in text
-    assert "where Segment is Gold average" in text or "where Segment is Basic average" in text
+    assert "where segment is Gold average" in text or "where segment is Basic average" in text
 
 
 def test_a_customer_list_alone_is_read_as_one_row_per_entity(tmp_path):
