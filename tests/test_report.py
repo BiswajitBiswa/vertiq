@@ -158,3 +158,39 @@ def test_a_product_code_beside_the_product_name_is_not_an_item_group():
     spec, _ = find_lines(rows)
     assert spec["key"] == "Invoice" and spec["item"] in ("Description", "StockCode")
     assert spec["item_group"] is None
+
+
+def _with_consent(tmp_path, allow):
+    """The customers table with a trainable column: True for customers `allow` picks."""
+    _customers(tmp_path)
+    rows = list(csv.DictReader(open(tmp_path / "customers.csv")))
+    for r in rows:
+        r["trainable"] = "True" if allow(r["Customer Id"]) else "False"
+    with open(tmp_path / "customers.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+
+
+def test_no_model_trains_on_entities_that_may_not_be_used(tmp_path):
+    _with_consent(tmp_path, lambda cid: False)
+    cfg = {"records": {"file": "orders.csv"}, "entity_table": {"file": "customers.csv", "trainable": "trainable"}, "noun": "orders"}
+    text = report.run(cfg, tmp_path)
+    assert "No model was trained: none of the" in text and "column 'trainable'" in text
+    assert "was promoted" not in text and "## Patterns" in text            # description still runs
+    assert "No model was trained" in report.run({"records": {"file": "orders.csv"}, "train": False}, tmp_path)
+
+
+def test_models_use_only_trainable_entities(tmp_path, monkeypatch):
+    _with_consent(tmp_path, lambda cid: int(cid[-1]) % 2 == 0 if cid[-1].isdigit() else False)
+    seen = []
+    real = report.predict_event
+
+    def spy(ds, **kw):
+        seen.append({e.entity for e in ds.events})
+        return real(ds, **kw)
+    monkeypatch.setattr(report, "predict_event", spy)
+    cfg = {"records": {"file": "orders.csv"}, "entity_table": {"file": "customers.csv", "trainable": "trainable"}, "noun": "orders"}
+    text = report.run(cfg, tmp_path)
+    assert "Models use only the" in text
+    assert seen and all(int(x[-1]) % 2 == 0 for x in seen[0])

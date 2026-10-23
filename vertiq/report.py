@@ -9,8 +9,12 @@ config.json names the tables and how they map to the contract; nothing else is c
                "value": "Total", "attrs": ["Order No", "Channel"], "date_format": "%d/%m/%Y"}},
    "items":   {"file": "order_lines.csv", "key": "Order No", "event_key": "Order No", "item": "Item",
                "qty": "Qty", "item_group": "Category"},
-   "entity_table": {"file": "customers.csv"},
+   "entity_table": {"file": "customers.csv", "trainable": "trainable"},
    "noun": "orders", "currency": "₹", "entities": "customers"}
+
+Consent: with "trainable" naming a column of the entity table, only entities whose value there is true (true, 1,
+yes) are used to train or test models; an entity missing from the table is not. "train": false keeps every entity
+out of training. Counts, the summary and patterns still use every record: they describe, they do not learn.
 
 CSV is read with the standard library; .xlsx needs openpyxl (pip install openpyxl). Every mapping is checked
 against the rows by vertiq.mapping.repair before use, and every section below comes from a Vertiq module:
@@ -181,6 +185,15 @@ def run(config: dict, base: Path = Path(".")) -> str:
     types = sorted({e.type for e in ds.events if e.type})
     target = config.get("target") or (types[0] if len(types) == 1 else None)
     out += ["", "## Predictions", ""]
+    allowed, why = trainable(config, ds)
+    if allowed is not None:
+        from .contract import Dataset
+        if not allowed:
+            out.append(f"- No model was trained: none of the {len(ds.entities):,} entities may be used for training ({why}). "
+                       "The sections above describe the data; they do not train on it.")
+            return "\n".join(out) + "\n"
+        out.append(f"- Models use only the {len(allowed):,} of {len(ds.entities):,} entities that may be used for training ({why}).")
+        ds = Dataset([e for e in ds.entities if e.id in allowed], [e for e in ds.events if e.entity in allowed], ds.actions)
     if target:
         window = config.get("window_days", 30)
         out.append("- " + narrate.gate(predict_event(ds, target=target, window_days=window).report()))
@@ -189,6 +202,17 @@ def run(config: dict, base: Path = Path(".")) -> str:
     else:
         out.append("- No single event type to predict; set \"target\" in the config.")
     return "\n".join(out) + "\n"
+
+
+def trainable(config: dict, ds) -> tuple[set | None, str]:
+    """The entities that may be used to train models, and why; (None, "") when the config says nothing."""
+    if config.get("train") is False:
+        return set(), '"train": false in the config'
+    col = (config.get("entity_table") or {}).get("trainable")
+    if not col:
+        return None, ""
+    yes = {e.id for e in ds.entities if str((e.attrs or {}).get(col, "")).strip().lower() in ("true", "1", "yes", "y")}
+    return yes, f"column {col!r} of the entity table"
 
 
 def main():
