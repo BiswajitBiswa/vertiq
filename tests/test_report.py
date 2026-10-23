@@ -194,3 +194,26 @@ def test_models_use_only_trainable_entities(tmp_path, monkeypatch):
     text = report.run(cfg, tmp_path)
     assert "Models use only the" in text
     assert seen and all(int(x[-1]) % 2 == 0 for x in seen[0])
+
+
+def test_promoted_models_score_every_entity(tmp_path, monkeypatch):
+    """Scores come only from promoted models; a kept model gives none."""
+    _customers(tmp_path)
+
+    class FakeTask:
+        def __init__(self, kind, status):
+            self.kind, self.status, self.window = kind, status, 30
+            self.b = type("B", (), {"target": "order", "by": {"C1": [], "C2": [], "anonymous:7": []}})()
+
+        def report(self):
+            return {"status": "learning", "rows": 0, "need_rows": 200, "task": self.kind, "target": "order", "window_days": 30}
+
+        def score(self, eid):
+            return {"entity": eid, "value": 100.0 if eid == "C1" else 50.0, "raises": ["recent orders"], "lowers": []}
+
+    monkeypatch.setattr(report, "predict_event", lambda ds, **kw: FakeTask("event", "kept"))
+    monkeypatch.setattr(report, "predict_value", lambda ds, **kw: FakeTask("value", "trained"))
+    text = report.run({"records": {"file": "orders.csv"}, "noun": "orders", "currency": "₹", "scores": "scores.csv"}, tmp_path)
+    rows = list(csv.DictReader(open(tmp_path / "scores.csv")))
+    assert [r["entity"] for r in rows] == ["C1", "C2"] and all(r["model"] == "value of the next order" for r in rows)
+    assert "- C1: ₹100 (raised by recent orders)" in text

@@ -12,6 +12,9 @@ config.json names the tables and how they map to the contract; nothing else is c
    "entity_table": {"file": "customers.csv", "trainable": "trainable"},
    "noun": "orders", "currency": "₹", "entities": "customers"}
 
+"scores": "scores.csv" writes every entity's prediction from each promoted model to that file, with the reasons
+that raise or lower it, and lists the highest in the report.
+
 Consent: with "trainable" naming a column of the entity table, only entities whose value there is true (true, 1,
 yes) are used to train or test models; an entity missing from the table is not. "train": false keeps every entity
 out of training. Counts, the summary and patterns still use every record: they describe, they do not learn.
@@ -195,14 +198,53 @@ def run(config: dict, base: Path = Path(".")) -> str:
             return "\n".join(out) + "\n"
         out.append(f"- Models use only the {len(allowed):,} of {len(ds.entities):,} entities that may be used for training ({why}).")
         ds = Dataset([e for e in ds.entities if e.id in allowed], [e for e in ds.events if e.entity in allowed], ds.actions)
+    tasks = []
     if target:
         window = config.get("window_days", 30)
-        out.append("- " + narrate.gate(predict_event(ds, target=target, window_days=window).report()))
+        tasks.append(predict_event(ds, target=target, window_days=window))
         if any(e.value for e in ds.events):
-            out.append("- " + narrate.gate(predict_value(ds, target=target, window_days=window).report()))
+            tasks.append(predict_value(ds, target=target, window_days=window))
+        out += ["- " + narrate.gate(t.report()) for t in tasks]
     else:
         out.append("- No single event type to predict; set \"target\" in the config.")
+    if config.get("scores"):
+        out += scores(tasks, base / config["scores"], cur, config.get("entities", "entities"))
     return "\n".join(out) + "\n"
+
+
+def scores(tasks: list, path: Path, cur: str, entities: str, top: int = 10) -> list[str]:
+    """Every entity's prediction from each promoted model, written to `path` as CSV (entity, model, prediction,
+    what raises it, what lowers it), and the highest ones as report lines. Models the gate kept give none: their
+    predictions did not beat the rule in use. One-off entities (no id) are left out."""
+    promoted = [t for t in tasks if t.status == "trained"]
+    lines = ["", "## Scores", ""]
+    if not promoted:
+        return lines + ["No model was promoted, so there are no scores: the rules in use stay."]
+    rows = []
+    for t in promoted:
+        for eid in t.b.by:
+            if eid.startswith("anonymous:"):
+                continue
+            sc = t.score(eid)
+            if sc:
+                what = (f"chance of {t.b.target} within {t.window} days" if t.kind == "event" else f"value of the next {t.b.target}")
+                rows.append({"entity": eid, "model": what, "prediction": sc.get("chance", sc.get("value")),
+                             "raises": "; ".join(sc["raises"]), "lowers": "; ".join(sc["lowers"])})
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["entity", "model", "prediction", "raises", "lowers"])
+        w.writeheader()
+        w.writerows(rows)
+    lines.append(f"{len(rows):,} predictions for {len({r['entity'] for r in rows}):,} {entities}, written to {path.name}. "
+                 f"Highest {min(top, len(rows))} per model:")
+    for what in dict.fromkeys(r["model"] for r in rows):
+        lines += ["", f"**{what.capitalize()}**", ""]
+        best = sorted((r for r in rows if r["model"] == what), key=lambda r: -r["prediction"])[:top]
+        for r in best:
+            val = f"{r['prediction']:.0%}" if what.startswith("chance") else f"{cur}{r['prediction']:,.0f}"
+            why = "; ".join(x for x in (f"raised by {r['raises']}" if r["raises"] else "",
+                                        f"lowered by {r['lowers']}" if r["lowers"] else "") if x)
+            lines.append(f"- {r['entity'][:12]}: {val}" + (f" ({why})" if why else ""))
+    return lines
 
 
 def trainable(config: dict, ds) -> tuple[set | None, str]:
