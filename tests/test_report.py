@@ -3,8 +3,16 @@ import csv
 import json
 import random
 
+import pytest
+
 from vertiq import report
 from vertiq.tables import find_join, propose
+
+
+@pytest.fixture(autouse=True)
+def _no_search(monkeypatch):
+    """The input search is slow and is tested on its own below; these tests check what the report says."""
+    monkeypatch.setattr(report, "TUNE", False)
 
 MENU = {"Margherita": "Pizza", "Farmhouse": "Pizza", "Cola": "Drinks", "Lemonade": "Drinks", "Fries": "Sides", "Salad": "Sides"}
 
@@ -217,3 +225,28 @@ def test_promoted_models_score_every_entity(tmp_path, monkeypatch):
     rows = list(csv.DictReader(open(tmp_path / "scores.csv")))
     assert [r["entity"] for r in rows] == ["C1", "C2"] and all(r["model"] == "value of the next order" for r in rows)
     assert "- C1: ₹100 (raised by recent orders)" in text
+
+
+def test_items_written_in_one_cell_become_line_items(tmp_path):
+    """A POS "products" column ("Shirtx999,Tshirtx699") is read as line items when there is no items table."""
+    from vertiq.tables import find_item_text, item_tokens
+    assert item_tokens("Shirtx999,Tshirtx199ND; XYXX-TRUNK-L") == [("Shirt", 999.0), ("Tshirt", 199.0), ("XYXX-TRUNK-L", None)]
+    rnd = random.Random(8)
+    goods = ["Shirtx999", "Jeansx1499", "Tshirtx399", "Trouserx799", "Lowerx599"]
+    rows = [{"Bill": f"B{i:05d}", "Guest": f"G{rnd.randint(1, 120):04d}", "Date": f"2026-0{1 + i % 9}-{1 + i % 28:02d}",
+             "Amount": str(rnd.randint(300, 3000)), "Products": ",".join(rnd.sample(goods, rnd.randint(1, 3))),
+             "Remarks": f"note {i}"} for i in range(400)]
+    col, why = find_item_text(rows)
+    assert col == "Products" and "lists" in why[0]
+    with open(tmp_path / "bills.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    text = report.run({"records": {"file": "bills.csv"}, "noun": "bills"}, tmp_path)
+    assert "items written in one cell: column 'Products'" in text and "## Items bought together" in text
+
+
+def test_search_inputs_read_as_words():
+    from vertiq.menu import words
+    assert words("share:bill[@item=Jeans]@180d") == "share of bills including Jeans over 180 days"
+    assert words("since:bill[payment_mode=Cash]") == "time since the last bill with payment mode Cash"

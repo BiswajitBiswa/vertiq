@@ -135,6 +135,9 @@ def _label(name: str, target: str) -> str:
         return f"{name[4:] or 'untyped'} events in the last 90 days"
     if name.startswith("sector:"):
         return f"being in group {name[7:]}"
+    if name.split(":", 1)[0] in ("count", "since", "share", "sum", "group_rate", "attr"):
+        from .menu import words
+        return words(name)
     return _WORDS.get(name, name.replace("_", " "))
 
 

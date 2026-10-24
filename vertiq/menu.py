@@ -11,6 +11,8 @@ one uses only events recorded before the cutoff:
                                                                             excluding the entity itself
   {"op": "attr",     "name": A}                                             an entity attribute (number or yes/no)
 
+A condition can also name an item on the event's line items: {"@item": "Jeans"} holds when the event includes it.
+
 `propose(ds, target=...)` lists candidates from the data: the most frequent event types, attribute values
 that occur often enough to matter, and windows scaled to the prediction window. `parse(specs)` checks
 specs from another source, such as a language model asked which menu items suit a sector, and rejects
@@ -38,8 +40,48 @@ def name(spec: dict) -> str:
     return f"{op}:{spec['type']}{where}{days}"
 
 
+ITEM_KEY = "@item"      # a condition on the event's line items, not on an attribute
+ITEMS = 8               # at most this many of the most common items become conditions
+
+
+def words(feature: str) -> str:
+    """A menu feature's name in words: "share:bill[@item=Jeans]@180d" -> "share of bills including Jeans over
+    180 days"; "since:bill[payment_mode=Cash]" -> "time since the last bill with payment mode Cash"."""
+    import re
+    from .patterns import _name
+    m = re.match(r"^(\w+):([^\[@]*)((?:\[[^\]]*\])*)(?:@(\d+)d)?$", feature)
+    if not m:
+        return feature.replace("_", " ")
+    op, t, conds, days = m.group(1), m.group(2) or "event", m.group(3), m.group(4)
+    if op == "attr":
+        return _name(feature.split(":", 1)[1])
+    parts = []
+    for k, v in re.findall(r"\[([^=\]]+)=([^\]]*)\]", conds):
+        parts.append(f"including {v}" if k == ITEM_KEY else f"with {_name(k)} {v}")
+    cond = (" " + " and ".join(parts)) if parts else ""
+    if op == "count":
+        return f"{t}s{cond} in the last {days} days"
+    if op == "share":
+        return f"share of {t}s{cond} over {days} days"
+    if op == "since":
+        return f"time since the last {t}{cond}"
+    if op == "sum":
+        return f"value of {t}s in the last {days} days"
+    if op == "group_rate":
+        return f"{t}s per entity in the same group over {days} days"
+    return feature
+
+
 def _matches(e, where: dict | None) -> bool:
-    return not where or all(str(e.attrs.get(k)) == str(v) for k, v in where.items())
+    if not where:
+        return True
+    for k, v in where.items():
+        if k == ITEM_KEY:
+            if not any(n == v for n, _q in (e.items or ())):
+                return False
+        elif str((e.attrs or {}).get(k)) != str(v):
+            return False
+    return True
 
 
 def build(spec: dict, ds: Dataset | None = None):
@@ -134,8 +176,11 @@ def propose(ds: Dataset, *, target: str, window_days: int, types: int = 4, limit
             for k, v in (e.attrs or {}).items():
                 if isinstance(v, (str, bool, int)) and not isinstance(v, float):
                     values[k][str(v)] += 1
+        items = Counter(n for e in evs for n in {n for n, _q in (e.items or ())})
+        if items:
+            values[ITEM_KEY] = Counter(dict(items.most_common(ITEMS)))
         for k, c in values.items():
-            if len(c) > MAX_VALUES:
+            if len(c) > MAX_VALUES and k != ITEM_KEY:
                 continue
             for v, n in c.items():
                 if n < MIN_SHARE * len(evs) or n == len(evs):

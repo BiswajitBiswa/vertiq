@@ -12,6 +12,11 @@ config.json names the tables and how they map to the contract; nothing else is c
    "entity_table": {"file": "customers.csv", "trainable": "trainable"},
    "noun": "orders", "currency": "₹", "entities": "customers"}
 
+Predictions try return windows of 30, 60 and 90 days ("windows": [...] or "window_days": N to change), with the
+gate's confidence corrected for the number tried, and search the inputs vertiq.menu proposes from the data
+("tune": false to skip). A column listing each record's items in one cell is read as line items when no items
+table is given ("item_text": false to skip).
+
 "scores": "scores.csv" writes every entity's prediction from each promoted model to that file, with the reasons
 that raise or lower it, and lists the highest in the report.
 
@@ -32,7 +37,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from . import affinity, narrate, patterns, summary
+from . import affinity, harness, narrate, patterns, summary
 from .mapping import Mapping, apply, attach_items, repair
 from .tasks import predict_event, predict_value
 
@@ -156,6 +161,15 @@ def build(config: dict, base: Path = Path(".")) -> tuple[object, dict, list[str]
             ds, groups, more = attach_items(ds, lines, key=it["key"], event_key=it["event_key"], item=it["item"],
                                             qty=it.get("qty"), item_group=it.get("item_group"))
             log += [f"Line items: {n}" for n in more]
+    elif config.get("item_text", True):
+        # no line-item table: a column listing each record's items in one cell ("Shirtx999,Tshirtx699") stands in
+        from .tables import _records, find_item_text, lines_from_text
+        col, why = find_item_text(rows, exclude={m.entity, m.time, m.value or ""})
+        data = _records(rows)
+        key = next((a for a in m.attrs if a != col and len({str(r.get(a) or "").strip() for r in data}) == len(data)), None)
+        if col and key:
+            ds, groups, more = attach_items(ds, lines_from_text(rows, col, key), key="key", event_key=key, item="item")
+            log += [f"Line items: {w}" for w in why] + [f"Line items: {n}" for n in more]
     return ds, groups, log
 
 
@@ -200,16 +214,51 @@ def run(config: dict, base: Path = Path(".")) -> str:
         ds = Dataset([e for e in ds.entities if e.id in allowed], [e for e in ds.events if e.entity in allowed], ds.actions)
     tasks = []
     if target:
-        window = config.get("window_days", 30)
-        tasks.append(predict_event(ds, target=target, window_days=window))
+        windows = config.get("windows") or ([config["window_days"]] if config.get("window_days") else [30, 60, 90])
+        # several windows are several chances to pass the gate: correct the confidence for how many are tried
+        conf = 1 - (1 - harness.CONFIDENCE) / len(windows)
+        if len(windows) > 1:
+            out.append(f"- Return windows tried: {', '.join(f'{w} days' for w in windows)}; each must pass the gate at "
+                       f"{conf:.1%} confidence, corrected for trying {len(windows)}.")
+        tune = config.get("tune", TUNE)
+        for w in windows:
+            tasks.append(_task(ds, "event", target, w, conf, tune, out))
         if any(e.value for e in ds.events):
-            tasks.append(predict_value(ds, target=target, window_days=window))
-        out += ["- " + narrate.gate(t.report()) for t in tasks]
+            tasks.append(_task(ds, "value", target, max(windows), harness.CONFIDENCE, tune, out))
     else:
         out.append("- No single event type to predict; set \"target\" in the config.")
     if config.get("scores"):
         out += scores(tasks, base / config["scores"], cur, config.get("entities", "entities"))
     return "\n".join(out) + "\n"
+
+
+TUNE = True         # search candidate inputs by default (tests that only check wording turn it off)
+
+
+def _task(ds, kind: str, target: str, window: int, confidence: float, tune: bool, out: list[str]):
+    """One prediction task through the gate, written to `out`. With `tune`, vertiq.autotune first tries the
+    candidate inputs vertiq.menu proposes from the data (counts, shares and recency by attribute value and by
+    item), keeping each only if it improves validation folds of the training entities; the tuned model must
+    then also beat the untuned one on the held-out entities."""
+    fn = predict_event if kind == "event" else predict_value
+    if not tune:
+        t = fn(ds, target=target, window_days=window, confidence=confidence)
+        out.append("- " + narrate.gate(t.report()))
+        return t
+    from . import autotune, menu
+    specs = menu.propose(ds, target=target, window_days=window, limit=12)
+    res = autotune.search(ds, target=target, window_days=window, kind=kind, features=menu.features(specs, ds),
+                          rounds=1, confidence=confidence)
+    t = res["task"]
+    line = "- " + narrate.gate(t.report())
+    if res["features"]:
+        names = ", ".join(menu.words(f) for f in res["features"])
+        line += (f" Inputs added by the search ({len(specs)} tried): {names}; "
+                 + ("the tuned model was kept." if res["tuned_promoted"] else "the tuned model did not beat the untuned one."))
+    else:
+        line += f" None of the {len(specs)} candidate inputs the search tried improved it."
+    out.append(line)
+    return t
 
 
 def scores(tasks: list, path: Path, cur: str, entities: str, top: int = 10) -> list[str]:

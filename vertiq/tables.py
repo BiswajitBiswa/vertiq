@@ -7,6 +7,7 @@ apply afterwards like any other mapping, and every choice is reported.
 """
 from __future__ import annotations
 
+import re
 from collections import Counter, defaultdict
 
 from .mapping import (_TIME_OF_DAY, MIN_EVIDENCE, Mapping, _complete, _id_numbers, _quantities, date_formats, fitness, placeholder_ids,
@@ -70,8 +71,9 @@ def propose(rows: list[dict], record_key: str | None = None, latest: bool = Fals
             notes.append(f"confirm: value {value!r}; {', '.join(repr(c) for c in rivals)} also complete")
     n = len(data)
     ids = []
+    item_col, _why = find_item_text(data)            # a column of item lists names what was bought, not by whom
     for c in kind:
-        if c in (time, clock, value, record_key):
+        if c in (time, clock, value, record_key, item_col):
             continue
         f = fitness(data, c, "entity", kind)
         if f < 0.2:
@@ -226,6 +228,65 @@ def find_lines(rows: list[dict]) -> tuple[dict | None, list[str]]:
     return spec, [f"one row per item: records keyed by {key!r} ({best[1]} records from {n} lines), item {item!r}"
                   + (f", quantity {qty!r}" if qty else "") + (f", price {price!r}" if price else "")
                   + (f", line amount {amount!r}" if amount else "") + (f", item group {group!r}" if group else "")]
+
+
+_ITEM_PRICE = re.compile(r"^(.*?[A-Za-z].*?)\s*[xX×@]\s*(\d+(?:\.\d+)?)\s*[A-Za-z]{0,3}$")
+
+
+def item_tokens(text: str) -> list[tuple[str, float | None]]:
+    """Items written in one cell: "Shirtx999,Tshirtx699" -> [("Shirt", 999.0), ("Tshirt", 699.0)]; an entry
+    without a trailing number ("XYXX-TRUNK-R2-L") is an item with no price. Separators: comma, semicolon, pipe."""
+    out = []
+    for tok in re.split(r"[,;|]", str(text or "")):
+        tok = " ".join(tok.split())
+        if not tok or not any(ch.isalpha() for ch in tok):
+            continue
+        m = _ITEM_PRICE.match(tok)
+        out.append((m.group(1).strip(" -_"), float(m.group(2))) if m else (tok, None))
+    return out
+
+
+def find_item_text(rows: list[dict], exclude: set | tuple = ()) -> tuple[str | None, list[str]]:
+    """A text column that lists the items of each record in one cell (a POS "products" field), if any. It must
+    be filled on at least 20% of records, and either list two or more entries on at least 10% of filled cells
+    or write most entries as item-and-number ("Shirtx999"); and its item names must repeat (no more distinct
+    names than half the filled cells), which free-text notes do not."""
+    data = _records(rows)
+    n = len(data)
+    if n < MIN_EVIDENCE:
+        return None, []
+    kind = profile(data)
+    best = None
+    for c in kind:
+        if c in exclude or kind[c] != "text":
+            continue
+        vals = [v for v in _vals(data, c) if v]
+        if len(vals) < 0.2 * n:
+            continue
+        toks = [item_tokens(v) for v in vals]
+        flat = [t for ts in toks for t in ts]
+        if not flat:
+            continue
+        multi = sum(1 for ts in toks if len(ts) >= 2) / len(vals)
+        priced = sum(1 for _n, p in flat if p is not None) / len(flat)
+        names = {nm for nm, _p in flat}
+        if (multi >= 0.1 or priced >= 0.5) and len(names) <= 0.5 * len(vals) and (best is None or len(flat) > best[1]):
+            best = (c, len(flat), len(vals), len(names))
+    if not best:
+        return None, []
+    c, k, filled, names = best
+    return c, [f"items written in one cell: column {c!r} lists {k:,} items on {filled:,} records ({names:,} distinct)"]
+
+
+def lines_from_text(rows: list[dict], column: str, key: str) -> list[dict]:
+    """Line items, one row per item, from a column of item lists, keyed by the record's `key` column."""
+    out = []
+    for r in _records(rows):
+        k = str(r.get(key) or "").strip()
+        for nm, price in item_tokens(r.get(column)):
+            if k:
+                out.append({"key": k, "item": nm, "price": "" if price is None else price})
+    return out
 
 
 def _isnum(v) -> bool:

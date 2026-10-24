@@ -58,7 +58,8 @@ def _score(task, kind: str) -> float | None:
 
 def search(ds: Dataset, *, target: str, window_days: int, kind: str = "event", pack: str | None = None,
            base: dict | None = None, options: dict | None = None, features: dict | None = None,
-           folds: int = 5, min_step: float = 0.003, agree: int | None = None, rounds: int = 2) -> dict:
+           folds: int = 5, min_step: float = 0.003, agree: int | None = None, rounds: int = 2,
+           confidence: float | None = harness.CONFIDENCE) -> dict:
     """Greedy search from `base` (task keyword arguments, e.g. {"learner": "logistic"}) over `options`
     ({argument: [values]}) and candidate plugin `features` ({name: fn(entity, before, cut)}), plus the
     features already registered under `pack`. The training entities are split into `folds` folds, and
@@ -111,8 +112,8 @@ def search(ds: Dataset, *, target: str, window_days: int, kind: str = "event", p
                 config, chosen, best, best_folds, improved = cfg, ch, s, f, True
         if not improved:
             break
-    untuned = _run(ds, kind, target, window_days, base, [], features, pack)
-    final = (_run(ds, kind, target, window_days, config, chosen, features, pack, previous=untuned.model)
+    untuned = _run(ds, kind, target, window_days, base, [], features, pack, confidence=confidence)
+    final = (_run(ds, kind, target, window_days, config, chosen, features, pack, previous=untuned.model, confidence=confidence)
              if (config, chosen) != (base, []) else untuned)
     use = final if final is not untuned and final.status == "trained" else untuned
     return {"task": use, "tuned_promoted": use is final and final is not untuned, "tuned": final, "untuned": untuned,
