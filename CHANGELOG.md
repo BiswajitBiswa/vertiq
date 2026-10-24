@@ -4,6 +4,19 @@ All notable changes are recorded here. Versions follow semantic versioning; befo
 
 ## Unreleased
 
+- Faster, with identical results (the benchmark suite and a 14,800-bill report compared byte for byte):
+  - the report with the input search on a 14,800-bill export: 21 minutes of compute to 70 seconds; benchmark suite
+    164 to 70 seconds on 4 cores.
+  - autotune's validation trials skip what they never read (bootstrap intervals, segment checks, the final refit),
+    share one cache of feature rows, and run their folds in parallel worker processes (VERTIQ_JOBS; serial where
+    fork is unavailable).
+  - `Logistic`/`Linear` fit and score with the same arithmetic in the same order, without per-value method calls and
+    dictionary lookups; weights are bit-identical.
+  - `Task.score` computes the cohort cadence and the data's "today" once, not once per entity.
+- The report reads item lists written in one cell, searches candidate inputs (outlet, payment, items) under the gate,
+  tries return windows of 30, 60 and 90 days, and writes per-entity scores (`"scores"`); entities that may not be
+  used for training stay out of every model (`"trainable"`, `"train": false`).
+
 - Segment check in the evaluation gate (`harness.segment_check`): a candidate that beats the baseline on average but is
   clearly worse for a segment of the held-out entities is not promoted, and `narrate.gate` names the segment. Segments
   come from the data, never from a list per sector: entity groups and entity-table labels with 2 to 12 values, and

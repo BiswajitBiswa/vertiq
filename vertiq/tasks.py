@@ -31,8 +31,12 @@ def _visits(events: list[Event]) -> list[Visit]:
 class _Builder:
     """Turns a dataset into feature rows at a cutoff: generic features + per-type counts + plugins."""
 
-    def __init__(self, ds: Dataset, target: str, history: set | None, pack: str | None, use_survival: bool = False):
+    def __init__(self, ds: Dataset, target: str, history: set | None, pack: str | None, use_survival: bool = False,
+                 cache: dict | None = None):
         self.ds, self.target, self.history, self.pack = ds, target, history, pack
+        # rows without plugin features and cohort cadences, shared by tasks built on the same dataset
+        # (vertiq.autotune's trials); plugin features are added fresh to a copy every time
+        self.cache = cache
         self.use_survival, self.window, self._km = use_survival, 30, {}
         self.by = ds.by_entity()
         self.groups = ds.groups()
@@ -65,7 +69,28 @@ class _Builder:
     def hist(self, eid: str, cut: datetime) -> list[Event]:
         return [e for e in self.by.get(eid, []) if e.at < cut and (self.history is None or e.type in self.history)]
 
+    def _key(self, *rest) -> tuple:
+        return (self.target, frozenset(self.history) if self.history is not None else None, self.use_survival,
+                self.window) + rest
+
     def row(self, eid: str, cut: datetime, cadence: float) -> dict | None:
+        if self.cache is None:
+            return self._row(eid, cut, cadence)
+        key = self._key("row", cut, cadence, eid)
+        if key not in self.cache:
+            self.cache[key] = self._row(eid, cut, cadence, plugins_too=False)
+        base = self.cache[key]
+        if base is None:
+            return None
+        f = dict(base)
+        if self.feature_fns:
+            before = [e for e in self.by.get(eid, []) if e.at < cut]
+            ent = self.ents.get(eid)
+            for fn in self.feature_fns:
+                f.update({str(k): float(v) for k, v in (fn(ent, before, cut) or {}).items()})
+        return f
+
+    def _row(self, eid: str, cut: datetime, cadence: float, plugins_too: bool = True) -> dict | None:
         before = [e for e in self.by.get(eid, []) if e.at < cut]
         h = [e for e in before if self.history is None or e.type in self.history]
         f = snapshot(_visits(h), cut, cadence, self.groups.get(eid, ""), len(self.by)) if h else None
@@ -78,9 +103,10 @@ class _Builder:
             f[f"n90:{t}"] = sum(1 for e in before if e.type == t and e.at >= cut - timedelta(days=90))
         if self.use_survival:
             f["km_within"] = self.km_within(eid, before, cut)
-        ent = self.ents.get(eid)
-        for fn in self.feature_fns:
-            f.update({str(k): float(v) for k, v in (fn(ent, before, cut) or {}).items()})
+        if plugins_too:
+            ent = self.ents.get(eid)
+            for fn in self.feature_fns:
+                f.update({str(k): float(v) for k, v in (fn(ent, before, cut) or {}).items()})
         return f
 
     def km_within(self, eid: str, before: list[Event], cut: datetime) -> float:
@@ -99,8 +125,14 @@ class _Builder:
         return round(survival.within(curve, (cut - max(ts)).days, self.window, scale), 6)
 
     def cadence(self, cut: datetime, window: int) -> float:
+        key = self._key("cadence", cut, window)
+        if self.cache is not None and key in self.cache:
+            return self.cache[key]
         hist = {eid: _visits(self.hist(eid, cut)) for eid in self.by}
-        return cohort_cadence(hist, cut, float(window))
+        c = cohort_cadence(hist, cut, float(window))
+        if self.cache is not None:
+            self.cache[key] = c
+        return c
 
     def cutoffs(self, window: int, n: int) -> list[datetime]:
         ref = self.ds.reference_now()
@@ -163,8 +195,14 @@ class Task:
         """The prediction for one entity now (or at `at`), with the strongest reasons either way."""
         if self.model is None:
             return None
-        cut = at or (self.b.ds.reference_now() + timedelta(seconds=1))
-        f = self.b.row(entity_id, cut, self.b.cadence(cut, self.window))
+        if at is None and "_now" not in self.__dict__:
+            self._now = self.b.ds.reference_now() + timedelta(seconds=1)        # the data's "today", once
+        cut = at or self._now
+        # the cohort's cadence is the same for every entity at one moment: computed once, not once per entity
+        cad = self.__dict__.setdefault("_cadence", {})
+        if cut not in cad:
+            cad[cut] = self.b.cadence(cut, self.window)
+        f = self.b.row(entity_id, cut, cad[cut])
         if f is None:
             return None
         raw = self.model.predict(f, self.b.groups.get(entity_id))
@@ -183,11 +221,11 @@ class Task:
 def predict_event(ds: Dataset, *, target: str, window_days: int, history: set | None = None, pack: str | None = None,
                   learner: str = "logistic", cutoffs: int = 4, previous=None, min_gain: float = 0.0,
                   confidence: float | None = harness.CONFIDENCE, survival: bool = False, evidence: dict | None = None,
-                  holdout=None) -> Task:
+                  holdout=None, diagnostics: bool = True, row_cache: dict | None = None) -> Task:
     """Will an event of type `target` happen to each entity within `window_days`? `min_gain`: the AUC margin a
     candidate must win by over the baseline and `previous` (see harness.evaluate). `survival` adds the
     time-to-event feature "km_within" (vertiq.survival); the gate decides whether it helps."""
-    b = _Builder(ds, target, history, pack, use_survival=survival)
+    b = _Builder(ds, target, history, pack, use_survival=survival, cache=row_cache)
     b.window = window_days
     rows, y, keys, groups, base, segs = [], [], [], [], [], []
     for cut in b.cutoffs(window_days, cutoffs):
@@ -203,16 +241,18 @@ def predict_event(ds: Dataset, *, target: str, window_days: int, history: set | 
             base.append(_baseline_event(f, window_days))
             segs.append(b.segments(eid, f))
     res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner, "classify"), kind="classify", previous=previous,
-                           min_gain=min_gain, confidence=confidence, evidence=evidence, holdout=holdout, segments=segs)
+                           min_gain=min_gain, confidence=confidence, evidence=evidence, holdout=holdout, segments=segs,
+                           diagnostics=diagnostics)
     return Task("event", b, window_days, learner, res)
 
 
 def predict_value(ds: Dataset, *, target: str, window_days: int, history: set | None = None, pack: str | None = None,
                   learner: str = "linear", cutoffs: int = 4, previous=None, min_gain: float = 0.0,
-                  confidence: float | None = harness.CONFIDENCE, holdout=None) -> Task:
+                  confidence: float | None = harness.CONFIDENCE, holdout=None, diagnostics: bool = True,
+                  row_cache: dict | None = None) -> Task:
     """How much will the next `target` event (within `window_days`) be worth? Entities with no such
     event in the window teach nothing here (predict_event answers whether it happens)."""
-    b = _Builder(ds, target, history, pack)
+    b = _Builder(ds, target, history, pack, cache=row_cache)
     rows, y, keys, groups, base, segs = [], [], [], [], [], []
     overall = [e.value for e in ds.events if e.type == target and e.value > 0]
     mean_all = math.log1p(sum(overall) / len(overall)) if overall else 0.0
@@ -233,7 +273,7 @@ def predict_value(ds: Dataset, *, target: str, window_days: int, history: set | 
             base.append(math.log1p(sum(past) / len(past)) if past else mean_all)   # the obvious rule: same as before
             segs.append(b.segments(eid, f))
     res = harness.evaluate(rows, y, keys, groups, base, plugins.learner(learner, "regress"), kind="regress", previous=previous, min_gain=min_gain, confidence=confidence,
-                           fit_kw={"epochs": 30}, holdout=holdout, segments=segs)
+                           fit_kw={"epochs": 30}, holdout=holdout, segments=segs, diagnostics=diagnostics)
     return Task("value", b, window_days, learner, res)
 
 
@@ -288,8 +328,14 @@ class UpliftTask:
         """{"uplift", "with_action", "without_action"} for one entity now (or at `at`)."""
         if self.model is None:
             return None
-        cut = at or (self.b.ds.reference_now() + timedelta(seconds=1))
-        f = self.b.row(entity_id, cut, self.b.cadence(cut, self.window))
+        if at is None and "_now" not in self.__dict__:
+            self._now = self.b.ds.reference_now() + timedelta(seconds=1)        # the data's "today", once
+        cut = at or self._now
+        # the cohort's cadence is the same for every entity at one moment: computed once, not once per entity
+        cad = self.__dict__.setdefault("_cadence", {})
+        if cut not in cad:
+            cad[cut] = self.b.cadence(cut, self.window)
+        f = self.b.row(entity_id, cut, cad[cut])
         if f is None:
             return None
         p1, p0 = self.model.both(f)

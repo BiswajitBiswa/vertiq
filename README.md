@@ -105,7 +105,7 @@ Intervention effects are estimated against control groups rather than inferred f
 
 - **Control-group uplift.** vertiq.uplift compares treated entities with a randomly held-out group over the same window and ranks entities by estimated incremental effect. In the benchmark it estimated a planted −20% offer effect at -20.2%.
 - **Configurable horizons.** window_days sets the prediction horizon, cutoffs the number of historical training points and history the event types used as inputs, so each task matches the operating cycle of the industry.
-- **Small footprint.** The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 164 seconds on a laptop using 4 cores.
+- **Small footprint.** The decision engine has no third-party dependencies and no network layer. It runs wherever Python 3.10 runs; the full benchmark suite completes in 70 seconds on a laptop using 4 cores.
 
 ### Defensive deployment
 
@@ -225,7 +225,7 @@ Plugins add features; the evaluation gate determines whether they improve perfor
 ## Benchmarks
 
 Synthetic scenarios with known ground truth, 5 runs each, mean ± standard deviation (`python benchmarks/run.py`,
-164 seconds on a laptop using 4 cores, arm64, Python 3.10.10).
+70 seconds on a laptop using 4 cores, arm64, Python 3.10.10).
 
 | Scenario | Vertiq | Reference |
 |---|---|---|
@@ -314,7 +314,7 @@ Production-like test set (audit columns and locale-specific number formats):
 
 ## Verify the results
 
-Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 164 seconds on a laptop using 4 cores. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
+Every decision-engine figure can be reproduced from a clean checkout with Python and pytest; the benchmark suite runs in about 70 seconds on a laptop using 4 cores. Vertiq LM figures require Apple Silicon and the model weights; see [lm/README.md](lm/README.md).
 
 ```bash
 git clone https://github.com/BiswajitBiswa/vertiq && cd vertiq

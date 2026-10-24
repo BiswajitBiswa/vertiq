@@ -7,6 +7,7 @@ A model is a plain dict (`to_dict`), so it is stored as JSON (models.VertiqModel
 from __future__ import annotations
 
 import math
+import operator
 import random
 
 _EPS = 1e-9
@@ -54,8 +55,17 @@ class Logistic:
         z = (float(row.get(k, self.mean[k])) - self.mean[k]) / self.std[k]
         return max(-Z_CLIP, min(Z_CLIP, z))
 
+    def _cols(self) -> list[tuple[str, float, float]]:
+        """(name, mean, spread) per feature, cached; rebuilt whenever fit or from_dict sets them."""
+        c = self.__dict__.get("_cols_cache")
+        if c is None:
+            c = self._cols_cache = [(k, self.mean[k], self.std[k]) for k in self.names]
+        return c
+
     def _z(self, row: dict) -> list[float]:
-        return [self._zk(row, k) for k in self.names]
+        # the same arithmetic as _zk for each name, without a method call and three dict lookups per value
+        get = row.get
+        return [max(-Z_CLIP, min(Z_CLIP, (float(get(k, m)) - m) / sd)) for k, m, sd in self._cols()]
 
     def _link(self, z: float) -> float:
         return sigmoid(z)
@@ -69,6 +79,7 @@ class Logistic:
         if len(rows) != len(y) or not rows:
             raise ValueError("need matching, non-empty rows and labels")
         self._standardise(rows)
+        self.__dict__.pop("_cols_cache", None)
         X = [self._z(r) for r in rows]
         d = len(self.names)
         w = [0.0] * d
@@ -76,6 +87,7 @@ class Logistic:
         gw, gb = [_EPS] * d, _EPS
         order = list(range(len(X)))
         rnd = random.Random(seed)
+        link, mul = self._link, operator.mul
         for _ in range(epochs):
             rnd.shuffle(order)
             for s in range(0, len(order), batch):
@@ -84,10 +96,10 @@ class Logistic:
                 g0 = 0.0
                 for i in idx:
                     xi = X[i]
-                    err = self._link(b + sum(wj * xj for wj, xj in zip(w, xi))) - y[i]
+                    # the same sums in the same order as a loop over j: results are identical, only faster
+                    err = link(b + sum(map(mul, w, xi))) - y[i]
                     g0 += err
-                    for j in range(d):
-                        grad[j] += err * xi[j]
+                    grad = [g + err * x for g, x in zip(grad, xi)]
                 m = len(idx)
                 for j in range(d):
                     g = grad[j] / m + l2 * w[j]
@@ -122,7 +134,8 @@ class Logistic:
 
     # ---- scoring -------------------------------------------------------------------------------
     def raw(self, row: dict) -> float:
-        return self.b + sum(self.w[k] * self._zk(row, k) for k in self.names)
+        w = self.w
+        return self.b + sum(w[k] * z for (k, _m, _s), z in zip(self._cols(), self._z(row)))
 
     def predict(self, row: dict, group: str | None = None) -> float:
         return self._link(self.raw(row) + (self.offsets.get(group, 0.0) if group else 0.0))
@@ -141,6 +154,7 @@ class Logistic:
     def from_dict(cls, d: dict) -> "Logistic":
         m = cls(d.get("names") or [])
         m.mean, m.std, m.w = dict(d["mean"]), dict(d["std"]), dict(d["w"])
+        m.__dict__.pop("_cols_cache", None)
         m.b, m.offsets = float(d["b"]), dict(d.get("offsets") or {})
         return m
 
@@ -179,7 +193,7 @@ def auc(scores: list[float], y: list[int]) -> float | None:
     neg = len(y) - pos
     if not pos or not neg:
         return None
-    order = sorted(range(len(scores)), key=lambda i: scores[i])
+    order = sorted(range(len(scores)), key=scores.__getitem__)
     ranks = [0.0] * len(scores)
     i = 0
     while i < len(order):

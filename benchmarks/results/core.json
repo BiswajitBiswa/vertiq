@@ -1,9 +1,9 @@
 {
-  "generated": "2026-10-16",
+  "generated": "2026-10-24",
   "python": "3.10.10",
   "machine": "arm64",
-  "seconds": 570.4,
-  "wall_seconds": 164.1,
+  "seconds": 280.2,
+  "wall_seconds": 70.5,
   "jobs": 4,
   "scenarios": {
     "churn_customers": {
@@ -75,7 +75,7 @@
           "held_out": 400
         }
       ],
-      "seconds": 1.4
+      "seconds": 1.5
     },
     "machines": {
       "seeds": 5,
@@ -147,7 +147,7 @@
           "held_out": 44
         }
       ],
-      "seconds": 2.6
+      "seconds": 2.4
     },
     "patients": {
       "seeds": 5,
@@ -200,7 +200,7 @@
           "r2": 0.2879
         }
       ],
-      "seconds": 1.4
+      "seconds": 1.0
     },
     "noise": {
       "seeds": 5,
@@ -263,7 +263,7 @@
           "model_auc": 0.525
         }
       ],
-      "seconds": 8.1
+      "seconds": 6.7
     },
     "uplift_targeting": {
       "seeds": 5,
@@ -334,7 +334,7 @@
           "planted_offer_effect_pct": -20.0
         }
       ],
-      "seconds": 0.8
+      "seconds": 0.6
     },
     "insight_discovery": {
       "seeds": 5,
@@ -412,7 +412,7 @@
           "changed_by_repair": 0
         }
       ],
-      "seconds": 37.2
+      "seconds": 33.7
     },
     "interactions": {
       "seeds": 5,
@@ -472,7 +472,7 @@
           "baseline_auc": 0.6772
         }
       ],
-      "seconds": 9.4
+      "seconds": 8.4
     },
     "renewal_survival": {
       "seeds": 5,
@@ -523,7 +523,7 @@
           "survival_better": true
         }
       ],
-      "seconds": 5.7
+      "seconds": 5.0
     },
     "action_uplift": {
       "seeds": 5,
@@ -594,7 +594,7 @@
           "estimated_effect_new": -0.0057
         }
       ],
-      "seconds": 82.6
+      "seconds": 41.7
     },
     "matched_cohort": {
       "seeds": 5,
@@ -645,7 +645,7 @@
           "interval_covers_truth": true
         }
       ],
-      "seconds": 0.7
+      "seconds": 0.6
     },
     "sequential": {
       "seeds": 5,
@@ -885,7 +885,7 @@
           "trials": 13
         }
       ],
-      "seconds": 115.0
+      "seconds": 24.4
     },
     "two_sample_sequential": {
       "seeds": 5,
@@ -939,7 +939,7 @@
           "median_per_arm_when_detected": 1536
         }
       ],
-      "seconds": 37.2
+      "seconds": 45.4
     },
     "doubly_robust_effect": {
       "seeds": 5,
@@ -1086,7 +1086,7 @@
           ]
         }
       ],
-      "seconds": 42.9
+      "seconds": 35.1
     },
     "agent_guard": {
       "seeds": 5,
@@ -1167,7 +1167,7 @@
           "unmeasured_held": 101
         }
       ],
-      "seconds": 31.8
+      "seconds": 38.4
     },
     "menu_search": {
       "seeds": 5,
@@ -1233,7 +1233,7 @@
           "untuned_auc": 0.7955
         }
       ],
-      "seconds": 186.3
+      "seconds": 25.8
     },
     "multi_outcome": {
       "seeds": 5,
@@ -1295,7 +1295,7 @@
           "baseline_accuracy": 0.4496
         }
       ],
-      "seconds": 4.5
+      "seconds": 6.7
     },
     "change_drivers": {
       "seeds": 5,

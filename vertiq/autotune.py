@@ -17,6 +17,8 @@ applied with a held-out gate so that repeated trials cannot overfit the score th
 from __future__ import annotations
 
 import math
+import multiprocessing
+import os
 
 from . import harness, plugins
 from .contract import Dataset
@@ -34,7 +36,8 @@ def _fold(key: str, folds: int) -> int:
 
 
 def _run(ds: Dataset, kind: str, target: str, window_days: int, config: dict, chosen: list[str], features: dict,
-         pack: str | None, previous=None, confidence=harness.CONFIDENCE, holdout=None):
+         pack: str | None, previous=None, confidence=harness.CONFIDENCE, holdout=None, diagnostics: bool = True,
+         row_cache: dict | None = None):
     plugins.clear(PACK)
     for fn in plugins.features_for(pack):
         plugins.feature(PACK)(fn)
@@ -44,9 +47,29 @@ def _run(ds: Dataset, kind: str, target: str, window_days: int, config: dict, ch
     task_fn = predict_event if kind == "event" else predict_value
     try:
         return task_fn(ds, target=target, window_days=window_days, pack=PACK, previous=previous,
-                       confidence=confidence, holdout=holdout, **kw)
+                       confidence=confidence, holdout=holdout, diagnostics=diagnostics, row_cache=row_cache, **kw)
     finally:
         plugins.clear(PACK)
+
+
+# a validation trial is one fold of one configuration; folds run in parallel worker processes forked from the
+# search, which reach the search's data through _TRIAL (set before the fork, so nothing has to be pickled)
+_TRIAL: dict = {}
+
+
+def _fold_score(job: tuple) -> float | None:
+    config, chosen, k = job
+    t = _TRIAL
+    return _score(_run(t["ds"], t["kind"], t["target"], t["window"], config, chosen, t["features"], t["pack"],
+                       confidence=None, holdout=lambda key: _fold(key, t["folds"]) == k, diagnostics=False,
+                       row_cache=t["cache"]), t["kind"])
+
+
+def _jobs() -> int:
+    """Worker processes for validation folds: VERTIQ_JOBS, else the CPU count; 1 where fork is unavailable."""
+    if "fork" not in multiprocessing.get_all_start_methods():
+        return 1
+    return max(1, int(os.environ.get("VERTIQ_JOBS") or os.cpu_count() or 1))
 
 
 def _score(task, kind: str) -> float | None:
@@ -74,44 +97,61 @@ def search(ds: Dataset, *, target: str, window_days: int, kind: str = "event", p
     agree = folds - 1 if agree is None else agree
     train = _subset(ds, {e.id for e in ds.entities if not harness.held_out(e.id)})
 
+    # trials read only the point score (no intervals, segment checks or final refit) and share one cache of
+    # feature rows, since every trial is built on the same training entities; folds of a trial run in parallel
+    _TRIAL.clear()
+    _TRIAL.update(ds=train, kind=kind, target=target, window=window_days, features=features, pack=pack,
+                  folds=folds, cache={})
+    pool = None
+
     def evaluate(config, chosen):
-        scores = [_score(_run(train, kind, target, window_days, config, chosen, features, pack, confidence=None,
-                              holdout=lambda key, k=k: _fold(key, folds) == k), kind) for k in range(folds)]
+        nonlocal pool
+        jobs = [(config, chosen, k) for k in range(folds)]
+        if pool is None and _TRIAL["cache"] and _jobs() > 1:
+            # forked after the first, serial evaluation: every worker starts with the rows already built
+            pool = multiprocessing.get_context("fork").Pool(min(folds, _jobs()))
+        scores = pool.map(_fold_score, jobs) if pool else [_fold_score(j) for j in jobs]
         return None if any(x is None for x in scores) else scores
 
     def mean(scores):
         return sum(scores) / len(scores) if scores else -math.inf
 
-    config, chosen = dict(base), []
-    best_folds = evaluate(config, chosen)
-    best = mean(best_folds)
-    trials = [{"change": "start", "score": _r(best), "kept": True}]
-    for _round in range(rounds):
-        improved = False
-        moves = [(k, v) for k, vals in options.items() for v in vals]
-        moves += [("+feature", n) for n in features] + [("-feature", n) for n in features]
-        for key, val in moves:
-            if key == "+feature" and val in chosen or key == "-feature" and val not in chosen:
-                continue
-            if key not in ("+feature", "-feature") and config.get(key) == val:
-                continue
-            cfg, ch = dict(config), list(chosen)
-            if key == "+feature":
-                ch.append(val)
-            elif key == "-feature":
-                ch.remove(val)
-            else:
-                cfg[key] = val
-            f = evaluate(cfg, ch)
-            s = mean(f)
-            wins = sum(a > b for a, b in zip(f, best_folds)) if f and best_folds else 0
-            keep = s >= best + min_step and wins >= agree
-            trials.append({"change": f"{key} {val}" if key.endswith("feature") else f"{key}={val}",
-                           "score": _r(s), "folds_improved": f"{wins}/{folds}", "kept": keep})
-            if keep:
-                config, chosen, best, best_folds, improved = cfg, ch, s, f, True
-        if not improved:
-            break
+    try:
+        config, chosen = dict(base), []
+        best_folds = evaluate(config, chosen)
+        best = mean(best_folds)
+        trials = [{"change": "start", "score": _r(best), "kept": True}]
+        for _round in range(rounds):
+            improved = False
+            moves = [(k, v) for k, vals in options.items() for v in vals]
+            moves += [("+feature", n) for n in features] + [("-feature", n) for n in features]
+            for key, val in moves:
+                if key == "+feature" and val in chosen or key == "-feature" and val not in chosen:
+                    continue
+                if key not in ("+feature", "-feature") and config.get(key) == val:
+                    continue
+                cfg, ch = dict(config), list(chosen)
+                if key == "+feature":
+                    ch.append(val)
+                elif key == "-feature":
+                    ch.remove(val)
+                else:
+                    cfg[key] = val
+                f = evaluate(cfg, ch)
+                s = mean(f)
+                wins = sum(a > b for a, b in zip(f, best_folds)) if f and best_folds else 0
+                keep = s >= best + min_step and wins >= agree
+                trials.append({"change": f"{key} {val}" if key.endswith("feature") else f"{key}={val}",
+                               "score": _r(s), "folds_improved": f"{wins}/{folds}", "kept": keep})
+                if keep:
+                    config, chosen, best, best_folds, improved = cfg, ch, s, f, True
+            if not improved:
+                break
+    finally:
+        if pool:
+            pool.close()
+            pool.join()
+        _TRIAL.clear()
     untuned = _run(ds, kind, target, window_days, base, [], features, pack, confidence=confidence)
     final = (_run(ds, kind, target, window_days, config, chosen, features, pack, previous=untuned.model, confidence=confidence)
              if (config, chosen) != (base, []) else untuned)

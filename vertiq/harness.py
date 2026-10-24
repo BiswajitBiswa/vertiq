@@ -144,7 +144,7 @@ def _r(x):
 def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], baseline: list[float], learner_cls,
              *, kind: str = "classify", previous=None, min_rows: int = MIN_ROWS, fit_kw: dict | None = None,
              min_gain: float = 0.0, confidence: float | None = CONFIDENCE, evidence: dict | None = None,
-             holdout=None, segments: list[dict] | None = None) -> dict:
+             holdout=None, segments: list[dict] | None = None, diagnostics: bool = True) -> dict:
     """{"status": learning | kept | trained, "metrics", "model" (when trained), "reason" (when kept)}.
     `keys` decide the held-out split (use the entity id, so no entity is in both halves).
     `min_gain`: the margin a candidate must win by. For classification, an absolute AUC margin over the
@@ -160,7 +160,9 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
     vertiq.autotune uses it for cross-validation folds inside the training entities.
     `segments`: per row, its label in each segment dimension (see segment_check). A candidate that is clearly
     worse than the baseline in any checked segment is not promoted; the checks are reported under
-    metrics["segments"]."""
+    metrics["segments"].
+    `diagnostics=False` (vertiq.autotune's validation trials, which read only the point score) skips the
+    bootstrap intervals, the segment check and the final refit on all rows; the metrics are the same."""
     n = len(y)
     fit_kw = fit_kw or {}
     if kind == "classify":
@@ -205,6 +207,8 @@ def evaluate(rows: list[dict], y: list, keys: list[str], groups: list[str], base
             if m["mae"] > m["previous_mae"] * ((1 - min_gain) if min_gain > 0 else 1.005):
                 reasons.append(f"MAE {m['mae']} is not {min_gain:.0%} below the production model's {m['previous_mae']}")
     held_keys = pick(keys, te)
+    if not diagnostics:
+        return {"status": "trial", "metrics": m}
     m["intervals"] = bootstrap(held_keys, pred, held_base, held_y, kind, level=confidence or 0.9)
     if confidence and m["intervals"]:
         lo = m["intervals"]["gain_ci"][0]
