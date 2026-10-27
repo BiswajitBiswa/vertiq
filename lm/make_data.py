@@ -53,6 +53,7 @@ PROMPT_V2 = PROMPT.replace("\n\nReply with JSON", "\n\nColumn kinds, read from t
 PROMPT_V3 = ("Map this table to Vertiq's contract. One line per column: its name, what its values hold (read by code), "
              "then sample values:\n{lines}" + PROMPT.split("{csv}", 1)[1])
 CELL = 14                       # characters of a sample value shown
+TEXT_VALUES = 2                 # distinct values shown for a text or id column (--text-values)
 
 
 def lines(rows: list[dict]) -> str:
@@ -64,7 +65,7 @@ def lines(rows: list[dict]) -> str:
         if not vals:
             out.append(f"{c}: empty")
             continue
-        n = 1 if k[c].startswith(("number", "date", "row")) else 2      # the kind already says what a number or date is
+        n = 1 if k[c].startswith(("number", "date", "row")) else TEXT_VALUES   # the kind already says what a number or date is
         out.append(f"{c}: {k[c]} | " + " | ".join(v if len(v) <= CELL else v[:CELL - 1] + "…" for v in vals[:n]))
     return "\n".join(out)
 
@@ -366,7 +367,9 @@ def main():
     ap.add_argument("--out", default=str(ROOT / "data" / "v2"))
     ap.add_argument("--messy", type=float, default=0.0, help="share of tables given real-export clutter (v3)")
     ap.add_argument("--prompt", type=int, default=2, help="prompt version (3: one line per column)")
+    ap.add_argument("--text-values", type=int, default=TEXT_VALUES, help="prompt v3: values shown per text column")
     a = ap.parse_args()
+    globals()["TEXT_VALUES"] = a.text_values
 
     def make(dom):
         prompt, truth = example(dom, r)
@@ -396,7 +399,8 @@ def main():
                 keep = row if split == "test" else {"messages": row["messages"]}
                 f.write(json.dumps(keep, ensure_ascii=False) + "\n")
     meta = {"seed": SEED, "seen_domains": seen, "unseen_domains": unseen, "counts": {k: len(v) for k, v in out.items()},
-            "styles": STYLES, "date_formats": FMTS, "messy": a.messy, "prompt": a.prompt}
+            "styles": STYLES, "date_formats": FMTS, "messy": a.messy, "prompt": a.prompt,
+            **({"text_values": a.text_values} if a.prompt == 3 else {})}
     (data / "meta.json").write_text(json.dumps(meta, indent=2))
     print(json.dumps(meta, indent=2))
 

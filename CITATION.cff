@@ -4,7 +4,7 @@ title: "Vertiq: decision models trained on a business's own outcomes"
 authors:
   - family-names: Tripathy
     given-names: Biswajit
-version: 0.2.3
+version: 0.2.4
 date-released: 2026-10-27
 license: Apache-2.0
 repository-code: "https://github.com/BiswajitBiswa/vertiq"

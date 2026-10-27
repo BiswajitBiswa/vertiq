@@ -2,7 +2,7 @@
 
 All notable changes are recorded here. Versions follow semantic versioning; before 1.0 the API may change between minor versions.
 
-## Unreleased
+## 0.2.4 (2026-10-27)
 
 - A mapping whose date format no date can match (a field written twice, such as `%m/%d/%m`, which Vertiq LM can
   propose) is now reported row by row as not matching, instead of stopping the report with a regular-expression error.
