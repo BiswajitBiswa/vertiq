@@ -26,6 +26,7 @@ import sys
 from pathlib import Path
 
 BASE = os.environ.get("VERTIQ_BASE", "mlx-community/Qwen3.5-4B-MLX-4bit")
+START = ""          # --start-adapter: an adapter to continue training (its settings are read from it)
 OUT = Path("out")
 SAVE_EVERY = 25
 
@@ -84,9 +85,20 @@ def train(a) -> int:
                "--max-seq-length", str(a.maxlen), "--mask-prompt", "--grad-checkpoint",
                "--steps-per-report", "5", "--steps-per-eval", str(a.eval_every), "--val-batches", "10",
                "--save-every", str(SAVE_EVERY), "--adapter-path", str(adapter)]
+        if START:
+            # continue a trained adapter: its own layers, rank and scale, and its weights as the starting point
+            ac = json.loads((Path(START) / "adapter_config.json").read_text())
+            lp = ac.get("lora_parameters") or {}
+            (OUT / "lora.yaml").write_text("lora_parameters:\n" + "".join(f"  {k}: {v}\n" for k, v in lp.items()
+                                                                         if k in ("rank", "dropout", "scale")))
+            cmd[cmd.index("--num-layers") + 1] = str(ac.get("num_layers", a.layers))
+            cmd += ["--config", str(OUT / "lora.yaml")]
         if done and (adapter / "adapters.safetensors").exists():
             cmd += ["--resume-adapter-file", str(adapter / "adapters.safetensors")]
             print(f"[vertiq] resuming at step {done} of {a.iters}", flush=True)
+        elif START:
+            cmd += ["--resume-adapter-file", str(Path(START) / "adapters.safetensors")]
+            print(f"[vertiq] continuing from {START}", flush=True)
         env = dict(os.environ, MESH_STEP_OFFSET=str(done), MESH_SAVE_EVERY=str(SAVE_EVERY),
                    MESH_PROGRESS_FILE=str(state_file), NO_COLOR="1", TERM="dumb")
         code = subprocess.call(cmd, env=env)
@@ -144,10 +156,12 @@ def main() -> int:
     e.add_argument("--shard", default="")
     e.add_argument("--limit", type=int, default=0)
     ap.add_argument("--base", default="", help="model to start from: a local folder or a Hugging Face id")
+    ap.add_argument("--start-adapter", default="", help="a trained adapter on --base to continue (folder with adapters.safetensors)")
     a = ap.parse_args()
+    global BASE, START
     if a.base:
-        global BASE
         BASE = a.base
+    START = a.start_adapter
     if a.cmd == "train":
         return train(a)
     return evaluate(a.adapter, a.test, a.limit, a.shard)

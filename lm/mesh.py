@@ -84,7 +84,7 @@ def cmd_sweep(a) -> None:
     for values in itertools.product(*[v.split(",") for _, v in grid]):
         p = dict(zip(keys, values))
         lr, layers, maxlen = p.get("lr", "1e-4"), p.get("layers", "4"), p.get("maxlen", str(a.maxlen))
-        base = f"--base {a.base} " if a.base else ""
+        base = (f"--base {a.base} " if a.base else "") + (f"--start-adapter {a.start_adapter} " if a.start_adapter else "")
         cmd = (f"{{python}} lm/mesh_job.py {base}train --data data/train --iters {a.iters} --lr {lr} --layers {layers} "
                f"--maxlen {maxlen} --eval-n {a.eval_n if 'data/test.jsonl' in extra else 0} --test data/test.jsonl")
         jobs.append({"command": cmd, "bundle": sha, "label": " · ".join(f"{k} {v}" for k, v in p.items()),
@@ -150,6 +150,8 @@ def main() -> None:
     s.add_argument("--maxlen", type=int, default=768)
     s.add_argument("--base", default="", help="model the jobs start from (a path on the workers, or a Hugging Face id); "
                                               "default: the worker's VERTIQ_BASE")
+    s.add_argument("--start-adapter", default="", help="an adapter on --base to continue training (a path on the workers); "
+                                                       "its layers, rank and scale are used")
     s.add_argument("--eval-n", type=int, default=30)
     s.add_argument("--vram", type=float, default=8.0)
     e = sub.add_parser("eval")
