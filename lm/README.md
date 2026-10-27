@@ -74,6 +74,8 @@ records which teacher generated it.
 ## Memory requirements on a 16 GB machine
 
 - Batch 2 with 8 LoRA layers ran out of GPU memory; batch 1, 4 layers, gradient checkpointing and 640-token sequences fit.
+  On a 24 GB M4 Pro, 640 tokens still is the longest that fits (704 and 768 ran out of memory): the 248k-word output
+  layer makes memory grow with sequence length, so wide tables need a shorter prompt rather than a longer limit.
 - DPO keeps a reference copy of the model and ran at about 4 minutes a step before running out of memory; ORPO needs no
   reference and runs at 15–30 s a step.
 - Preference training requires most of the available memory. Close browsers, IDEs and development servers before starting.
@@ -90,6 +92,7 @@ exactly one valid candidate; weaker evidence is flagged for review. In 2,100 che
 | Script | What it does |
 |---|---|
 | `lm/make_data.py --messy 0.5` | Training tables with real-export clutter: wide tables, several amount columns, a second date, free text, empty and placeholder columns, ISO timestamps |
+| `lm/make_data.py --messy 0.5 --prompt 3 --out lm/data/v4` | The same tables in prompt v3: one line per column (name, kind, up to two distinct values cut to 14 characters) instead of header, rows and kinds; 88% of the messy tables fit 640 tokens, against 54% |
 | `lm/evaluate_real.py` + `benchmarks/real/score.py` | Vertiq LM on six held-out public exports (`benchmarks/real/fetch.sh`); never trained on |
 | `lm/narrate_round.sh` | Plain-language rewrites: a local 9B teacher (`lm/narrate_data.py`), a LoRA on the 4B, scoring on held-out descriptions (`lm/narrate.py`) |
 | `lm/fit_length.py`, `lm/mlx_limits.py` | Fit preference training in 16 GB: drop over-long examples, cap MLX's buffer cache |

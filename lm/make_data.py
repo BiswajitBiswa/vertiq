@@ -48,6 +48,26 @@ PROMPT = ("Map this table to Vertiq's contract. Columns, then 3 sample rows (CSV
 # knowing which hold dates, amounts or identifiers instead of inferring it from three rows
 PROMPT_V2 = PROMPT.replace("\n\nReply with JSON", "\n\nColumn kinds, read from the values: {kinds}\n\nReply with JSON")
 
+# v3 writes one line per column (its name once, its kind, a few distinct values cut short) instead of the header, the
+# rows and the kinds, so wide exports fit the training length: 88% of the messy v3 tables fit 640 tokens, against 54%
+PROMPT_V3 = ("Map this table to Vertiq's contract. One line per column: its name, what its values hold (read by code), "
+             "then sample values:\n{lines}" + PROMPT.split("{csv}", 1)[1])
+CELL = 14                       # characters of a sample value shown
+
+
+def lines(rows: list[dict]) -> str:
+    """'Cust No: id | C1043 | C2210' per column; 'remarks: empty' when no row has a value."""
+    k = dict(zip(rows[0], (p.split(": ", 1)[1] for p in kinds(rows).split("; ")))) if rows else {}
+    out = []
+    for c in (rows[0] if rows else {}):
+        vals = list(dict.fromkeys(str(r[c]).strip() for r in rows if str(r[c]).strip()))
+        if not vals:
+            out.append(f"{c}: empty")
+            continue
+        n = 1 if k[c].startswith(("number", "date", "row")) else 2      # the kind already says what a number or date is
+        out.append(f"{c}: {k[c]} | " + " | ".join(v if len(v) <= CELL else v[:CELL - 1] + "…" for v in vals[:n]))
+    return "\n".join(out)
+
 
 def kinds(rows: list[dict]) -> str:
     """'Cust No: id; Buy Date: date %d/%m/%Y; Amt: number; Sl: row counter; Mode: text'"""
@@ -72,8 +92,11 @@ def kinds(rows: list[dict]) -> str:
 
 def render(rows: list[dict], version: int = 2) -> str:
     """The prompt for a table. v1 is the original (plain comma join), kept so old models are scored
-    on new tables exactly as they were trained; v2 quotes the CSV properly and adds column kinds."""
+    on new tables exactly as they were trained; v2 quotes the CSV properly and adds column kinds; v3 is one
+    line per column."""
     cols = list(rows[0])
+    if version == 3:
+        return PROMPT_V3.format(lines=lines(rows))
     if version == 1:
         return PROMPT.format(csv="\n".join([",".join(cols)] + [",".join(str(rw[c]) for c in cols) for rw in rows]))
     buf = io.StringIO()
@@ -342,12 +365,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT / "data" / "v2"))
     ap.add_argument("--messy", type=float, default=0.0, help="share of tables given real-export clutter (v3)")
+    ap.add_argument("--prompt", type=int, default=2, help="prompt version (3: one line per column)")
     a = ap.parse_args()
 
     def make(dom):
         prompt, truth = example(dom, r)
         if a.messy and r.random() < a.messy:
             prompt, truth = add_mess(prompt, truth, r)
+        if a.prompt != 2:                                     # same tables, written in another prompt version
+            prompt = render(truth["_rows"], a.prompt)
         return chat(prompt, truth, dom)
     r = random.Random(SEED)
     domains = sorted(D)
@@ -370,7 +396,7 @@ def main():
                 keep = row if split == "test" else {"messages": row["messages"]}
                 f.write(json.dumps(keep, ensure_ascii=False) + "\n")
     meta = {"seed": SEED, "seen_domains": seen, "unseen_domains": unseen, "counts": {k: len(v) for k, v in out.items()},
-            "styles": STYLES, "date_formats": FMTS}
+            "styles": STYLES, "date_formats": FMTS, "messy": a.messy, "prompt": a.prompt}
     (data / "meta.json").write_text(json.dumps(meta, indent=2))
     print(json.dumps(meta, indent=2))
 

@@ -2,6 +2,15 @@
 
 All notable changes are recorded here. Versions follow semantic versioning; before 1.0 the API may change between minor versions.
 
+## Unreleased
+
+- A mapping whose date format no date can match (a field written twice, such as `%m/%d/%m`, which Vertiq LM can
+  propose) is now reported row by row as not matching, instead of stopping the report with a regular-expression error.
+- Vertiq LM: prompt v3 (`lm/make_data.py --prompt 3`), one line per column instead of header, rows and column kinds, so
+  88% of messy training tables fit 640 tokens (54% before). Three runs continued from the current model on it got more
+  roles right on held-out tables (73–82% against 68%) and one did better on the real exports (4 of 6 exact against 2),
+  but none beat the current model's 30% exact on held-out tables, so the current model stays.
+
 ## 0.2.3 (2026-10-27)
 
 - Sector benchmark (`benchmarks/sectors`): `vertiq-report` on public data from five sectors (retail, food safety, animal

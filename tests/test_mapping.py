@@ -21,6 +21,8 @@ def test_the_data_catches_a_wrong_mapping():
     assert any("doesn't match" in p for p in problems)
     _ds, problems = apply(Mapping.parse({**GOOD, "entity": "Patient"}), ROWS)
     assert problems == ["column 'Patient' (for entity) isn't in the table"]
+    ds, problems = apply(Mapping.parse({**GOOD, "date_format": "%m/%d/%m"}), ROWS)   # a model wrote a field twice
+    assert ds.events == [] and all("doesn't match" in p for p in problems)
 
 
 def test_model_output_is_parsed_and_scored():

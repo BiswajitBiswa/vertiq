@@ -473,7 +473,7 @@ def apply(m: Mapping, rows: list[dict]) -> tuple[Dataset, list[str]]:
             continue
         try:
             at = datetime.strptime(str(r[m.time]).strip(), m.date_format)
-        except ValueError:
+        except (ValueError, re.error):       # re.error: a format no date can match, such as "%m/%d/%m"
             problems.append(f"row {i}: {r[m.time]!r} doesn't match {m.date_format}")
             continue
         if m.clock:

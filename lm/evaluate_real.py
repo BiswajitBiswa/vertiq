@@ -20,6 +20,7 @@ def main():
     ap.add_argument("--model", required=True)
     ap.add_argument("--adapter", default="")
     ap.add_argument("--name", required=True)
+    ap.add_argument("--prompt", type=int, default=2, help="prompt version the model was trained on")
     a = ap.parse_args()
     from mlx_lm import generate, load
     model, tok = load(a.model, adapter_path=a.adapter) if a.adapter else load(a.model)
@@ -31,7 +32,7 @@ def main():
             continue
         with open(path, newline="", encoding="utf-8-sig") as f:
             rows = [r for _, r in zip(range(3), csv.DictReader(f))]
-        msgs = [{"role": "user", "content": render(rows)}]
+        msgs = [{"role": "user", "content": render(rows, a.prompt)}]
         prompt = tok.apply_chat_template(msgs, add_generation_prompt=True, tokenize=False, enable_thinking=False)
         out = generate(model, tok, prompt=prompt, max_tokens=320, verbose=False)
         outputs[name] = re.sub(r"<think>.*?</think>", "", out, flags=re.S).strip()
