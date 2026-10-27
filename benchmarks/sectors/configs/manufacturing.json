@@ -1,0 +1,3 @@
+{"records": [{"file": "../data/pdm_errors.csv", "event": "error"}, {"file": "../data/pdm_failures.csv", "event": "failure"}],
+ "entity_table": {"file": "../data/pdm_machines.csv"},
+ "target": "failure", "noun": "events", "entities": "machines"}

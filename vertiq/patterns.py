@@ -157,10 +157,20 @@ def find(ds: Dataset, *, item_groups: dict[str, str] | None = None, noun: str = 
             tests.append({"kind": "value", "feature": k[1], "n_with": a[0], "n_without": b[0],
                           "with": ma, "without": mb, "p": _mean_p_sums(a, b),
                           "big": abs(ma - mb) >= min_value_gap * abs(overall)})
+    # an attribute recorded on one event type only (a failure code exists only on failures) says nothing new
+    # about the type: comparing the two would report how the data was exported, not a pattern
+    types_of: dict[str, set] = defaultdict(set)
+    for e in events:
+        for k, v in (e.attrs or {}).items():
+            if v not in (None, "", "-"):
+                types_of[f"attr:{k}"].add(e.type)
+    one_type = {src for src, ts in types_of.items() if len(ts) == 1 and len({e.type for e in events}) > 1}
     for i, ka in enumerate(keys):
         for kb in keys[i + 1:]:
             if ka[0] == kb[0]:
                 continue                      # levels of one attribute exclude each other by construction
+            if {ka[0], kb[0]} & one_type and "type" in (ka[0], kb[0]):
+                continue
             if ka[0].startswith("item:") and kb[0].startswith("item:"):
                 continue                      # items bought together: vertiq.affinity, with its own thresholds
             # context (weekday, part of day, group) is the condition; otherwise the first feature is

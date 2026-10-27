@@ -24,13 +24,57 @@ def _vals(rows, c):
     return [str(r.get(c) if r.get(c) is not None else "").strip() for r in rows]
 
 
-def propose(rows: list[dict], record_key: str | None = None, latest: bool = False) -> tuple[Mapping | None, list[str]]:
+_ID_NAME = (re.compile(r"(?i)(?:^|[\s_.\-])id$"), re.compile(r"[a-z]I[dD]$"))     # customer_id, Customer ID, machineID
+
+
+_ID_WORDS = re.compile(r"(?i)(?:^|[^a-z])(?:id|ids|no|nbr|num|number|code|key|ref|reference|licen[cs]e|account|acct|"
+                       r"zip|postcode|pin|phone|mobile)(?:[^a-z]|$)|[a-z](?:Id|ID|No|Number|Code|Key)$")
+
+
+def id_worded(column: str) -> bool:
+    """Whether a column's name says it holds codes rather than amounts: "license_", "Invoice No", "zip_code",
+    "accountNumber". Such a column is never proposed as the value."""
+    if re.search(r"(?i)(?:number|num|no)[\s_.]*of(?:[^a-z]|$)", column):
+        return False                                  # "number of persons injured" is a count, not a code
+    return bool(_ID_WORDS.search(column.strip())) or id_named(column)
+
+
+def id_named(column: str) -> bool:
+    """Whether a column's name says it holds identifiers: "id", "customer_id", "Customer ID", "machineID"."""
+    return any(p.search(column.strip()) for p in _ID_NAME)
+
+
+def entity_key_hint(rows: list[dict], entity_rows: list[dict]) -> str | None:
+    """The column of `rows` whose values are the key of an entity table (a customer list, an asset register): the
+    table's first column with a distinct value on every row, matched by at least 90% of the column's values."""
+    ents = _records(entity_rows)
+    if not ents:
+        return None
+    key = next((c for c in ents[0] if len({str(r.get(c) or "").strip() for r in ents}) == len(ents)), None)
+    if key is None:
+        return None
+    keys = {str(r.get(key) or "").strip() for r in ents}
+    data = _records(rows)
+    best = None
+    for c in (data[0] if data else {}):
+        vals = {v for v in _vals(data, c) if v}
+        share = len(vals & keys) / max(1, len(vals))
+        if vals and share >= 0.9 and (best is None or share > best[0]):
+            best = (share, c)
+    return best[1] if best else None
+
+
+def propose(rows: list[dict], record_key: str | None = None, latest: bool = False,
+            entity_hint: str | None = None) -> tuple[Mapping | None, list[str]]:
     """A mapping chosen from the values: the time is the date column that is filled best, with a separate
     time-of-day column if there is one; the value is the most complete amount column; the entity is the best
     identifier that repeats (a person or asset), else the best identifier; attributes are the remaining
     columns with 2 to 12 repeated labels, and columns that identify each record (kept for joins).
     `record_key`: a column known to identify the record itself (the key line items join on); it is kept as
-    an attribute and never proposed as the entity, since it names the order, not whom it is about."""
+    an attribute and never proposed as the entity, since it names the order, not whom it is about.
+    `entity_hint`: a column known to hold the entity (its values are an entity table's key); it is the entity.
+    A column named as an identifier (id_named) that holds whole numbers counts as one with 20 or more values,
+    so machine 7 or store 12 are entities, not counts."""
     skip = structural_rows(rows)
     data = [r for i, r in enumerate(rows, start=1) if i not in skip]
     if not data:
@@ -58,7 +102,9 @@ def propose(rows: list[dict], record_key: str | None = None, latest: bool = Fals
     fmts = date_formats(_vals(data, time))
     clock = next((c for c in kind if c != time and sum(1 for v in _vals(data, c) if _TIME_OF_DAY.match(v)) >= 0.8 * len(data)), None)
     qcols = _quantities(data, kind)
-    amounts = [c for c in kind if kind[c] == "number" and fitness(data, c, "value", kind) >= 0.5 and c not in qcols
+    # an identifier (named or joined as one) is never the amount
+    amounts = [c for c in kind if kind[c] == "number" and c != entity_hint and not id_worded(c)
+               and fitness(data, c, "value", kind) >= 0.5 and c not in qcols
                and not _id_numbers(_vals(data, c))]
     value = None
     if amounts:
@@ -75,12 +121,16 @@ def propose(rows: list[dict], record_key: str | None = None, latest: bool = Fals
     for c in kind:
         if c in (time, clock, value, record_key, item_col):
             continue
-        f = fitness(data, c, "entity", kind)
-        if f < 0.2:
-            continue                                  # records without an id become one-off entities (reported)
         ph = placeholder_ids(data, c)                 # once per column, not once per value
         real = [v for v in _vals(data, c) if v not in ph]
         distinct = len(set(real)) / max(1, len(real))
+        if c == entity_hint or (id_named(c) and real and all(v.isdigit() for v in real) and len(set(real)) >= 20):
+            # named or joined as an identifier: small whole numbers here are ids, not counts
+            ids.append((True if c == entity_hint else distinct < 0.98, 2.0 if c == entity_hint else len(real) / n, c))
+            continue
+        f = fitness(data, c, "entity", kind)
+        if f < 0.2:
+            continue                                  # records without an id become one-off entities (reported)
         # an identifier is a code with letters and digits, a fixed-length whole number (an account, customer or phone
         # number), or a long number; short numbers and numbers with decimals are amounts or counts
         coded = _id_numbers(real) or sum(1 for v in real if any(ch.isdigit() for ch in v)

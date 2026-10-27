@@ -268,6 +268,20 @@ Recency baseline AUC 0.761.
 | Auto (chose boosted) | 0.812 | 0.795–0.827 | +0.043 to +0.059 |
 | scikit-learn logistic regression (reference) | 0.807 |  |  |
 
+### Real data across sectors
+
+`vertiq-report` on public data from 5 sectors, nothing tuned per sector; windows of 30, 60 and 90 days, each through the
+gate with its confidence corrected for the three, and its segment check (`benchmarks/sectors/fetch.sh`, then
+`python benchmarks/sectors/run.py`; full reports in `benchmarks/sectors/reports/`).
+
+| Sector | Data | Size | Question | Result | Patterns kept |
+|---|---|---|---|---|---|
+| Retail | UCI Online Retail II: a UK online shop's invoice lines, 2009-2010 | 28,816 records, 9,612 entities | Will a customer buy again, and how much? | Promoted: 30 days, AUC 0.881 vs 0.776; 60 days, AUC 0.888 vs 0.750; 90 days, AUC 0.890 vs 0.708 | 20 of 471 |
+| Food safety | City of Chicago food inspections since 2019 (up to 150,000) | 137,034 records, 27,264 entities | Which establishments will fail an inspection? | Promoted: 30 days, AUC 0.813 vs 0.698; 60 days, AUC 0.822 vs 0.703; 90 days, AUC 0.809 vs 0.692 | 8 of 94 |
+| Animal services | Austin Animal Center intakes (up to 200,000) | 173,812 records, 156,287 entities | Which animals will come back to the shelter? | Not promoted: best AUC 0.870 vs 0.865; the current rule stays | 20 of 266 |
+| Manufacturing | Microsoft Azure predictive maintenance sample: 100 machines, 2015 (errors, failures, machine models) | 4,680 records, 100 entities | Which machines will fail? | Promoted: 60 days, AUC 0.720 vs 0.545. Kept the rule: 30 days, 90 days | 7 of 221 |
+| Transport | NYC motor vehicle collisions since January 2025 (up to 200,000) | 121,970 records, 43,061 entities | Where will collisions happen again? | Promoted: 30 days, AUC 0.971 vs 0.894; 60 days, AUC 0.958 vs 0.859; 90 days, AUC 0.950 vs 0.840. Next value promoted: average error 0.44 vs 0.48 | 5 of 86 |
+
 ### Real exports (held out)
 
 Six public exports from different sectors, never used for training; a role is correct when it is one of the accepted answers

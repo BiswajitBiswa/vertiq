@@ -6,3 +6,6 @@ __pycache__/
 build/
 dist/
 .DS_Store
+
+# sector benchmark downloads (public data, fetched by benchmarks/sectors/fetch.sh)
+benchmarks/sectors/data/

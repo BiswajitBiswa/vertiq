@@ -12,6 +12,13 @@ config.json names the tables and how they map to the contract; nothing else is c
    "entity_table": {"file": "customers.csv", "trainable": "trainable"},
    "noun": "orders", "currency": "₹", "entities": "customers"}
 
+"records" can also list several event files about the same entities, each named by its "event" (default: the
+file name), with "target" naming the event to predict. "target" may also be an outcome as written in a column ("Fail" in a
+results column); that column then gives each record's type:
+
+  {"records": [{"file": "errors.csv", "event": "error"}, {"file": "failures.csv", "event": "failure"}],
+   "entity_table": {"file": "machines.csv"}, "target": "failure", "noun": "events", "entities": "machines"}
+
 Predictions try return windows of 30, 60 and 90 days ("windows": [...] or "window_days": N to change), with the
 gate's confidence corrected for the number tried, and search the inputs vertiq.menu proposes from the data
 ("tune": false to skip). A column listing each record's items in one cell is read as line items when no items
@@ -107,10 +114,44 @@ def read_table(path: str | Path) -> list[dict]:
     return [dict(zip(head, r + [""] * (len(head) - len(r)))) for r in rows[at + 1:]]
 
 
+def _build_many(config: dict, base: Path) -> tuple[object, dict, list[str]]:
+    """Several event files about the same entities (a machine's error log and its failure records, a customer's
+    orders and returns): each file is read and mapped on its own, its events named after the file (or its
+    "event"), and the files merged on the entity; an entity table joins once, at the end."""
+    from .contract import Dataset, Entity
+    ents: dict[str, Entity] = {}
+    events, groups, log = [], {}, []
+    for r in config["records"]:
+        name = r.get("event") or Path(r["file"]).stem
+        sub = {**config, "records": r, "entity_table": None, "_entity_table": config.get("entity_table"), "event": name}
+        ds, g, lg = build(sub, base)
+        log += [f"{name}: {x}" for x in lg]
+        if ds is None:
+            continue
+        for e in ds.entities:
+            old = ents.get(e.id)
+            ents[e.id] = e if old is None else Entity(e.id, old.group or e.group, {**(e.attrs or {}), **(old.attrs or {})})
+        events += ds.events
+        groups.update(g)
+    if not events:
+        return None, {}, log
+    ds = Dataset([ents[k] for k in sorted(ents)], sorted(events, key=lambda e: e.at))
+    log.append(f"Merged: {len(events):,} events of {len({e.type for e in events})} types from {len(config['records'])} files")
+    if config.get("entity_table"):
+        from .tables import attach_entities
+        et = config["entity_table"]
+        ds, more, _labels = attach_entities(ds, read_table(base / et["file"]), et.get("key"))
+        log += [f"Entities: {n}" for n in more]
+    return ds, groups, log
+
+
 def build(config: dict, base: Path = Path(".")) -> tuple[object, dict, list[str]]:
     """The dataset, item groups and loading notes from a config. Without a mapping, Vertiq proposes one from
-    the values (vertiq.tables.propose); without join columns, it finds them (vertiq.tables.find_join)."""
+    the values (vertiq.tables.propose); without join columns, it finds them (vertiq.tables.find_join).
+    "records" may also be a list of event files about the same entities (see _build_many)."""
     from dataclasses import replace
+    if isinstance(config["records"], list):
+        return _build_many(config, base)
     from .tables import find_join, find_lines, propose, records_from_lines
     rec = config["records"]
     rows = read_table(base / rec["file"])
@@ -138,12 +179,27 @@ def build(config: dict, base: Path = Path(".")) -> tuple[object, dict, list[str]
     if rec.get("mapping"):
         proposal = Mapping.parse(rec["mapping"])
     else:
-        proposal, why = propose(rows, record_key=it.get("event_key"), latest=bool(shape and shape["counts"]))
+        hint = None
+        et = config.get("entity_table") or config.get("_entity_table")
+        if et:                                        # the entity table names the entity: its key's column
+            from .tables import entity_key_hint
+            hint = entity_key_hint(rows, read_table(base / et["file"]))
+        proposal, why = propose(rows, record_key=it.get("event_key"), latest=bool(shape and shape["counts"]),
+                                entity_hint=hint)
         log += [f"Mapping proposal: {w}" for w in why]
         if proposal is None:
             return None, {}, log
     m, notes = repair(proposal, rows, exclude={it["event_key"]} if it.get("event_key") else ())
     ds, problems = apply(m, rows)
+    target = config.get("target")
+    if target and ds.events and target not in {e.type for e in ds.events}:
+        # the outcome is named as written in the data ("Fail" in a results column): that column is the event type
+        holder = next((a for a in m.attrs if any(str((e.attrs or {}).get(a, "")).strip() == target for e in ds.events)), None)
+        if holder:
+            ds = type(ds)(ds.entities, [replace(e, type=str((e.attrs or {}).get(holder) or "").strip() or "other",
+                                                attrs={k: v for k, v in (e.attrs or {}).items() if k != holder})
+                                        for e in ds.events], ds.actions)
+            log.append(f"Target: {target!r} is a value of {holder!r}, so {holder!r} gives each record's type")
     if ds.events and not any(e.type for e in ds.events):
         noun = config.get("noun", "")
         name = config.get("event") or (noun[:-1] if noun.endswith("s") else noun) or "record"
@@ -173,11 +229,16 @@ def build(config: dict, base: Path = Path(".")) -> tuple[object, dict, list[str]
     return ds, groups, log
 
 
-def run(config: dict, base: Path = Path(".")) -> str:
+def run(config: dict, base: Path = Path("."), collect: dict | None = None) -> str:
+    """The report as Markdown. `collect`, when given, is filled with the same results as data (loading notes,
+    counts, patterns, combinations, and each prediction task's gate report) for benchmarks to record."""
+    collect = collect if collect is not None else {}
     ds, groups, log = build(config, base)
+    collect["log"] = log
     noun, cur = config.get("noun", "records"), config.get("currency", "")
     if ds is None:
         return "\n".join(["# Vertiq report", "", "## Loading", ""] + [f"- {x}" for x in log] + ["", "No mapping could be proposed."]) + "\n"
+    collect.update(records=len(ds.events), entities=len(ds.entities))
     out = ["# Vertiq report", "", f"{len(ds.events)} {noun} from {len(ds.entities)} entities.", "", "## Loading", ""]
     out += [f"- {x}" for x in log]
     if not ds.events:
@@ -186,6 +247,7 @@ def run(config: dict, base: Path = Path(".")) -> str:
     days = config.get("summary_days") or max(1, span // 2)
     out += ["", "## What happened", "", narrate.summary(summary.summarise(ds, days=days), entities=config.get("entities", "entities"))]
     pat = patterns.find(ds, item_groups=groups or None, noun=noun, currency=cur)
+    collect["patterns"] = {k: pat.get(k) for k in ("status", "features", "tested")} | {"found": [f["text"] for f in pat.get("found", [])]}
     out += ["", "## Patterns", ""]
     if pat["status"] == "learning":
         out.append(f"Not enough {noun} to test patterns: {pat['records']}, {pat['need']} needed.")
@@ -197,6 +259,7 @@ def run(config: dict, base: Path = Path(".")) -> str:
     if lines:
         a = affinity.analyse(lines)
         combos = a.get("combos", [])
+        collect["combos"] = [{"items": c["items"], "bills_together": c["bills_together"], "lift": c["lift"]} for c in combos[:10]]
         out += ["", "## Items bought together", ""]
         out += ([f"- {' + '.join(c['items'])}: on {c['bills_together']} {noun} together, {c['lift']} times as often as chance" for c in combos[:10]]
                 or [f"No pair of items appears together on at least {affinity.MIN_PAIR} {noun}, the minimum for a combination."])
@@ -218,7 +281,7 @@ def run(config: dict, base: Path = Path(".")) -> str:
         # several windows are several chances to pass the gate: correct the confidence for how many are tried
         conf = 1 - (1 - harness.CONFIDENCE) / len(windows)
         if len(windows) > 1:
-            out.append(f"- Return windows tried: {', '.join(f'{w} days' for w in windows)}; each must pass the gate at "
+            out.append(f"- Windows tried: {', '.join(f'{w} days' for w in windows)}; each must pass the gate at "
                        f"{conf:.1%} confidence, corrected for trying {len(windows)}.")
         tune = config.get("tune", TUNE)
         for w in windows:
@@ -227,6 +290,7 @@ def run(config: dict, base: Path = Path(".")) -> str:
             tasks.append(_task(ds, "value", target, max(windows), harness.CONFIDENCE, tune, out))
     else:
         out.append("- No single event type to predict; set \"target\" in the config.")
+    collect["predictions"] = [t.report() for t in tasks]
     if config.get("scores"):
         out += scores(tasks, base / config["scores"], cur, config.get("entities", "entities"))
     return "\n".join(out) + "\n"

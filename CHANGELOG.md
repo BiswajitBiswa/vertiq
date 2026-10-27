@@ -2,6 +2,22 @@
 
 All notable changes are recorded here. Versions follow semantic versioning; before 1.0 the API may change between minor versions.
 
+## Unreleased
+
+- Sector benchmark (`benchmarks/sectors`): `vertiq-report` on public data from five sectors (retail, food safety, animal
+  services, manufacturing, transport), nothing tuned per sector; results in `benchmarks/results/sectors.json`, full reports
+  in `benchmarks/sectors/reports/`, and a section on the benchmarks page.
+- Several event files about the same entities in one report: `"records": [{"file": ..., "event": ...}, ...]` (a machine's
+  error log and failure log), merged on the entity, with an entity table joined once.
+- `"target"` may name an outcome as written in a column ("Fail" in a results column); that column becomes the event type
+  and is no longer also an attribute.
+- Identifiers found by name or by join: a column named as an identifier (`machineID`, `customer_id`, `Customer ID`) holding
+  whole numbers is an entity with 20 or more values, so machine 7 or store 12 are not read as counts; the column whose values
+  are an entity table's key is the entity. A numeric column named as a code (`license_`, `Invoice No`, `zip_code`) is never
+  the value; "number of ..." stays a count.
+- Patterns skip comparisons built into the export: an attribute recorded on one event type only says nothing new about type.
+- Vertiq LM: sweeps can start from any model (`lm/mesh.py sweep --base ...`), so a round continues from the production model.
+
 ## 0.2.2 (2026-10-27)
 
 Not published on PyPI before this release: 0.2.1 (below) ships with it.

@@ -84,7 +84,8 @@ def cmd_sweep(a) -> None:
     for values in itertools.product(*[v.split(",") for _, v in grid]):
         p = dict(zip(keys, values))
         lr, layers, maxlen = p.get("lr", "1e-4"), p.get("layers", "4"), p.get("maxlen", str(a.maxlen))
-        cmd = (f"{{python}} lm/mesh_job.py train --data data/train --iters {a.iters} --lr {lr} --layers {layers} "
+        base = f"--base {a.base} " if a.base else ""
+        cmd = (f"{{python}} lm/mesh_job.py {base}train --data data/train --iters {a.iters} --lr {lr} --layers {layers} "
                f"--maxlen {maxlen} --eval-n {a.eval_n if 'data/test.jsonl' in extra else 0} --test data/test.jsonl")
         jobs.append({"command": cmd, "bundle": sha, "label": " · ".join(f"{k} {v}" for k, v in p.items()),
                      "kind": "train", "group": a.name, "params": p, "vram_gb": a.vram,
@@ -147,6 +148,8 @@ def main() -> None:
     s.add_argument("--grid", action="append", default=[], help="name=v1,v2 (lr, layers, maxlen); repeat for more")
     s.add_argument("--iters", type=int, default=150)
     s.add_argument("--maxlen", type=int, default=768)
+    s.add_argument("--base", default="", help="model the jobs start from (a path on the workers, or a Hugging Face id); "
+                                              "default: the worker's VERTIQ_BASE")
     s.add_argument("--eval-n", type=int, default=30)
     s.add_argument("--vram", type=float, default=8.0)
     e = sub.add_parser("eval")

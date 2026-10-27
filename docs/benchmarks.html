@@ -168,10 +168,20 @@ Recency baseline AUC: 0.761.</p></section>
 implementation. Boosted trees score slightly higher; the automatic choice, made by 3-fold cross-validation on the training customers,
 picked BoostedClassifier.
 Reproduce with <code>python benchmarks/public/online_retail.py --data online_retail_II.xlsx</code>.</p></section>
+<section class="read"><h2>Real data across sectors</h2>
+<p>The one-command report (<code>vertiq-report</code>) on public data from 5 sectors, nothing tuned per sector: each config
+names only the files, the words to use and, where the outcome is a value in a column, the outcome ("Fail"). Vertiq proposes the
+mapping, tests patterns, searches candidate inputs and tries 30, 60 and 90-day windows, each through the evaluation gate with its
+confidence corrected for the three windows and its segment check. A prediction is promoted only when it beats the rule in use on
+held-out entities.</p></section>
+<section><div class="tbl"><table><thead><tr><th>Sector</th><th>Data</th><th>Size</th><th>Question</th><th>Result</th><th>Patterns kept</th></tr></thead>
+<tbody><tr><td>Retail</td><td>UCI Online Retail II: a UK online shop&#x27;s invoice lines, 2009-2010</td><td>28,816 records, 9,612 entities</td><td>Will a customer buy again, and how much?</td><td>Promoted: 30 days, AUC 0.881 vs 0.776; 60 days, AUC 0.888 vs 0.750; 90 days, AUC 0.890 vs 0.708</td><td>20 of 471</td></tr><tr><td>Food safety</td><td>City of Chicago food inspections since 2019 (up to 150,000)</td><td>137,034 records, 27,264 entities</td><td>Which establishments will fail an inspection?</td><td>Promoted: 30 days, AUC 0.813 vs 0.698; 60 days, AUC 0.822 vs 0.703; 90 days, AUC 0.809 vs 0.692</td><td>8 of 94</td></tr><tr><td>Animal services</td><td>Austin Animal Center intakes (up to 200,000)</td><td>173,812 records, 156,287 entities</td><td>Which animals will come back to the shelter?</td><td>Not promoted: best AUC 0.870 vs 0.865; the current rule stays</td><td>20 of 266</td></tr><tr><td>Manufacturing</td><td>Microsoft Azure predictive maintenance sample: 100 machines, 2015 (errors, failures, machine models)</td><td>4,680 records, 100 entities</td><td>Which machines will fail?</td><td>Promoted: 60 days, AUC 0.720 vs 0.545. Kept the rule: 30 days, 90 days</td><td>7 of 221</td></tr><tr><td>Transport</td><td>NYC motor vehicle collisions since January 2025 (up to 200,000)</td><td>121,970 records, 43,061 entities</td><td>Where will collisions happen again?</td><td>Promoted: 30 days, AUC 0.971 vs 0.894; 60 days, AUC 0.958 vs 0.859; 90 days, AUC 0.950 vs 0.840. Next value promoted: average error 0.44 vs 0.48</td><td>5 of 86</td></tr></tbody></table></div>
+<p class="note-s">AUC against the rule in use (recency). "Patterns kept": comparisons that hold after false-discovery control, of all
+tested. Full reports: <code>benchmarks/sectors/reports/</code>. Reproduce with <code>benchmarks/sectors/fetch.sh</code> and
+<code>python benchmarks/sectors/run.py</code> (821 seconds on arm64, 12 cores).</p></section>
 <section class="note"><b>Scope.</b> The synthetic benchmarks verify that the methods detect real signal, reject noise and do not promote
-weaker models; the Online Retail II result shows the same pipeline on real transactions. Neither measures accuracy on a specific
-organisation's data; the evaluation gate measures that on held-out records at every training run. Further public benchmarks
-(the Hillstrom email uplift dataset and NASA C-MAPSS) are planned.</section>
+weaker models; the public datasets show the same pipeline on real records from several sectors. None measures accuracy on a specific
+organisation's data; the evaluation gate measures that on held-out records at every training run.</section>
 <section class="read"><h2>Reproduction</h2><pre><code>python benchmarks/run.py --seeds 5        # writes benchmarks/results/core.json
 python benchmarks/collect_lm.py --lm lm   # summarises scored Vertiq LM runs into results/lm.json
 python docs/build.py                      # rebuilds this site and the README</code></pre></section>

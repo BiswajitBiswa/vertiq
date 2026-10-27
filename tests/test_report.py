@@ -250,3 +250,62 @@ def test_search_inputs_read_as_words():
     from vertiq.menu import words
     assert words("share:bill[@item=Jeans]@180d") == "share of bills including Jeans over 180 days"
     assert words("since:bill[payment_mode=Cash]") == "time since the last bill with payment mode Cash"
+
+
+def _write_csv(path, rows):
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+
+
+def _machines(tmp_path):
+    """100 machines numbered 1 to 100 (small whole numbers), an error log and a failure log, and a machine list."""
+    rnd = random.Random(9)
+    errors, failures = [], []
+    for m in range(1, 101):
+        for _ in range(rnd.randint(10, 40)):
+            errors.append({"datetime": f"2015-{rnd.randint(1, 12):02d}-{rnd.randint(1, 28):02d} 0{rnd.randint(0, 9)}:00:00",
+                           "machineID": str(m), "errorID": rnd.choice(["error1", "error2", "error3"])})
+        for _ in range(rnd.randint(2, 9)):
+            failures.append({"datetime": f"2015-{rnd.randint(1, 12):02d}-{rnd.randint(1, 28):02d} 06:00:00",
+                             "machineID": str(m), "failure": rnd.choice(["comp1", "comp2", "comp3"])})
+    _write_csv(tmp_path / "errors.csv", errors)
+    _write_csv(tmp_path / "failures.csv", failures)
+    _write_csv(tmp_path / "machines.csv", [{"machineID": str(m), "model": f"model{m % 4 + 1}", "age": str(m % 20)} for m in range(1, 101)])
+
+
+def test_several_event_files_merge_on_a_small_number_id(tmp_path):
+    _machines(tmp_path)
+    cfg = {"records": [{"file": "errors.csv", "event": "error"}, {"file": "failures.csv", "event": "failure"}],
+           "entity_table": {"file": "machines.csv"}, "target": "failure", "noun": "events", "entities": "machines"}
+    collect = {}
+    text = report.run(cfg, tmp_path, collect)
+    assert "entity 'machineID'" in text and "Merged:" in text and collect["entities"] == 100
+    assert any(p["target"] == "failure" for p in collect["predictions"])
+    # a failure code exists only on failures: no "failure is comp1 ... have type error" patterns
+    assert not any("have type" in f and "failure is" in f for f in collect["patterns"]["found"])
+
+
+def test_identifiers_are_found_by_name_and_never_taken_as_amounts():
+    from vertiq.tables import id_named, id_worded, propose
+    assert id_named("machineID") and id_named("customer_id") and id_named("Customer ID") and not id_named("paid")
+    assert id_worded("license_") and id_worded("Invoice No") and not id_worded("number_of_persons_injured")
+    rnd = random.Random(2)
+    rows = [{"date": f"2024-{rnd.randint(1, 12):02d}-{rnd.randint(1, 28):02d}", "store_id": str(rnd.randint(1, 40)),
+             "license_": str(rnd.randint(1, 2_500_000)), "amount": f"{rnd.uniform(5, 500):.2f}"} for _ in range(800)]
+    m, _ = propose(rows)
+    assert m.entity == "store_id" and m.value == "amount"
+
+
+def test_an_outcome_named_by_value_sets_the_event_type(tmp_path):
+    rnd = random.Random(4)
+    rows = [{"inspection_id": str(100000 + i), "establishment": f"Shop {rnd.randint(1, 150)}",
+             "inspection_date": f"202{rnd.randint(1, 4)}-{rnd.randint(1, 12):02d}-{rnd.randint(1, 28):02d}",
+             "results": rnd.choice(["Pass", "Pass", "Fail", "Pass w/ Conditions"])} for i in range(1500)]
+    _write_csv(tmp_path / "inspections.csv", rows)
+    collect = {}
+    text = report.run({"records": {"file": "inspections.csv"}, "target": "Fail", "noun": "inspections"}, tmp_path, collect)
+    assert "'Fail' is a value of 'results'" in text
+    assert all(p["target"] == "Fail" for p in collect["predictions"])
+    assert not any("results is" in f for f in collect["patterns"]["found"])   # the type column is not also an attribute

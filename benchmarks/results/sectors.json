@@ -1,0 +1,513 @@
+{
+ "generated": "2026-10-27",
+ "machine": "arm64, 12 cores",
+ "python": "3.12.16",
+ "wall_seconds": 820.9,
+ "sectors": [
+  {
+   "name": "retail",
+   "title": "Retail",
+   "dataset": "UCI Online Retail II: a UK online shop's invoice lines, 2009-2010",
+   "source": "https://archive.ics.uci.edu/dataset/502/online+retail+ii",
+   "terms": "CC BY 4.0",
+   "question": "Will a customer buy again, and how much?",
+   "records": 28816,
+   "entities": 9612,
+   "mapping": "{\"entity\": \"Customer ID\", \"time\": \"InvoiceDate\", \"type\": null, \"value\": \"Line value\", \"group\": null, \"attrs\": [\"Invoice\"], \"date_format\": \"%Y-%m-%d %H:%M:%S\"}",
+   "patterns": {
+    "status": "ok",
+    "features": 50,
+    "tested": 471,
+    "found": [
+     "49% of invoices in the evening fall on Thursday, against 18% of the rest (2344 vs 26472 invoices; p < 0.001).",
+     "Invoices that include STRAWBERRY CERAMIC TRINKET BOX average £853, against £297 for the rest (1767 vs 27049 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include WHITE HANGING HEART T-LIGHT HOLDER average £715, against £280 for the rest (3409 vs 25407 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "0% of invoices in the evening fall on Sunday, against 11% of the rest (2344 vs 26472 invoices; p < 0.001).",
+     "Invoices that include JUMBO BAG RED RETROSPOT average £869, against £306 for the rest (1277 vs 27539 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include SWEETHEART CERAMIC TRINKET BOX average £897, against £310 for the rest (1045 vs 27771 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "6% of invoices in the evening fall on Wednesday, against 19% of the rest (2344 vs 26472 invoices; p < 0.001).",
+     "Invoices that include HOT WATER BOTTLE TEA AND SYMPATHY average £1,003, against £306 for the rest (1024 vs 27792 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include HOME BUILDING BLOCK WORD average £734, against £311 for the rest (1341 vs 27475 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include PACK OF 72 RETRO SPOT CAKE CASES average £1,063, against £293 for the rest (1419 vs 27397 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include PARTY BUNTING average £979, against £307 for the rest (1017 vs 27799 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include SET/20 RED SPOTTY PAPER NAPKINS average £946, against £310 for the rest (950 vs 27866 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include LUNCH BAG RED SPOTTY average £933, against £304 for the rest (1246 vs 27570 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include ASSORTED COLOUR BIRD ORNAMENT average £708, against £312 for the rest (1420 vs 27396 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include LOVE BUILDING BLOCK WORD average £747, against £314 for the rest (1103 vs 27713 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include PACK OF 60 PINK PAISLEY CAKE CASES average £1,196, against £295 for the rest (1160 vs 27656 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include HANGING HEART ZINC T-LIGHT HOLDER average £988, against £309 for the rest (953 vs 27863 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include REGENCY CAKESTAND 3 TIER average £801, against £292 for the rest (2186 vs 26630 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include 60 TEATIME FAIRY CAKE CASES average £1,043, against £296 for the rest (1342 vs 27474 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item.",
+     "Invoices that include SCOTTIE DOG HOT WATER BOTTLE average £930, against £309 for the rest (1002 vs 27814 invoices; p < 0.001). Part of the gap is size: invoices with more items are more likely to include any one item."
+    ]
+   },
+   "combos": [
+    {
+     "items": [
+      "HEART OF WICKER LARGE",
+      "HEART OF WICKER SMALL"
+     ],
+     "bills_together": 444,
+     "lift": 14.81
+    },
+    {
+     "items": [
+      "HOME BUILDING BLOCK WORD",
+      "LOVE BUILDING BLOCK WORD"
+     ],
+     "bills_together": 443,
+     "lift": 12.35
+    },
+    {
+     "items": [
+      "60 TEATIME FAIRY CAKE CASES",
+      "72 SWEETHEART FAIRY CAKE CASES"
+     ],
+     "bills_together": 473,
+     "lift": 10.44
+    }
+   ],
+   "predictions": [
+    {
+     "task": "event",
+     "target": "purchase",
+     "window_days": 30,
+     "status": "trained",
+     "held_out": 1803,
+     "metric": "AUC",
+     "model": 0.8814,
+     "baseline": 0.7757,
+     "gain_ci": [
+      0.0919,
+      0.1212
+     ],
+     "segments_checked": 3,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 31125
+    },
+    {
+     "task": "event",
+     "target": "purchase",
+     "window_days": 60,
+     "status": "trained",
+     "held_out": 1622,
+     "metric": "AUC",
+     "model": 0.8881,
+     "baseline": 0.7496,
+     "gain_ci": [
+      0.1246,
+      0.1532
+     ],
+     "segments_checked": 3,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 25070
+    },
+    {
+     "task": "event",
+     "target": "purchase",
+     "window_days": 90,
+     "status": "trained",
+     "held_out": 1487,
+     "metric": "AUC",
+     "model": 0.8897,
+     "baseline": 0.7078,
+     "gain_ci": [
+      0.1633,
+      0.1991
+     ],
+     "segments_checked": 3,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 16910
+    },
+    {
+     "task": "value",
+     "target": "purchase",
+     "window_days": 90,
+     "status": "kept",
+     "held_out": 487,
+     "metric": "MAE",
+     "model": 254.7294,
+     "baseline": 239.8172,
+     "gain_ci": [
+      -0.113,
+      -0.0169
+     ],
+     "segments_checked": 3,
+     "segments_worse": [
+      "history more than 5 records"
+     ],
+     "need_rows": null,
+     "rows": 4491
+    }
+   ],
+   "seconds": 82.1
+  },
+  {
+   "name": "food_safety",
+   "title": "Food safety",
+   "dataset": "City of Chicago food inspections since 2019 (up to 150,000)",
+   "source": "https://data.cityofchicago.org/Health-Human-Services/Food-Inspections/4ijn-s7e5",
+   "terms": "City of Chicago open data terms",
+   "question": "Which establishments will fail an inspection?",
+   "records": 137034,
+   "entities": 27264,
+   "mapping": "{\"entity\": \"license_\", \"time\": \"inspection_date\", \"type\": null, \"value\": null, \"group\": null, \"attrs\": [\"risk\", \"results\", \"inspection_id\"], \"date_format\": \"%Y-%m-%dT%H:%M:%S.%f\"}",
+   "patterns": {
+    "status": "ok",
+    "features": 17,
+    "tested": 94,
+    "found": [
+     "70% of inspections where risk is All have type Not Ready, against 2% of the rest (70 vs 136964 inspections; p < 0.001).",
+     "81% of inspections on Saturday have risk Risk 2 (Medium), against 15% of the rest (26 vs 137008 inspections; p < 0.001).",
+     "12% of inspections on Saturday have risk Risk 1 (High), against 79% of the rest (26 vs 137008 inspections; p < 0.001).",
+     "1% of inspections where risk is All have type Pass, against 45% of the rest (70 vs 136964 inspections; p < 0.001).",
+     "58% of inspections on Saturday have type Pass w/ Conditions, against 19% of the rest (26 vs 137008 inspections; p < 0.001).",
+     "0% of inspections where risk is All have type Pass w/ Conditions, against 19% of the rest (70 vs 136964 inspections; p < 0.001).",
+     "0% of inspections where risk is All have type Fail, against 19% of the rest (70 vs 136964 inspections; p < 0.001).",
+     "15% of inspections on Saturday have type Pass, against 45% of the rest (26 vs 137008 inspections; p = 0.002)."
+    ]
+   },
+   "combos": [],
+   "predictions": [
+    {
+     "task": "event",
+     "target": "Fail",
+     "window_days": 30,
+     "status": "trained",
+     "held_out": 5439,
+     "metric": "AUC",
+     "model": 0.8133,
+     "baseline": 0.6983,
+     "gain_ci": [
+      0.077,
+      0.1611
+     ],
+     "segments_checked": 3,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 107667
+    },
+    {
+     "task": "event",
+     "target": "Fail",
+     "window_days": 60,
+     "status": "trained",
+     "held_out": 5421,
+     "metric": "AUC",
+     "model": 0.8216,
+     "baseline": 0.7029,
+     "gain_ci": [
+      0.0894,
+      0.1453
+     ],
+     "segments_checked": 3,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 106113
+    },
+    {
+     "task": "event",
+     "target": "Fail",
+     "window_days": 90,
+     "status": "trained",
+     "held_out": 5387,
+     "metric": "AUC",
+     "model": 0.8086,
+     "baseline": 0.692,
+     "gain_ci": [
+      0.0943,
+      0.1413
+     ],
+     "segments_checked": 3,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 104595
+    }
+   ],
+   "seconds": 260.9
+  },
+  {
+   "name": "animal_services",
+   "title": "Animal services",
+   "dataset": "Austin Animal Center intakes (up to 200,000)",
+   "source": "https://data.austintexas.gov/Health-and-Community-Services/Austin-Animal-Center-Intakes/wter-evkm",
+   "terms": "City of Austin open data",
+   "question": "Which animals will come back to the shelter?",
+   "records": 173812,
+   "entities": 156287,
+   "mapping": "{\"entity\": \"animal_id\", \"time\": \"datetime2\", \"type\": null, \"value\": null, \"group\": null, \"attrs\": [\"intake_type\", \"animal_type\", \"sex_upon_intake\"], \"date_format\": \"%Y-%m-%dT%H:%M:%S.%f\"}",
+   "patterns": {
+    "status": "ok",
+    "features": 26,
+    "tested": 266,
+    "found": [
+     "58% of intakes where animal type is Bird have sex upon intake Unknown, against 8% of the rest (878 vs 172934 intakes; p < 0.001).",
+     "77% of intakes where animal type is Cat have intake type Stray, against 63% of the rest (69324 vs 104488 intakes; p < 0.001).",
+     "1% of intakes where animal type is Dog have sex upon intake Unknown, against 16% of the rest (94608 vs 79204 intakes; p < 0.001).",
+     "14% of intakes where animal type is Other have intake type Stray, against 72% of the rest (8968 vs 164844 intakes; p < 0.001).",
+     "71% of intakes where animal type is Other have intake type Wildlife, against 0% of the rest (8968 vs 164844 intakes; p < 0.001).",
+     "8% of intakes where animal type is Other have sex upon intake Intact Female, against 34% of the rest (8968 vs 164844 intakes; p < 0.001).",
+     "9% of intakes where animal type is Other have sex upon intake Intact Male, against 35% of the rest (8968 vs 164844 intakes; p < 0.001).",
+     "81% of intakes where animal type is Other have sex upon intake Unknown, against 4% of the rest (8968 vs 164844 intakes; p < 0.001).",
+     "23% of intakes where intake type is Owner Surrender have sex upon intake Intact Male, against 37% of the rest (35563 vs 138249 intakes; p < 0.001).",
+     "26% of intakes where intake type is Owner Surrender have sex upon intake Neutered Male, against 11% of the rest (35563 vs 138249 intakes; p < 0.001).",
+     "24% of intakes where intake type is Owner Surrender have sex upon intake Spayed Female, against 9% of the rest (35563 vs 138249 intakes; p < 0.001).",
+     "27% of intakes where intake type is Public Assist have sex upon intake Neutered Male, against 13% of the rest (10432 vs 163380 intakes; p < 0.001).",
+     "37% of intakes where intake type is Stray have sex upon intake Intact Female, against 22% of the rest (119160 vs 54652 intakes; p < 0.001).",
+     "39% of intakes where intake type is Stray have sex upon intake Intact Male, against 22% of the rest (119160 vs 54652 intakes; p < 0.001).",
+     "10% of intakes where intake type is Stray have sex upon intake Neutered Male, against 23% of the rest (119160 vs 54652 intakes; p < 0.001).",
+     "8% of intakes where intake type is Stray have sex upon intake Spayed Female, against 19% of the rest (119160 vs 54652 intakes; p < 0.001).",
+     "1% of intakes where intake type is Wildlife have sex upon intake Intact Female, against 34% of the rest (6483 vs 167329 intakes; p < 0.001).",
+     "2% of intakes where intake type is Wildlife have sex upon intake Intact Male, against 35% of the rest (6483 vs 167329 intakes; p < 0.001).",
+     "97% of intakes where intake type is Wildlife have sex upon intake Unknown, against 4% of the rest (6483 vs 167329 intakes; p < 0.001).",
+     "1% of intakes where animal type is Other have sex upon intake Neutered Male, against 15% of the rest (8968 vs 164844 intakes; p < 0.001)."
+    ]
+   },
+   "combos": [],
+   "predictions": [
+    {
+     "task": "event",
+     "target": "intake",
+     "window_days": 30,
+     "status": "kept",
+     "held_out": 30999,
+     "metric": "AUC",
+     "model": 0.8618,
+     "baseline": 0.8602,
+     "gain_ci": [
+      -0.0114,
+      0.02
+     ],
+     "segments_checked": 2,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 616588
+    },
+    {
+     "task": "event",
+     "target": "intake",
+     "window_days": 60,
+     "status": "kept",
+     "held_out": 30810,
+     "metric": "AUC",
+     "model": 0.869,
+     "baseline": 0.8619,
+     "gain_ci": [
+      -0.0039,
+      0.0231
+     ],
+     "segments_checked": 2,
+     "segments_worse": [
+      "history 2 to 5 records"
+     ],
+     "need_rows": null,
+     "rows": 608752
+    },
+    {
+     "task": "event",
+     "target": "intake",
+     "window_days": 90,
+     "status": "kept",
+     "held_out": 30656,
+     "metric": "AUC",
+     "model": 0.8701,
+     "baseline": 0.8648,
+     "gain_ci": [
+      -0.0039,
+      0.0184
+     ],
+     "segments_checked": 2,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 599993
+    }
+   ],
+   "seconds": 820.8
+  },
+  {
+   "name": "manufacturing",
+   "title": "Manufacturing",
+   "dataset": "Microsoft Azure predictive maintenance sample: 100 machines, 2015 (errors, failures, machine models)",
+   "source": "https://github.com/NVIDIA/GenerativeAIExamples/tree/main/RAG/examples/advanced_rag/structured_data_rag/data",
+   "terms": "public sample data",
+   "question": "Which machines will fail?",
+   "records": 4680,
+   "entities": 100,
+   "mapping": "{\"entity\": \"machineID\", \"time\": \"datetime\", \"type\": null, \"value\": null, \"group\": null, \"attrs\": [\"errorID\"], \"date_format\": \"%Y-%m-%d %H:%M:%S\"}",
+   "patterns": {
+    "status": "ok",
+    "features": 24,
+    "tested": 221,
+    "found": [
+     "76% of events before noon have type error, against 100% of the rest (3228 vs 1452 events; p < 0.001).",
+     "100% of events in the evening have type error, against 80% of the rest (832 vs 3848 events; p < 0.001).",
+     "100% of events in the afternoon have type error, against 81% of the rest (620 vs 4060 events; p < 0.001).",
+     "52% of events where failure is Failure Code 3: Fuse blown due to excess voltage have model model1, against 17% of the rest (131 vs 4549 events; p < 0.001).",
+     "48% of events where failure is Failure Code 3: Fuse blown due to excess voltage have model model2, against 18% of the rest (131 vs 4549 events; p < 0.001).",
+     "0% of events where failure is Failure Code 3: Fuse blown due to excess voltage have model model3, against 34% of the rest (131 vs 4549 events; p < 0.001).",
+     "0% of events where failure is Failure Code 3: Fuse blown due to excess voltage have model model4, against 31% of the rest (131 vs 4549 events; p < 0.001)."
+    ]
+   },
+   "combos": [],
+   "predictions": [
+    {
+     "task": "event",
+     "target": "failure",
+     "window_days": 30,
+     "status": "kept",
+     "held_out": 27,
+     "metric": "AUC",
+     "model": 0.614,
+     "baseline": 0.5605,
+     "gain_ci": [
+      -0.1039,
+      0.2146
+     ],
+     "segments_checked": 0,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 400
+    },
+    {
+     "task": "event",
+     "target": "failure",
+     "window_days": 60,
+     "status": "trained",
+     "held_out": 27,
+     "metric": "AUC",
+     "model": 0.7201,
+     "baseline": 0.5451,
+     "gain_ci": [
+      0.0437,
+      0.3555
+     ],
+     "segments_checked": 0,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 400
+    },
+    {
+     "task": "event",
+     "target": "failure",
+     "window_days": 90,
+     "status": "kept",
+     "held_out": 27,
+     "metric": "AUC",
+     "model": 0.6196,
+     "baseline": 0.628,
+     "gain_ci": [
+      -0.1325,
+      0.1071
+     ],
+     "segments_checked": 0,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 300
+    }
+   ],
+   "seconds": 1.1
+  },
+  {
+   "name": "transport",
+   "title": "Transport",
+   "dataset": "NYC motor vehicle collisions since January 2025 (up to 200,000)",
+   "source": "https://data.cityofnewyork.us/Public-Safety/Motor-Vehicle-Collisions-Crashes/h9gi-nx95",
+   "terms": "NYC open data terms",
+   "question": "Where will collisions happen again?",
+   "records": 121970,
+   "entities": 43061,
+   "mapping": "{\"entity\": \"on_street_name\", \"time\": \"crash_date\", \"type\": null, \"value\": \"number_of_persons_injured\", \"group\": null, \"attrs\": [\"borough\", \"collision_id\"], \"date_format\": \"%Y-%m-%dT%H:%M:%S.%f\", \"clock\": \"crash_time\"}",
+   "patterns": {
+    "status": "ok",
+    "features": 15,
+    "tested": 86,
+    "found": [
+     "Collisions where borough is MANHATTAN average 0, against 1 for the rest (18528 vs 103442 collisions; p < 0.001).",
+     "Collisions before noon average 1, against 1 for the rest (48675 vs 73295 collisions; p < 0.001).",
+     "Collisions in the evening average 1, against 1 for the rest (39195 vs 82775 collisions; p < 0.001).",
+     "Collisions where borough is QUEENS average 1, against 1 for the rest (25020 vs 96950 collisions; p < 0.001).",
+     "Collisions where borough is STATEN ISLAND average 0, against 1 for the rest (3906 vs 118064 collisions; p < 0.001)."
+    ]
+   },
+   "combos": [],
+   "predictions": [
+    {
+     "task": "event",
+     "target": "collision",
+     "window_days": 30,
+     "status": "trained",
+     "held_out": 8216,
+     "metric": "AUC",
+     "model": 0.9707,
+     "baseline": 0.8942,
+     "gain_ci": [
+      0.0688,
+      0.0867
+     ],
+     "segments_checked": 3,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 149327
+    },
+    {
+     "task": "event",
+     "target": "collision",
+     "window_days": 60,
+     "status": "trained",
+     "held_out": 7762,
+     "metric": "AUC",
+     "model": 0.9583,
+     "baseline": 0.8587,
+     "gain_ci": [
+      0.092,
+      0.1069
+     ],
+     "segments_checked": 3,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 126516
+    },
+    {
+     "task": "event",
+     "target": "collision",
+     "window_days": 90,
+     "status": "trained",
+     "held_out": 7289,
+     "metric": "AUC",
+     "model": 0.9497,
+     "baseline": 0.8404,
+     "gain_ci": [
+      0.0999,
+      0.1174
+     ],
+     "segments_checked": 3,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 102820
+    },
+    {
+     "task": "value",
+     "target": "collision",
+     "window_days": 90,
+     "status": "trained",
+     "held_out": 540,
+     "metric": "MAE",
+     "model": 0.442,
+     "baseline": 0.4801,
+     "gain_ci": [
+      0.0377,
+      0.1118
+     ],
+     "segments_checked": 3,
+     "segments_worse": [],
+     "need_rows": null,
+     "rows": 6693
+    }
+   ],
+   "seconds": 250.7
+  }
+ ]
+}

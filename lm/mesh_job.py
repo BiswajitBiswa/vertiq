@@ -11,7 +11,7 @@ train: LoRA fine-tuning of the base model on data/train (train.jsonl, valid.json
        back if it has to stop, and a resumed job continues from them, its curves counted on from the same step.
 eval:  scores an adapter on one shard of a test set (lm/evaluate.py --shard), reporting after every table.
 
-The base model is VERTIQ_BASE, default mlx-community/Qwen3.5-4B-MLX-4bit (downloaded once per Mac by mlx-lm;
+The base model is --base, else VERTIQ_BASE, else mlx-community/Qwen3.5-4B-MLX-4bit (downloaded once per Mac by mlx-lm;
 once it is cached, jobs load it without asking Hugging Face, so they also run offline).
 Results land in out/ (eval.json, progress.json, adapter/), which lm/mesh.py collect brings back.
 """
@@ -143,7 +143,11 @@ def main() -> int:
     e.add_argument("--test", required=True)
     e.add_argument("--shard", default="")
     e.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--base", default="", help="model to start from: a local folder or a Hugging Face id")
     a = ap.parse_args()
+    if a.base:
+        global BASE
+        BASE = a.base
     if a.cmd == "train":
         return train(a)
     return evaluate(a.adapter, a.test, a.limit, a.shard)

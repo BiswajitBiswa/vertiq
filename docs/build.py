@@ -30,6 +30,34 @@ def real_rows():
     """(method, share of roles correct, exact tables) on the held-out real exports, after validation."""
     return [(REAL_NAMES.get(k, k), f"{v['roles_correct'] * 100:.0f}%", v["exact"]) for k, v in REAL["summary"].items()]
 PUBLIC = json.loads((ROOT / "benchmarks" / "results" / "public.json").read_text())
+SECT = json.loads((ROOT / "benchmarks" / "results" / "sectors.json").read_text())
+
+
+def sector_rows():
+    """(sector, data, size, question, what was promoted, patterns) per sector of benchmarks/sectors."""
+    rows = []
+    for x in SECT["sectors"]:
+        ev = [p for p in x["predictions"] if p["task"] == "event"]
+        won = [p for p in ev if p["status"] == "trained"]
+        tried = [p for p in ev if p["model"] is not None]
+        if won:
+            res = "Promoted: " + "; ".join(f"{p['window_days']} days, AUC {p['model']:.3f} vs {p['baseline']:.3f}" for p in won)
+            rest = [p for p in ev if p["status"] != "trained" and p["model"] is not None]
+            if rest:
+                res += ". Kept the rule: " + ", ".join(f"{p['window_days']} days" for p in rest)
+        elif tried:
+            b = max(tried, key=lambda p: p["model"])
+            res = f"Not promoted: best AUC {b['model']:.3f} vs {b['baseline']:.3f}; the current rule stays"
+        else:
+            res = "Not enough data to train"
+        val = [p for p in x["predictions"] if p["task"] == "value" and p["status"] == "trained"]
+        if val:
+            fmt = (lambda v: f"{v:,.0f}") if val[0]["baseline"] >= 100 else (lambda v: f"{v:.2f}")
+            res += f". Next value promoted: average error {fmt(val[0]['model'])} vs {fmt(val[0]['baseline'])}"
+        pat = x["patterns"] or {}
+        rows.append((x["title"], x["dataset"], f"{x['records']:,} records, {x['entities']:,} entities", x["question"], res,
+                     f"{len(pat.get('found') or [])} of {pat.get('tested') or 0}"))
+    return rows
 REPO = "https://github.com/BiswajitBiswa/vertiq"
 SITE = "https://biswajitbiswa.github.io/vertiq/"
 FONTS = ("https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600"
@@ -943,10 +971,20 @@ Recency baseline AUC: {PUBLIC['runs']['linear']['baseline_auc']:.3f}.</p></secti
 implementation. Boosted trees score slightly higher; the automatic choice, made by 3-fold cross-validation on the training customers,
 picked {E(PUBLIC['runs']['auto']['learner'])}.
 Reproduce with <code>python benchmarks/public/online_retail.py --data online_retail_II.xlsx</code>.</p></section>
+<section class="read"><h2>Real data across sectors</h2>
+<p>The one-command report (<code>vertiq-report</code>) on public data from {len(SECT['sectors'])} sectors, nothing tuned per sector: each config
+names only the files, the words to use and, where the outcome is a value in a column, the outcome ("Fail"). Vertiq proposes the
+mapping, tests patterns, searches candidate inputs and tries 30, 60 and 90-day windows, each through the evaluation gate with its
+confidence corrected for the three windows and its segment check. A prediction is promoted only when it beats the rule in use on
+held-out entities.</p></section>
+<section><div class="tbl"><table><thead><tr><th>Sector</th><th>Data</th><th>Size</th><th>Question</th><th>Result</th><th>Patterns kept</th></tr></thead>
+<tbody>{"".join(f"<tr><td>{E(a)}</td><td>{E(b)}</td><td>{E(c)}</td><td>{E(d)}</td><td>{E(e)}</td><td>{E(f)}</td></tr>" for a, b, c, d, e, f in sector_rows())}</tbody></table></div>
+<p class="note-s">AUC against the rule in use (recency). "Patterns kept": comparisons that hold after false-discovery control, of all
+tested. Full reports: <code>benchmarks/sectors/reports/</code>. Reproduce with <code>benchmarks/sectors/fetch.sh</code> and
+<code>python benchmarks/sectors/run.py</code> ({SECT['wall_seconds']:.0f} seconds on {E(SECT['machine'])}).</p></section>
 <section class="note"><b>Scope.</b> The synthetic benchmarks verify that the methods detect real signal, reject noise and do not promote
-weaker models; the Online Retail II result shows the same pipeline on real transactions. Neither measures accuracy on a specific
-organisation's data; the evaluation gate measures that on held-out records at every training run. Further public benchmarks
-(the Hillstrom email uplift dataset and NASA C-MAPSS) are planned.</section>
+weaker models; the public datasets show the same pipeline on real records from several sectors. None measures accuracy on a specific
+organisation's data; the evaluation gate measures that on held-out records at every training run.</section>
 <section class="read"><h2>Reproduction</h2><pre><code>python benchmarks/run.py --seeds 5        # writes benchmarks/results/core.json
 python benchmarks/collect_lm.py --lm lm   # summarises scored Vertiq LM runs into results/lm.json
 python docs/build.py                      # rebuilds this site and the README</code></pre></section>"""
@@ -1099,6 +1137,7 @@ def build_readme():
     real_md = "\n".join(f"| {a} | {b} | {c} |" for a, b, c in real_rows())
     narr_md = "\n".join(f"| {r['model']} | {r['accepted']} of {r['n']} | {r['accepted_rewrites_not_copies']} | {r['copies']} |" for r in NARR["runs"])
     public_md = "\n".join(f"| {a} | {b} | {c} | {d} |" for a, b, c, d, _e in public_rows())
+    sector_md = "\n".join(f"| {a} | {b} | {c} | {d} | {e} | {f} |" for a, b, c, d, e, f in sector_rows())
 
     def lm_rows(test):
         return "\n".join(f"| {r['model']} | {r['overall']['loads'] * 100:.1f}% | {r['overall']['exact'] * 100:.1f}% | "
@@ -1288,6 +1327,16 @@ Recency baseline AUC {PUBLIC['runs']['linear']['baseline_auc']:.3f}.
 | Learner | AUC | 90% interval | Gain over baseline (90%) |
 |---|---|---|---|
 {public_md}
+
+### Real data across sectors
+
+`vertiq-report` on public data from {len(SECT['sectors'])} sectors, nothing tuned per sector; windows of 30, 60 and 90 days, each through the
+gate with its confidence corrected for the three, and its segment check (`benchmarks/sectors/fetch.sh`, then
+`python benchmarks/sectors/run.py`; full reports in `benchmarks/sectors/reports/`).
+
+| Sector | Data | Size | Question | Result | Patterns kept |
+|---|---|---|---|---|---|
+{sector_md}
 
 ### Real exports (held out)
 
