@@ -2,6 +2,13 @@
 
 All notable changes are recorded here. Versions follow semantic versioning; before 1.0 the API may change between minor versions.
 
+## Unreleased
+
+- Vertiq LM: prompt v3 shows three values per text column by default (`--text-values`, `--repeats` for the variants
+  tried). Two more rounds on it did not ship: the best model maps 40% of messy tables exactly against the current
+  model's 31% and gets 90% of roles right on the real exports against 83%, but 43% of production-like tables against
+  53.5%. Results in `lm/README.md`.
+
 ## 0.2.4 (2026-10-27)
 
 - A mapping whose date format no date can match (a field written twice, such as `%m/%d/%m`, which Vertiq LM can

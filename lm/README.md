@@ -64,6 +64,22 @@ python3 lm/mesh.py collect --name v3-sweep      # results to lm/runs/mesh/<name>
   and need the same environment as above (`--python lm/.venv/bin/python` when starting the worker).
 - The head is `MESH_HEAD` (default `localhost:9400`); the token is `MESH_TOKEN` or the head's own token file.
 
+## Rounds that did not ship (October 2026)
+
+Prompt v3 lets wide exports fit the 640-token training length. Each round continued the current model (round 3 + ORPO)
+for 300 steps on 990 tables, half of them messy, on an M4 Pro. Exact is after `vertiq.mapping.repair`, as in use.
+
+| Model | Messy tables (114) | Production-like tables (114) | Unseen domains, production-like | Real exports: roles, exact |
+|---|---|---|---|---|
+| Current: round 3 + ORPO, prompt v2 | 30.7% | **53.5%** | **41.7%** | 83%, 2 of 6 |
+| Prompt v3, two values per text column, lr 5e-5 (30 messy tables) | 23.3% | | | 77%, 1 of 6 |
+| Prompt v3, three values per text column, lr 1e-4 | **40.4%** | 43.0% | 31.2% | **90%, 3 of 6** |
+| Prompt v3, three values with repeat counts, lr 5e-5 (30 messy tables) | 33.3% | 36.0% | 29.2% | |
+
+The compact prompt helps on messy and real exports and costs on cleaner tables, mostly in telling the event type and
+site columns apart; repeat counts did not recover it. A model that wins only some checks does not ship. Next to try: one
+model trained on both prompts, v2 when the table fits and v3 when it does not.
+
 ## Teachers
 
 The teacher chain tries any OpenAI-compatible API teachers you configure (`TEACHER_API_KEY`, `TEACHER_BASE_URL`,
@@ -92,7 +108,7 @@ exactly one valid candidate; weaker evidence is flagged for review. In 2,100 che
 | Script | What it does |
 |---|---|
 | `lm/make_data.py --messy 0.5` | Training tables with real-export clutter: wide tables, several amount columns, a second date, free text, empty and placeholder columns, ISO timestamps |
-| `lm/make_data.py --messy 0.5 --prompt 3 --out lm/data/v4` | The same tables in prompt v3: one line per column (name, kind, up to two distinct values cut to 14 characters) instead of header, rows and kinds; 88% of the messy tables fit 640 tokens, against 54% |
+| `lm/make_data.py --messy 0.5 --prompt 3 --out lm/data/v5` (`--repeats`: v6) | The same tables in prompt v3: one line per column (name, kind, up to three distinct values cut to 14 characters) instead of header, rows and kinds; 82% of the messy tables fit 640 tokens, against 54% (`--text-values 2`: 88%, but more attributes missed) |
 | `lm/evaluate_real.py` + `benchmarks/real/score.py` | Vertiq LM on six held-out public exports (`benchmarks/real/fetch.sh`); never trained on |
 | `lm/narrate_round.sh` | Plain-language rewrites: a local 9B teacher (`lm/narrate_data.py`), a LoRA on the 4B, scoring on held-out descriptions (`lm/narrate.py`) |
 | `lm/fit_length.py`, `lm/mlx_limits.py` | Fit preference training in 16 GB: drop over-long examples, cap MLX's buffer cache |

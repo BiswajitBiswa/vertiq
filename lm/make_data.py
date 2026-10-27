@@ -19,6 +19,7 @@ Run: lm/.venv/bin/python lm/make_data.py [--out lm/data/v2] -> {train,valid,test
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import csv
 import io
 import json
@@ -49,11 +50,13 @@ PROMPT = ("Map this table to Vertiq's contract. Columns, then 3 sample rows (CSV
 PROMPT_V2 = PROMPT.replace("\n\nReply with JSON", "\n\nColumn kinds, read from the values: {kinds}\n\nReply with JSON")
 
 # v3 writes one line per column (its name once, its kind, a few distinct values cut short) instead of the header, the
-# rows and the kinds, so wide exports fit the training length: 88% of the messy v3 tables fit 640 tokens, against 54%
+# rows and the kinds, so wide exports fit the training length: 82% of the messy v3 tables fit 640 tokens, against 54%
+# (88% with two values per text column, which lost the model more attributes than the extra tables gained)
 PROMPT_V3 = ("Map this table to Vertiq's contract. One line per column: its name, what its values hold (read by code), "
              "then sample values:\n{lines}" + PROMPT.split("{csv}", 1)[1])
 CELL = 14                       # characters of a sample value shown
-TEXT_VALUES = 2                 # distinct values shown for a text or id column (--text-values)
+TEXT_VALUES = 3                 # distinct values shown for a text or id column (lm/data/v4 used --text-values 2)
+REPEATS = False                 # how often a shown value repeats, as "BLR-01 ×2" (--repeats; did worse, lm/README.md)
 
 
 def lines(rows: list[dict]) -> str:
@@ -61,12 +64,14 @@ def lines(rows: list[dict]) -> str:
     k = dict(zip(rows[0], (p.split(": ", 1)[1] for p in kinds(rows).split("; ")))) if rows else {}
     out = []
     for c in (rows[0] if rows else {}):
-        vals = list(dict.fromkeys(str(r[c]).strip() for r in rows if str(r[c]).strip()))
-        if not vals:
+        seen = Counter(str(r[c]).strip() for r in rows if str(r[c]).strip())
+        if not seen:
             out.append(f"{c}: empty")
             continue
         n = 1 if k[c].startswith(("number", "date", "row")) else TEXT_VALUES   # the kind already says what a number or date is
-        out.append(f"{c}: {k[c]} | " + " | ".join(v if len(v) <= CELL else v[:CELL - 1] + "…" for v in vals[:n]))
+        # a repeat is kept as a count ("BLR-01 ×2"): repeating values mark a site or a kind, unique ones an identifier
+        out.append(f"{c}: {k[c]} | " + " | ".join((v if len(v) <= CELL else v[:CELL - 1] + "…") + (f" ×{m}" if m > 1 and REPEATS else "")
+                                                   for v, m in list(seen.items())[:n]))
     return "\n".join(out)
 
 
@@ -368,8 +373,9 @@ def main():
     ap.add_argument("--messy", type=float, default=0.0, help="share of tables given real-export clutter (v3)")
     ap.add_argument("--prompt", type=int, default=2, help="prompt version (3: one line per column)")
     ap.add_argument("--text-values", type=int, default=TEXT_VALUES, help="prompt v3: values shown per text column")
+    ap.add_argument("--repeats", action="store_true", help="prompt v3: show how often a value repeats")
     a = ap.parse_args()
-    globals()["TEXT_VALUES"] = a.text_values
+    globals().update(TEXT_VALUES=a.text_values, REPEATS=a.repeats)
 
     def make(dom):
         prompt, truth = example(dom, r)
@@ -400,7 +406,7 @@ def main():
                 f.write(json.dumps(keep, ensure_ascii=False) + "\n")
     meta = {"seed": SEED, "seen_domains": seen, "unseen_domains": unseen, "counts": {k: len(v) for k, v in out.items()},
             "styles": STYLES, "date_formats": FMTS, "messy": a.messy, "prompt": a.prompt,
-            **({"text_values": a.text_values} if a.prompt == 3 else {})}
+            **({"text_values": a.text_values, "repeats": a.repeats} if a.prompt == 3 else {})}
     (data / "meta.json").write_text(json.dumps(meta, indent=2))
     print(json.dumps(meta, indent=2))
 
