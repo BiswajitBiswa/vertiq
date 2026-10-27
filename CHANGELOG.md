@@ -2,7 +2,9 @@
 
 All notable changes are recorded here. Versions follow semantic versioning; before 1.0 the API may change between minor versions.
 
-## Unreleased
+## 0.2.2 (2026-10-27)
+
+Not published on PyPI before this release: 0.2.1 (below) ships with it.
 
 - Faster, with identical results (the benchmark suite and a 14,800-bill report compared byte for byte):
   - the report with the input search on a 14,800-bill export: 21 minutes of compute to 70 seconds; benchmark suite
