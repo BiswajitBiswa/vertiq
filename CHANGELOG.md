@@ -2,7 +2,7 @@
 
 All notable changes are recorded here. Versions follow semantic versioning; before 1.0 the API may change between minor versions.
 
-## Unreleased
+## 0.2.3 (2026-10-27)
 
 - Sector benchmark (`benchmarks/sectors`): `vertiq-report` on public data from five sectors (retail, food safety, animal
   services, manufacturing, transport), nothing tuned per sector; results in `benchmarks/results/sectors.json`, full reports
